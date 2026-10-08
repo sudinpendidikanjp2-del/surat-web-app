@@ -1,0 +1,16 @@
+{
+  "name": "surat-web-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sistem Manajemen Surat, Disposisi, Tindak Lanjut dan Persuratan",
+  "workspaces": ["server", "client"],
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "seed": "npm run seed -w server",
+    "seed:demo": "npm run seed -w server -- --demo",
+    "test": "npm run test -w server"
+  }
+}
