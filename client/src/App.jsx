@@ -6,7 +6,8 @@ import { AuthCtx, can } from './auth.jsx';
 import { Icon, Loading, Empty, useAction, useToast } from './ui.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import { LettersIn, LetterInNew } from './pages/LettersIn.jsx';
+import { LettersIn } from './pages/LettersIn.jsx';
+import { LetterInNew } from './pages/LetterInNew.jsx';
 import LetterInDetail from './pages/LetterInDetail.jsx';
 import DispositionSheet from './pages/DispositionSheet.jsx';
 import { Dispositions } from './pages/Dispositions.jsx';
@@ -19,6 +20,7 @@ import Reports from './pages/Reports.jsx';
 import { Users, Units, Settings, AuditLog } from './pages/Admin.jsx';
 import Notifications from './pages/Notifications.jsx';
 import { ChangePassword } from './pages/Profile.jsx';
+import Track from './pages/Track.jsx';
 
 function useTheme() {
   const [theme, setTheme] = useState(() => {
@@ -173,9 +175,18 @@ function QrRedirect() {
   return <Navigate to={`/surat-masuk/${q.data.id}`} replace />;
 }
 
-export default function App() {
+function AuthedApp() {
   const me = useQuery({ queryKey: ['me'], queryFn: () => get('/auth/me').then((r) => r.user), staleTime: Infinity });
   if (me.isLoading) return <div className="page"><Loading /></div>;
   if (!me.data) return <Login />;
   return <AuthCtx.Provider value={me.data}><Shell user={me.data} /></AuthCtx.Provider>;
+}
+
+/** Halaman pelacakan publik berada di luar login dan kerangka aplikasi. */
+export default function App() {
+  const { pathname } = useLocation();
+  if (pathname === '/lacak' || pathname.startsWith('/lacak/')) {
+    return <Routes><Route path="/lacak" element={<Track />} /><Route path="/lacak/:code" element={<Track />} /></Routes>;
+  }
+  return <AuthedApp />;
 }

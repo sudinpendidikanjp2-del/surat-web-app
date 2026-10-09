@@ -1,52 +1,58 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { get, post, put, qs, upload } from '../api.js';
+import { get, put, upload } from '../api.js';
 import { useUser } from '../auth.jsx';
 import { Async, Empty, Field, FileList, FilePicker, Input, PageHead, Progress, Select, Sheet, Sla, Stamp, StatusTask, Textarea, useAction } from '../ui.jsx';
+import { ListView } from '../table.jsx';
+import { DateSheet, NoteSheet } from '../forms.jsx';
 import { fmtDate, fmtDateTime, PRIORITAS, STATUS_TASK } from '../format.js';
+
+const TASK_FILTERS = [
+  { key: 'status', label: 'Status', type: 'multi', options: Object.entries(STATUS_TASK).map(([value, [label]]) => ({ value, label })) },
+  { key: 'prioritas', label: 'Prioritas', type: 'multi', options: PRIORITAS },
+  { key: 'from', label: 'Tenggat dari', type: 'date' },
+  { key: 'to', label: 'Tenggat sampai', type: 'date' },
+];
+const TASK_EXTRA = ['scope', 'antrian'];
+const TASK_DEFAULTS = { scope: 'saya', sort: 'tenggat', dir: 'asc' };
 
 export function Tasks() {
   const user = useUser();
-  const [scope, setScope] = useState('saya');
-  const [status, setStatus] = useState('');
-  const q = useQuery({ queryKey: ['tasks', scope, status], queryFn: () => get(`/tasks${qs({ scope, status })}`) });
   const gives = ['superadmin', 'pimpinan', 'pejabat'].includes(user.role);
+  const tabs = [
+    { label: 'Terbuka', patch: { scope: 'saya', antrian: 'terbuka', status: '' } },
+    { label: 'Hari ini', patch: { scope: 'saya', antrian: 'hari_ini', status: '' } },
+    { label: 'Terlambat', patch: { scope: 'saya', antrian: 'terlambat', status: '' } },
+    { label: 'Semua tugas saya', patch: { scope: 'saya', antrian: '', status: '' } },
+    ...(gives ? [{ label: 'Yang saya berikan', patch: { scope: 'diberikan', antrian: '', status: '' } }] : []),
+    ...(user.role !== 'pelaksana' ? [{ label: 'Semua', patch: { scope: 'semua', antrian: '', status: '' } }] : []),
+  ];
+  const bulk = [
+    { key: 'proses', label: 'Tandai Sedang Diproses', url: '/tasks/bulk/status', body: { status: 'DIPROSES' } },
+    { key: 'selesai', label: 'Tandai Selesai', tone: 'primary', url: '/tasks/bulk/status', body: { status: 'SELESAI' }, confirm: { title: (n) => `Tandai ${n} tugas selesai?`, body: () => 'Progres menjadi 100%. Tugas yang sudah ditutup atau bukan tanggung jawab Anda dilewati.', button: 'Tandai Selesai' } },
+    ...(gives ? [
+      { key: 'tenggat', label: 'Ubah Tenggat', url: '/tasks/bulk/tenggat', sheet: (p) => <DateSheet title={`Ubah tenggat ${p.count} tugas`} label="Tenggat baru" confirmLabel="Ubah Tenggat" {...p} /> },
+      { key: 'batal', label: 'Batalkan', tone: 'danger', url: '/tasks/bulk/status', body: { status: 'DIBATALKAN' }, sheet: (p) => <NoteSheet title={`Batalkan ${p.count} tugas`} label="Alasan pembatalan" required danger confirmLabel="Batalkan Tugas" {...p} /> },
+    ] : []),
+  ];
+  const columns = [
+    { key: 'tugas', header: 'Tugas', sort: 'judul', primary: true, title: (r) => r.judul,
+      cell: (t) => (<><div className="cell-title"><Link to={`/tugas/${t.id}`}>{t.judul}</Link></div><div className="muted small"><Stamp>{t.no_agenda}</Stamp> {t.perihal}</div></>) },
+    { key: 'pic', header: 'Penanggung jawab', cell: (t) => <>{t.pic_nama}<div className="muted small">dari {t.assigner_nama}</div></> },
+    { key: 'status', header: 'Status', sort: 'status', cell: (t) => <StatusTask status={t.status} /> },
+    { key: 'progres', header: 'Progres', sort: 'progres', className: 'num', cell: (t) => `${t.progress}%` },
+    { key: 'tenggat', header: 'Tenggat', sort: 'tenggat', cell: (t) => <>{fmtDate(t.deadline)}<br /><Sla sla={t.sla} /></> },
+  ];
   return (
-    <div className="page">
-      <PageHead title="Tugas saya" sub="Pekerjaan tindak lanjut yang menjadi tanggung jawab Anda." />
-      <div className="row">
-        <div className="chips" role="group" aria-label="Cakupan tugas">
-          <button type="button" className="chip" aria-pressed={scope === 'saya'} onClick={() => setScope('saya')}>Tugas saya</button>
-          {gives && <button type="button" className="chip" aria-pressed={scope === 'diberikan'} onClick={() => setScope('diberikan')}>Yang saya berikan</button>}
-          {user.role !== 'pelaksana' && <button type="button" className="chip" aria-pressed={scope === 'semua'} onClick={() => setScope('semua')}>Semua</button>}
-        </div>
-        <div style={{ minWidth: 200 }}><label className="sr-only" htmlFor="f-status">Saring status</label><Select id="f-status" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="Semua status" options={Object.entries(STATUS_TASK).map(([value, [label]]) => ({ value, label }))} /></div>
-      </div>
-      <div className="card">
-        <Async q={q} empty={<Empty title="Tidak ada tugas" text="Tugas muncul setelah pejabat membagi pekerjaan dari sebuah disposisi." />}>
-          {(rows) => (
-            <div className="table-wrap">
-              <table className="table stackable">
-                <thead><tr><th>Tugas</th><th>Surat</th><th>PIC</th><th>Status</th><th>Progres</th><th>Tenggat</th></tr></thead>
-                <tbody>
-                  {rows.map((t) => (
-                    <tr key={t.id}>
-                      <td className="primary"><span className="cell-title"><Link to={`/tugas/${t.id}`}>{t.judul}</Link></span></td>
-                      <td data-label="Surat"><Stamp>{t.no_agenda}</Stamp></td>
-                      <td data-label="PIC">{t.pic_nama}</td>
-                      <td data-label="Status"><StatusTask status={t.status} /></td>
-                      <td data-label="Progres" className="num">{t.progress}%</td>
-                      <td data-label="Tenggat">{fmtDate(t.deadline)}<br /><Sla sla={t.sla} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Async>
-      </div>
-    </div>
+    <ListView
+      title="Tugas saya" sub="Pekerjaan tindak lanjut yang menjadi tanggung jawab Anda."
+      queryKey="tasks" endpoint="/tasks" idsEndpoint="/tasks/ids" csv
+      filters={TASK_FILTERS} extraKeys={TASK_EXTRA} tabs={tabs} columns={columns} rowTo={(t) => `/tugas/${t.id}`}
+      bulk={user.role === 'viewer' ? [] : bulk} defaults={TASK_DEFAULTS} searchPlaceholder="Cari tugas atau surat"
+      labelOf={(id) => `Tugas #${id}`}
+      empty={<Empty title="Tidak ada tugas" text="Tugas muncul setelah pejabat membagi pekerjaan dari sebuah disposisi." />}
+    />
   );
 }
 

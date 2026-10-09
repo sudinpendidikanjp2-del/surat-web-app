@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { post } from '../api.js';
 import { Field, Input, Stamp } from '../ui.jsx';
@@ -45,6 +46,7 @@ export default function Login() {
           <Field label="Nama pengguna">{(id) => <Input id={id} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoCapitalize="none" autoFocus />}</Field>
           <Field label="Kata sandi">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />}</Field>
           <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Memeriksa...' : 'Masuk ke Sistem Surat'}</button>
+          <p className="small muted" style={{ textAlign: 'center' }}>Pengirim surat? <Link to="/lacak">Cek progres surat dengan kode pelacakan</Link></p>
         </form>
       </main>
     </div>

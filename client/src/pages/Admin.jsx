@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { get, post, put, qs } from '../api.js';
 import { Async, Empty, Field, Input, PageHead, Select, Sheet, Tag, useAction } from '../ui.jsx';
+import { ListView, Pagination } from '../table.jsx';
 import { fmtDateTime, ROLE_LABEL } from '../format.js';
 
 function Foot({ close, pending, label, onSubmit }) {
@@ -36,36 +37,37 @@ function UserSheet({ user, units, onClose }) {
   );
 }
 
+const USER_FILTERS = [
+  { key: 'role', label: 'Peran', type: 'multi', options: Object.entries(ROLE_LABEL).map(([value, label]) => ({ value, label })) },
+  { key: 'aktif', label: 'Status akun', type: 'select', options: [{ value: '1', label: 'Aktif' }, { value: '0', label: 'Nonaktif' }] },
+];
+const USER_DEFAULTS = { sort: 'nama', dir: 'asc' };
+
 export function Users() {
-  const q = useQuery({ queryKey: ['users'], queryFn: () => get('/users') });
   const units = useQuery({ queryKey: ['units'], queryFn: () => get('/units') });
   const [sheet, setSheet] = useState(null);
+  const bulk = [
+    { key: 'aktif', label: 'Aktifkan', url: '/users/bulk/aktif', body: { aktif: true } },
+    { key: 'nonaktif', label: 'Nonaktifkan', tone: 'danger', url: '/users/bulk/aktif', body: { aktif: false }, confirm: { title: (n) => `Nonaktifkan ${n} akun?`, body: () => 'Akun yang dinonaktifkan langsung keluar dari sesi dan tidak dapat masuk. Akun Anda sendiri dilewati.', button: 'Nonaktifkan' } },
+  ];
+  const columns = [
+    { key: 'nama', header: 'Nama', sort: 'nama', primary: true, title: (r) => r.nama, cell: (u) => (<><span className="cell-title">{u.nama}</span><div className="muted small">{u.jabatan}</div></>) },
+    { key: 'username', header: 'Nama pengguna', sort: 'username', cell: (u) => u.username },
+    { key: 'role', header: 'Peran', sort: 'role', cell: (u) => ROLE_LABEL[u.role] },
+    { key: 'unit', header: 'Unit', sort: 'unit', cell: (u) => u.unit_nama || '-' },
+    { key: 'aktif', header: 'Status', cell: (u) => (u.aktif ? <Tag tone="ok">Aktif</Tag> : <Tag tone="neutral">Nonaktif</Tag>) },
+  ];
   return (
-    <div className="page">
-      <PageHead title="Pengguna" sub="Akun, peran, dan unit kerja."><button type="button" className="btn btn-primary" onClick={() => setSheet({})}>Tambah Pengguna</button></PageHead>
-      <div className="card">
-        <Async q={q} empty={<Empty title="Belum ada pengguna" />}>
-          {(rows) => (
-            <div className="table-wrap">
-              <table className="table stackable">
-                <thead><tr><th>Nama</th><th>Nama pengguna</th><th>Peran</th><th>Unit</th><th>Status</th><th><span className="sr-only">Tindakan</span></th></tr></thead>
-                <tbody>{rows.map((u) => (
-                  <tr key={u.id}>
-                    <td className="primary"><span className="cell-title">{u.nama}</span><div className="muted small">{u.jabatan}</div></td>
-                    <td data-label="Pengguna">{u.username}</td>
-                    <td data-label="Peran">{ROLE_LABEL[u.role]}</td>
-                    <td data-label="Unit">{u.unit_nama || '-'}</td>
-                    <td data-label="Status">{u.aktif ? <Tag tone="ok">Aktif</Tag> : <Tag tone="neutral">Nonaktif</Tag>}</td>
-                    <td><button type="button" className="btn btn-sm" onClick={() => setSheet({ user: u })}>Ubah</button></td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
-        </Async>
-      </div>
+    <>
+      <ListView
+        title="Pengguna" sub="Akun, peran, dan unit kerja. Klik baris untuk mengubah."
+        actions={<button type="button" className="btn btn-primary" onClick={() => setSheet({})}>Tambah Pengguna</button>}
+        queryKey="users" endpoint="/users" idsEndpoint="/users/ids" filters={USER_FILTERS} columns={columns} bulk={bulk}
+        onOpen={(u) => setSheet({ user: u })} defaults={USER_DEFAULTS} searchPlaceholder="Cari nama, nama pengguna, jabatan" labelOf={(id) => `Pengguna #${id}`}
+        empty={<Empty title="Belum ada pengguna" />}
+      />
       {sheet && <UserSheet user={sheet.user} units={units.data || []} onClose={() => setSheet(null)} />}
-    </div>
+    </>
   );
 }
 
@@ -196,10 +198,7 @@ export function AuditLog() {
                   ))}</tbody>
                 </table>
               </div>
-              <div className="row" style={{ padding: 16, justifyContent: 'space-between' }}>
-                <span className="muted small">{offset + 1} sampai {Math.min(offset + 50, d.total)} dari {d.total}</span>
-                <div className="actions"><button type="button" className="btn btn-sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Sebelumnya</button><button type="button" className="btn btn-sm" disabled={offset + 50 >= d.total} onClick={() => setOffset(offset + 50)}>Berikutnya</button></div>
-              </div>
+              <Pagination page={Math.floor(offset / 50) + 1} pageSize={50} total={d.total} onPage={(p) => setOffset((p - 1) * 50)} onSize={() => {}} sizes={[50]} />
             </>
           )}
         </Async>

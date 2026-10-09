@@ -4,6 +4,7 @@ import { wrap, str, oneOf, bad, notFound, int } from '../util.js';
 import { hashPassword } from '../security.js';
 import { audit } from '../record.js';
 import { ROLES, requireRole } from '../perm.js';
+import { pageParams, csvList, runBulk } from '../listing.js';
 
 const r = Router();
 
@@ -16,9 +17,42 @@ r.get('/units', wrap(async (_req, res) => {
   res.json(await all(`SELECT un.*, (SELECT count(*) FROM users u WHERE u.unit_id=un.id AND u.aktif) AS jumlah_pengguna FROM units un ORDER BY un.nama`));
 }));
 
-r.get('/users', requireRole('superadmin'), wrap(async (_req, res) => {
-  res.json(await all(`SELECT u.id,u.username,u.nama,u.nip,u.pangkat,u.jabatan,u.email,u.role,u.unit_id,u.aktif,un.nama AS unit_nama
-                        FROM users u LEFT JOIN units un ON un.id=u.unit_id ORDER BY u.aktif DESC, u.nama`));
+const USORT = { nama: 'u.nama', username: 'u.username', role: 'u.role', unit: 'un.nama' };
+function userFilter(req) {
+  const params = [];
+  const where = ['TRUE'];
+  const add = (cond, val) => { params.push(val); where.push(cond.replace(/\?/g, `$${params.length}`)); };
+  const roles = csvList(req.query.role);
+  if (roles.length) add('u.role = ANY(?)', roles);
+  if (req.query.unit) add('u.unit_id = ?', int(req.query.unit, 'Unit'));
+  if (req.query.aktif === '1') where.push('u.aktif');
+  if (req.query.aktif === '0') where.push('NOT u.aktif');
+  if (req.query.q) add('(u.nama ILIKE ? OR u.username ILIKE ? OR u.jabatan ILIKE ?)', `%${String(req.query.q).slice(0, 80)}%`);
+  return { sql: where.join(' AND '), params };
+}
+r.get('/users', requireRole('superadmin'), wrap(async (req, res) => {
+  const w = userFilter(req);
+  const pg = pageParams(req.query, { sorts: USORT, defaultSort: 'nama', defaultDir: 'asc' });
+  const from = `FROM users u LEFT JOIN units un ON un.id=u.unit_id WHERE ${w.sql}`;
+  const items = await all(`SELECT u.id,u.username,u.nama,u.nip,u.pangkat,u.jabatan,u.email,u.role,u.unit_id,u.aktif,un.nama AS unit_nama ${from} ORDER BY u.aktif DESC, ${pg.orderBy} LIMIT ${pg.limit} OFFSET ${pg.offset}`, w.params);
+  const total = (await one(`SELECT count(*) AS n ${from}`, w.params)).n;
+  res.json({ items, total, page: pg.page, pageSize: pg.pageSize });
+}));
+r.get('/users/ids', requireRole('superadmin'), wrap(async (req, res) => {
+  const w = userFilter(req);
+  const from = `FROM users u WHERE ${w.sql}`;
+  const total = (await one(`SELECT count(*) AS n ${from}`, w.params)).n;
+  res.json({ ids: (await all(`SELECT u.id ${from} ORDER BY u.id LIMIT 500`, w.params)).map((x) => x.id), total, terpotong: total > 500 });
+}));
+r.post('/users/bulk/aktif', requireRole('superadmin'), wrap(async (req, res) => {
+  const aktif = Boolean(req.body.aktif);
+  res.json(await runBulk(req.body.ids, async (id) => {
+    if (id === req.user.id) throw bad('Anda tidak dapat menonaktifkan akun sendiri');
+    const u = await one('UPDATE users SET aktif=$1 WHERE id=$2 RETURNING id', [aktif, id]);
+    if (!u) throw notFound();
+    if (!aktif) await q('DELETE FROM sessions WHERE user_id=$1', [id]);
+    await audit(null, req, aktif ? 'USER_DIAKTIFKAN' : 'USER_DINONAKTIFKAN', 'user', id, { massal: true });
+  }));
 }));
 
 function userBody(b, { creating }) {
@@ -144,11 +178,18 @@ r.get('/audit', requireRole('superadmin', 'pimpinan'), wrap(async (req, res) => 
 
 /* Notifikasi */
 r.get('/notifications', wrap(async (req, res) => {
+  const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 20, 1), 100);
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const only = req.query.belum === '1' ? 'AND NOT dibaca' : '';
   const items = await all(
-    `SELECT id,tipe,judul,isi,link,dibaca,created_at FROM notifications WHERE user_id=$1 ORDER BY id DESC LIMIT 60`, [req.user.id],
+    `SELECT id,tipe,judul,isi,link,dibaca,created_at FROM notifications WHERE user_id=$1 ${only} ORDER BY id DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`, [req.user.id],
   );
+  const total = (await one(`SELECT count(*) AS n FROM notifications WHERE user_id=$1 ${only}`, [req.user.id])).n;
   const unread = (await one('SELECT count(*) AS n FROM notifications WHERE user_id=$1 AND NOT dibaca', [req.user.id])).n;
-  res.json({ items, unread });
+  res.json({ items, total, unread, page, pageSize });
+}));
+r.post('/notifications/bulk/dibaca', wrap(async (req, res) => {
+  res.json(await runBulk(req.body.ids, async (id) => { await q('UPDATE notifications SET dibaca=TRUE WHERE user_id=$1 AND id=$2', [req.user.id, id]); }));
 }));
 r.post('/notifications/read', wrap(async (req, res) => {
   if (req.body.all) await q('UPDATE notifications SET dibaca=TRUE WHERE user_id=$1', [req.user.id]);

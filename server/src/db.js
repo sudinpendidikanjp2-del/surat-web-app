@@ -292,6 +292,16 @@ CREATE TRIGGER events_immutable BEFORE UPDATE ON events
   FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
 `;
 
+const MIGRATIONS = `
+ALTER TABLE letters_in ADD COLUMN IF NOT EXISTS track_code TEXT UNIQUE;
+ALTER TABLE letters_in ADD COLUMN IF NOT EXISTS track_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+`;
+
 export async function migrate() {
   await pool.query(SCHEMA);
+  await pool.query(MIGRATIONS);
+  // Surat lama tanpa kode pelacakan diberi kode baru. Surat rahasia tidak dibuka untuk pelacakan publik.
+  const { newTrackCode } = await import('./tracking.js');
+  const rows = (await pool.query(`SELECT id, sifat FROM letters_in WHERE track_code IS NULL`)).rows;
+  for (const r of rows) await pool.query('UPDATE letters_in SET track_code=$1, track_enabled=$2 WHERE id=$3', [newTrackCode(), r.sifat !== 'Rahasia', r.id]);
 }

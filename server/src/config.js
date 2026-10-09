@@ -13,3 +13,17 @@ export const config = {
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB || 15) * 1024 * 1024,
   reminderEveryMs: Number(process.env.REMINDER_EVERY_MIN || 10) * 60 * 1000,
 };
+
+/**
+ * Mesin OCR. Bawaan: Tesseract di dalam proses (tanpa GPU). Opsional: model VLM seperti baidu/Unlimited-OCR
+ * yang dijalankan terpisah di server GPU lewat vLLM atau SGLang (API kompatibel OpenAI).
+ */
+config.ocr = {
+  engine: process.env.OCR_ENGINE || 'tesseract', // 'tesseract' atau 'remote'
+  url: process.env.OCR_URL || '',                 // contoh: http://gpu-host:10000
+  model: process.env.OCR_MODEL || 'Unlimited-OCR',
+  prompt: process.env.OCR_PROMPT || 'document parsing.',
+  timeoutMs: Number(process.env.OCR_TIMEOUT_SEC || 120) * 1000,
+  extra: (() => { try { return JSON.parse(process.env.OCR_EXTRA_JSON || '{}'); } catch { return {}; } })(),
+  fallback: process.env.OCR_FALLBACK !== 'off',
+};

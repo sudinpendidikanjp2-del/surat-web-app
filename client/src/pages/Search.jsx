@@ -3,12 +3,15 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get, qs } from '../api.js';
 import { Async, Empty, Field, Input, PageHead, Select, Sla, Stamp, Tag } from '../ui.jsx';
+import { Pagination } from '../table.jsx';
 import { fmtDate, PRIORITAS, SIFAT, STATUS_IN, STATUS_OUT } from '../format.js';
 
 export function Search() {
   const [sp, setSp] = useSearchParams();
   const f = { q: sp.get('q') || '', jenis: sp.get('jenis') || 'semua', status: sp.get('status') || '', sifat: sp.get('sifat') || '', prioritas: sp.get('prioritas') || '', from: sp.get('from') || '', to: sp.get('to') || '', unit: sp.get('unit') || '', pic: sp.get('pic') || '', tahun: sp.get('tahun') || '' };
   const set = (patch) => { const n = { ...f, ...patch }; const p = {}; for (const [k, v] of Object.entries(n)) if (v && !(k === 'jenis' && v === 'semua')) p[k] = v; setSp(p, { replace: true }); };
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
   const [adv, setAdv] = useState(Boolean(f.status || f.sifat || f.prioritas || f.from || f.to || f.unit || f.pic || f.tahun));
   const hasFilter = Object.entries(f).some(([k, v]) => v && !(k === 'jenis' && v === 'semua'));
   const q = useQuery({ queryKey: ['search', f], queryFn: () => get(`/search${qs(f)}`), enabled: hasFilter });
@@ -40,7 +43,8 @@ export function Search() {
       {!hasFilter ? <Empty title="Mulai dengan kata kunci" text="Ketik nomor surat, perihal, atau nama pengirim. Hasil muncul saat Anda mengetik." /> : (
         <div className="card">
           <Async q={q} empty={<Empty title="Tidak ada surat yang cocok" text="Coba kata kunci lain atau longgarkan filter." />}>
-            {(rows) => (
+            {(all) => { const rows = all.slice((page - 1) * size, page * size); return (
+              <>
               <div className="table-wrap">
                 <table className="table stackable">
                   <thead><tr><th>Jenis</th><th>No. Agenda</th><th>Perihal</th><th>Pihak</th><th>Tanggal</th><th>Status</th></tr></thead>
@@ -56,7 +60,9 @@ export function Search() {
                   ))}</tbody>
                 </table>
               </div>
-            )}
+              <Pagination page={page} pageSize={size} total={all.length} onPage={setPage} onSize={(n) => { setSize(n); setPage(1); }} />
+              </>
+            ); }}
           </Async>
         </div>
       )}

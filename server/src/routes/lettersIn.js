@@ -8,6 +8,8 @@ import { upload } from '../storage.js';
 import { saveAttachment, ATT_SELECT, KATEGORI_IN } from '../attachments.js';
 import { visibleLettersIn, canManageIn, canDispose, canAssign, is, requireRole } from '../perm.js';
 import { slaDueFor } from '../sla.js';
+import { pageParams, csvList, sendCsv, runBulk } from '../listing.js';
+import { newTrackCode, formatTrackCode } from '../tracking.js';
 import { loadLetterIn, recomputeStatus, stagesFor, completionChecks, effectiveDeadline, indicatorFor, holdsDisposition, STATUS_IN } from '../cases.js';
 
 const r = Router();
@@ -18,42 +20,77 @@ const METODE = ['Surat resmi', 'Email', 'WhatsApp', 'Telepon', 'Tatap muka', 'Si
 
 const base = (req) => `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
 
-/* ---------- Daftar ---------- */
-r.get('/', wrap(async (req, res) => {
+/* ---------- Daftar, id massal, ekspor ---------- */
+const DL = `COALESCE((SELECT min(d.deadline) FROM dispositions d WHERE d.letter_in_id=li.id AND d.status IN ('BARU','DITERIMA')), li.sla_due)`;
+const OPEN = `li.status NOT IN ('SELESAI','DIARSIPKAN')`;
+const SORTS = {
+  tgl: 'li.tgl_diterima', agenda: 'li.id', perihal: 'li.perihal', asal: 'li.asal', status: 'li.status', tenggat: DL, sifat: 'li.sifat',
+};
+
+function inFilter(req) {
   const vis = visibleLettersIn(req.user, 'li', 0);
   const params = [...vis.params];
   const where = [vis.sql];
-  const add = (cond, val) => { params.push(val); where.push(cond.replace('?', `$${params.length}`)); };
-  if (req.query.status) add('li.status = ?', String(req.query.status));
-  if (req.query.sifat) add('li.sifat = ?', String(req.query.sifat));
-  if (req.query.prioritas) add('li.prioritas = ?', String(req.query.prioritas));
-  if (req.query.from) add('li.tgl_diterima >= ?', dateStr(req.query.from, 'Dari tanggal'));
-  if (req.query.to) add('li.tgl_diterima <= ?', dateStr(req.query.to, 'Sampai tanggal'));
-  if (req.query.q) {
-    params.push(`%${String(req.query.q).slice(0, 100)}%`);
-    const n = params.length;
-    where.push(`(li.no_agenda ILIKE $${n} OR li.no_surat ILIKE $${n} OR li.perihal ILIKE $${n} OR li.asal ILIKE $${n} OR li.instansi ILIKE $${n})`);
+  const add = (cond, val) => { params.push(val); where.push(cond.replace(/\?/g, `$${params.length}`)); };
+  const f = req.query;
+  const status = csvList(f.status);
+  if (status.length) add('li.status = ANY(?)', status);
+  const sifat = csvList(f.sifat);
+  if (sifat.length) add('li.sifat = ANY(?)', sifat);
+  const prio = csvList(f.prioritas);
+  if (prio.length) add('li.prioritas = ANY(?)', prio);
+  if (f.from) add('li.tgl_diterima >= ?', dateStr(f.from, 'Dari tanggal'));
+  if (f.to) add('li.tgl_diterima <= ?', dateStr(f.to, 'Sampai tanggal'));
+  if (f.unit) add(`EXISTS (SELECT 1 FROM dispositions d LEFT JOIN users du ON du.id=d.to_user_id WHERE d.letter_in_id=li.id AND d.status<>'DIKEMBALIKAN' AND COALESCE(du.unit_id,d.to_unit_id)=?)`, int(f.unit, 'Unit'));
+  if (f.pic) add(`(EXISTS (SELECT 1 FROM tasks t WHERE t.letter_in_id=li.id AND t.pic_user_id=?) OR EXISTS (SELECT 1 FROM dispositions d WHERE d.letter_in_id=li.id AND d.to_user_id=? AND d.status<>'DIKEMBALIKAN'))`, int(f.pic, 'PIC'));
+  if (f.q) add(`(li.no_agenda ILIKE ? OR li.no_surat ILIKE ? OR li.perihal ILIKE ? OR li.asal ILIKE ? OR li.instansi ILIKE ?)`, `%${String(f.q).slice(0, 100)}%`);
+  if (f.antrian === 'belum_diteruskan') where.push(`li.status = 'DITERIMA'`);
+  if (f.antrian === 'terlambat') where.push(`${OPEN} AND ${DL} < current_date`);
+  if (f.antrian === 'mendekati') where.push(`${OPEN} AND ${DL} BETWEEN current_date AND current_date + 2`);
+  return { sql: where.join(' AND '), params };
+}
+
+const decorate = (l) => {
+  const deadline = effectiveDeadline(l, l.deadlines || []);
+  return { ...l, deadlines: undefined, statusLabel: STATUS_IN[l.status], deadline, sla: indicatorFor(l, deadline) };
+};
+
+r.get('/', wrap(async (req, res) => {
+  const w = inFilter(req);
+  const pg = pageParams(req.query, { sorts: SORTS, defaultSort: 'agenda' });
+  const cols = `li.id,li.no_agenda,li.no_surat,li.tgl_surat,li.tgl_diterima,li.asal,li.instansi,li.perihal,li.sifat,li.prioritas,li.status,li.sla_due,
+      (SELECT array_agg(d.deadline) FROM dispositions d WHERE d.letter_in_id=li.id AND d.status IN ('BARU','DITERIMA')) AS deadlines,
+      (SELECT string_agg(DISTINCT COALESCE(u.nama, un.nama), ', ') FROM dispositions d
+         LEFT JOIN users u ON u.id=d.to_user_id LEFT JOIN units un ON un.id=d.to_unit_id
+        WHERE d.letter_in_id=li.id AND d.status IN ('BARU','DITERIMA')) AS pic`;
+  if (req.query.format === 'csv') {
+    const rows = (await all(`SELECT ${cols} FROM letters_in li WHERE ${w.sql} ORDER BY ${pg.orderBy} LIMIT 5000`, w.params)).map(decorate);
+    return sendCsv(res, `surat-masuk-${today()}.csv`, ['No. Agenda', 'No. Surat', 'Tanggal surat', 'Tanggal diterima', 'Asal', 'Instansi', 'Perihal', 'Sifat', 'Prioritas', 'Status', 'Posisi', 'Tenggat'],
+      rows.map((l) => [l.no_agenda, l.no_surat, l.tgl_surat, l.tgl_diterima, l.asal, l.instansi, l.perihal, l.sifat, l.prioritas, l.statusLabel, l.pic, l.deadline]));
   }
-  if (req.query.antrian === 'belum_diteruskan') where.push(`li.status = 'DITERIMA'`);
-  if (req.query.antrian === 'terlambat') where.push(`li.status NOT IN ('SELESAI','DIARSIPKAN')`);
-  const limit = Math.min(int(req.query.limit, 'limit', { required: false, min: 1, max: 200 }) || 50, 200);
-  const offset = int(req.query.offset, 'offset', { required: false, min: 0 }) || 0;
-  const rows = await all(
-    `SELECT li.id,li.no_agenda,li.no_surat,li.tgl_surat,li.tgl_diterima,li.asal,li.instansi,li.perihal,li.sifat,li.prioritas,li.status,li.sla_due,
-            (SELECT array_agg(d.deadline) FROM dispositions d WHERE d.letter_in_id=li.id AND d.status IN ('BARU','DITERIMA')) AS deadlines,
-            (SELECT string_agg(DISTINCT COALESCE(u.nama, un.nama), ', ') FROM dispositions d
-               LEFT JOIN users u ON u.id=d.to_user_id LEFT JOIN units un ON un.id=d.to_unit_id
-              WHERE d.letter_in_id=li.id AND d.status IN ('BARU','DITERIMA')) AS pic
-       FROM letters_in li WHERE ${where.join(' AND ')} ORDER BY li.id DESC LIMIT ${limit} OFFSET ${offset}`,
-    params,
-  );
-  const total = (await one(`SELECT count(*) AS n FROM letters_in li WHERE ${where.join(' AND ')}`, params)).n;
-  let items = rows.map((l) => {
-    const deadline = effectiveDeadline(l, l.deadlines || []);
-    return { ...l, deadlines: undefined, statusLabel: STATUS_IN[l.status], deadline, sla: indicatorFor(l, deadline) };
-  });
-  if (req.query.antrian === 'terlambat') items = items.filter((i) => i.sla.level === 'late');
-  res.json({ items, total: req.query.antrian === 'terlambat' ? items.length : total });
+  const rows = await all(`SELECT ${cols} FROM letters_in li WHERE ${w.sql} ORDER BY ${pg.orderBy}, li.id DESC LIMIT ${pg.limit} OFFSET ${pg.offset}`, w.params);
+  const total = (await one(`SELECT count(*) AS n FROM letters_in li WHERE ${w.sql}`, w.params)).n;
+  res.json({ items: rows.map(decorate), total, page: pg.page, pageSize: pg.pageSize });
+}));
+
+/** Semua id yang cocok dengan saringan (maks 500), untuk "pilih semua hasil" lintas halaman. */
+r.get('/ids', wrap(async (req, res) => {
+  const w = inFilter(req);
+  const total = (await one(`SELECT count(*) AS n FROM letters_in li WHERE ${w.sql}`, w.params)).n;
+  const ids = (await all(`SELECT li.id FROM letters_in li WHERE ${w.sql} ORDER BY li.id DESC LIMIT 500`, w.params)).map((x) => x.id);
+  res.json({ ids, total, terpotong: total > ids.length });
+}));
+
+/* ---------- Aksi massal ---------- */
+r.post('/bulk/teruskan', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
+  res.json(await runBulk(req.body.ids, (id) => doTeruskan(req, id)));
+}));
+r.post('/bulk/disposisi', wrap(async (req, res) => {
+  if (!canDispose(req.user)) throw forbidden('Hanya pimpinan yang dapat memberi disposisi massal');
+  res.json(await runBulk(req.body.ids, (id) => doDisposisi(req, id, req.body)));
+}));
+r.post('/bulk/arsipkan', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
+  res.json(await runBulk(req.body.ids, (id) => doArsip(req, id)));
 }));
 
 /* ---------- Catat surat masuk ---------- */
@@ -83,9 +120,9 @@ r.post('/', requireRole('superadmin', 'tu'), upload.array('files', 10), wrap(asy
     const sla_due = await slaDueFor(data.prioritas, data.tgl_diterima);
     const qr_token = crypto.randomBytes(12).toString('base64url');
     const li = await db.one(
-      `INSERT INTO letters_in(no_agenda,case_no,no_surat,tgl_surat,tgl_diterima,asal,instansi,alamat,perihal,jenis,sifat,prioritas,lampiran,catatan,sla_due,qr_token,created_by)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id,no_agenda,case_no`,
-      [no_agenda, case_no, data.no_surat, data.tgl_surat, data.tgl_diterima, data.asal, data.instansi, data.alamat, data.perihal, data.jenis, data.sifat, data.prioritas, data.lampiran, data.catatan, sla_due, qr_token, req.user.id],
+      `INSERT INTO letters_in(no_agenda,case_no,no_surat,tgl_surat,tgl_diterima,asal,instansi,alamat,perihal,jenis,sifat,prioritas,lampiran,catatan,sla_due,qr_token,created_by,track_code,track_enabled)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id,no_agenda,case_no`,
+      [no_agenda, case_no, data.no_surat, data.tgl_surat, data.tgl_diterima, data.asal, data.instansi, data.alamat, data.perihal, data.jenis, data.sifat, data.prioritas, data.lampiran, data.catatan, sla_due, qr_token, req.user.id, newTrackCode(), data.sifat !== 'Rahasia'],
     );
     for (const f of files) await saveAttachment(db, { file: f, kategori: 'SURAT', letterInId: li.id, userId: req.user.id });
     await event(db, { letterInId: li.id, userId: req.user.id, tipe: 'diterima', teks: `Surat diterima dan diregistrasi dengan nomor agenda ${no_agenda}` });
@@ -194,8 +231,7 @@ r.put('/:id', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
 }));
 
 /* ---------- Teruskan ke pimpinan ---------- */
-r.post('/:id/teruskan', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
-  const id = int(req.params.id, 'ID');
+async function doTeruskan(req, id) {
   await tx(async (db) => {
     const li = await loadLetterIn(db, req.user, id);
     if (li.status !== 'DITERIMA') throw conflict('Surat sudah diteruskan');
@@ -205,13 +241,15 @@ r.post('/:id/teruskan', requireRole('superadmin', 'tu'), wrap(async (req, res) =
     await notify(db, leaders.map((u) => u.id), { tipe: 'disposisi', judul: 'Surat menunggu disposisi Anda', isi: `${li.no_agenda}: ${li.perihal}`, link: `/surat-masuk/${id}` });
     await audit(db, req, 'SURAT_DITERUSKAN', 'letter_in', id);
   });
+}
+
+r.post('/:id/teruskan', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
+  await doTeruskan(req, int(req.params.id, 'ID'));
   res.json({ ok: true });
 }));
 
 /* ---------- Disposisi (pimpinan atau penerus) ---------- */
-r.post('/:id/disposisi', wrap(async (req, res) => {
-  const id = int(req.params.id, 'ID');
-  const b = req.body;
+async function doDisposisi(req, id, b) {
   const toUsers = (Array.isArray(b.to_user_ids) ? b.to_user_ids : []).map((x) => int(x, 'Penerima'));
   const toUnits = (Array.isArray(b.to_unit_ids) ? b.to_unit_ids : []).map((x) => int(x, 'Unit'));
   if (toUsers.length + toUnits.length === 0) throw bad('Pilih minimal satu penerima disposisi');
@@ -267,6 +305,10 @@ r.post('/:id/disposisi', wrap(async (req, res) => {
     await recomputeStatus(db, id);
     await audit(db, req, parentId ? 'DISPOSISI_DITERUSKAN' : 'DISPOSISI_DIBERIKAN', 'letter_in', id, { disposisi: created, tindakan, deadline });
   });
+}
+
+r.post('/:id/disposisi', wrap(async (req, res) => {
+  await doDisposisi(req, int(req.params.id, 'ID'), req.body);
   res.status(201).json({ ok: true });
 }));
 
@@ -408,8 +450,7 @@ r.post('/:id/selesaikan', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-r.post('/:id/arsipkan', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
-  const id = int(req.params.id, 'ID');
+async function doArsip(req, id) {
   await tx(async (db) => {
     const li = await loadLetterIn(db, req.user, id);
     if (li.status !== 'SELESAI') throw conflict('Hanya surat berstatus selesai yang dapat diarsipkan');
@@ -417,7 +458,36 @@ r.post('/:id/arsipkan', requireRole('superadmin', 'tu'), wrap(async (req, res) =
     await event(db, { letterInId: id, userId: req.user.id, tipe: 'arsip', teks: 'Surat diarsipkan' });
     await audit(db, req, 'SURAT_DIARSIPKAN', 'letter_in', id);
   });
+}
+
+r.post('/:id/arsipkan', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
+  await doArsip(req, int(req.params.id, 'ID'));
   res.json({ ok: true });
+}));
+
+/* ---------- Pelacakan publik: kelola tautan ---------- */
+r.get('/:id/pelacakan', wrap(async (req, res) => {
+  const id = int(req.params.id, 'ID');
+  const li = await loadLetterIn({ one, all }, req.user, id);
+  if (!(canManageIn(req.user) || canDispose(req.user))) throw forbidden();
+  res.json({ kode: formatTrackCode(li.track_code), url: `${base(req)}/lacak/${li.track_code}`, aktif: li.track_enabled, rahasia: li.sifat === 'Rahasia' });
+}));
+
+r.post('/:id/pelacakan', requireRole('superadmin', 'tu'), wrap(async (req, res) => {
+  const id = int(req.params.id, 'ID');
+  const aksi = oneOf(req.body.aksi, ['aktifkan', 'nonaktifkan', 'buat_ulang'], 'Aksi');
+  const out = await tx(async (db) => {
+    const li = await loadLetterIn(db, req.user, id);
+    let code = li.track_code;
+    let aktif = li.track_enabled;
+    if (aksi === 'buat_ulang') { code = newTrackCode(); aktif = true; } else aktif = aksi === 'aktifkan';
+    await db.q('UPDATE letters_in SET track_code=$1, track_enabled=$2 WHERE id=$3', [code, aktif, id]);
+    const teks = aksi === 'buat_ulang' ? 'Kode pelacakan dibuat ulang, tautan lama tidak berlaku' : aktif ? 'Pelacakan publik diaktifkan' : 'Pelacakan publik dinonaktifkan';
+    await event(db, { letterInId: id, userId: req.user.id, tipe: 'pelacakan', teks });
+    await audit(db, req, 'PELACAKAN_DIUBAH', 'letter_in', id, { aksi });
+    return { kode: formatTrackCode(code), url: `${base(req)}/lacak/${code}`, aktif, rahasia: li.sifat === 'Rahasia' };
+  });
+  res.json(out);
 }));
 
 /* ---------- Lembar disposisi (data cetak) ---------- */

@@ -1,56 +1,61 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { get, post, qs } from '../api.js';
+import { get, post } from '../api.js';
 import { useUser } from '../auth.jsx';
 import { Async, Empty, ErrorState, Field, Input, Loading, PageHead, Select, Sheet, Stamp, StatusOut, Textarea, useAction } from '../ui.jsx';
+import { ListView } from '../table.jsx';
+import { NoteSheet } from '../forms.jsx';
 import { fmtDate, STATUS_OUT, todayIso } from '../format.js';
+
+const OUT_FILTERS = [
+  { key: 'status', label: 'Status', type: 'multi', options: Object.entries(STATUS_OUT).map(([value, [label]]) => ({ value, label })) },
+  { key: 'from', label: 'Tanggal surat dari', type: 'date' },
+  { key: 'to', label: 'Tanggal surat sampai', type: 'date' },
+];
+const OUT_EXTRA = ['antrian', 'mine'];
+const OUT_DEFAULTS = { sort: 'dibuat', dir: 'desc' };
 
 export function LettersOut() {
   const user = useUser();
-  const [sp, setSp] = useSearchParams();
-  const f = { q: sp.get('q') || '', status: sp.get('status') || '', antrian: sp.get('antrian') || '', mine: sp.get('mine') || '' };
-  const set = (patch) => { const n = { ...f, ...patch }; const p = {}; for (const [k, v] of Object.entries(n)) if (v) p[k] = v; setSp(p, { replace: true }); };
-  const q = useQuery({ queryKey: ['letters-out', f], queryFn: () => get(`/letters-out${qs(f)}`) });
   const canWrite = ['superadmin', 'tu', 'pejabat', 'pelaksana'].includes(user.role);
+  const approver = ['superadmin', 'pimpinan'].includes(user.role);
+  const tabs = [
+    { label: 'Semua', patch: { status: '', antrian: '', mine: '' } },
+    ...(canWrite ? [{ label: 'Buatan saya', patch: { status: '', antrian: '', mine: '1' } }] : []),
+    ...(approver || user.role === 'pejabat' ? [{ label: 'Menunggu keputusan saya', patch: { status: '', antrian: 'menunggu_saya', mine: '' } }] : []),
+    { label: 'Draf', patch: { status: 'DRAFT,REVISI', antrian: '', mine: '' } },
+    { label: 'Menunggu tanda tangan atau kirim', patch: { status: 'NOMOR_DIBERIKAN,DITANDATANGANI', antrian: '', mine: '' } },
+  ];
+  const bulk = [
+    ...(approver ? [
+      { key: 'setuju', label: 'Setujui', tone: 'primary', url: '/letters-out/bulk/keputusan', body: { aksi: 'setuju' }, confirm: { title: (n) => `Setujui ${n} surat keluar?`, body: (n) => `${n} surat akan disetujui dan masing-masing diberi nomor surat otomatis. Surat yang tidak sedang menunggu persetujuan dilewati.`, button: 'Setujui dan Beri Nomor' } },
+      { key: 'revisi', label: 'Kembalikan untuk Revisi', url: '/letters-out/bulk/keputusan', body: { aksi: 'revisi' }, sheet: (p) => <NoteSheet title={`Kembalikan ${p.count} surat untuk revisi`} label="Catatan perbaikan" required confirmLabel="Kembalikan" {...p} /> },
+    ] : []),
+    ...(canWrite ? [{ key: 'ajukan', label: 'Ajukan Persetujuan', url: '/letters-out/bulk/ajukan', confirm: { title: (n) => `Ajukan ${n} surat untuk persetujuan?`, body: () => 'Surat yang isiannya belum lengkap atau belum punya penandatangan dilewati dan dilaporkan.', button: 'Ajukan' } }] : []),
+  ];
+  const columns = [
+    { key: 'surat', header: 'Surat', sort: 'perihal', primary: true, title: (r) => r.perihal,
+      cell: (l) => (
+        <>
+          <Stamp>{l.no_agenda}</Stamp>
+          <div className="cell-title" style={{ marginTop: 4 }}><Link to={`/surat-keluar/${l.id}`}>{l.perihal}</Link></div>
+          <div className="muted small">{l.jenis}, dibuat {l.pembuat}{l.asal_agenda ? `, balasan ${l.asal_agenda}` : ''}</div>
+        </>
+      ) },
+    { key: 'tujuan', header: 'Tujuan', sort: 'tujuan', cell: (l) => l.tujuan },
+    { key: 'nomor', header: 'Nomor surat', sort: 'nomor', className: 'num', cell: (l) => l.nomor_surat || <span className="muted">Belum bernomor</span> },
+    { key: 'status', header: 'Status', sort: 'status', cell: (l) => <StatusOut status={l.status} /> },
+  ];
   return (
-    <div className="page">
-      <PageHead title="Surat keluar" sub="Draf, persetujuan, penomoran, tanda tangan, dan pengiriman.">
-        {canWrite && <Link className="btn btn-primary" to="/surat-keluar/baru">Buat Surat</Link>}
-      </PageHead>
-      <div className="chips" role="group" aria-label="Saring cepat">
-        <button type="button" className="chip" aria-pressed={!f.status && !f.antrian && !f.mine} onClick={() => set({ status: '', antrian: '', mine: '' })}>Semua</button>
-        {canWrite && <button type="button" className="chip" aria-pressed={f.mine === '1'} onClick={() => set({ mine: '1', status: '', antrian: '' })}>Buatan saya</button>}
-        <button type="button" className="chip" aria-pressed={f.antrian === 'menunggu_saya'} onClick={() => set({ antrian: 'menunggu_saya', status: '', mine: '' })}>Menunggu keputusan saya</button>
-        <button type="button" className="chip" aria-pressed={f.status === 'DRAFT'} onClick={() => set({ status: 'DRAFT', antrian: '', mine: '' })}>Draf</button>
-      </div>
-      <div className="card card-pad">
-        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-          <Field label="Kata kunci">{(id) => <Input id={id} type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Nomor, perihal, tujuan" />}</Field>
-          <Field label="Status">{(id) => <Select id={id} value={f.status} onChange={(e) => set({ status: e.target.value, antrian: '' })} placeholder="Semua status" options={Object.entries(STATUS_OUT).map(([value, [label]]) => ({ value, label }))} />}</Field>
-        </div>
-      </div>
-      <div className="card">
-        <Async q={q} empty={<Empty title="Belum ada surat keluar" text="Buat surat dari template, atau dari halaman surat masuk untuk surat balasan." action={canWrite && <Link className="btn btn-primary btn-sm" to="/surat-keluar/baru">Buat Surat</Link>} />}>
-          {(rows) => (
-            <div className="table-wrap">
-              <table className="table stackable">
-                <thead><tr><th>No. Agenda</th><th>Perihal</th><th>Tujuan</th><th>Nomor surat</th><th>Status</th></tr></thead>
-                <tbody>{rows.map((l) => (
-                  <tr key={l.id}>
-                    <td className="primary"><Stamp>{l.no_agenda}</Stamp></td>
-                    <td className="primary"><div className="cell-title"><Link to={`/surat-keluar/${l.id}`}>{l.perihal}</Link></div><div className="muted small">{l.jenis}, dibuat {l.pembuat}{l.asal_agenda ? `, balasan ${l.asal_agenda}` : ''}</div></td>
-                    <td data-label="Tujuan">{l.tujuan}</td>
-                    <td data-label="Nomor surat" className="num">{l.nomor_surat || <span className="muted">Belum bernomor</span>}</td>
-                    <td data-label="Status"><StatusOut status={l.status} /></td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
-        </Async>
-      </div>
-    </div>
+    <ListView
+      title="Surat keluar" sub="Draf, persetujuan, penomoran, tanda tangan, dan pengiriman."
+      actions={canWrite && <Link className="btn btn-primary" to="/surat-keluar/baru">Buat Surat</Link>}
+      queryKey="letters-out" endpoint="/letters-out" idsEndpoint="/letters-out/ids" csv
+      filters={OUT_FILTERS} extraKeys={OUT_EXTRA} tabs={tabs} columns={columns} rowTo={(l) => `/surat-keluar/${l.id}`} bulk={bulk}
+      defaults={OUT_DEFAULTS} searchPlaceholder="Cari nomor, perihal, tujuan"
+      empty={<Empty title="Belum ada surat keluar" text="Buat surat dari template, atau dari halaman surat masuk untuk surat balasan."/>}
+    />
   );
 }
 

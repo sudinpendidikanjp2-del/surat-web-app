@@ -18,6 +18,9 @@ import lettersOut from './routes/lettersOut.js';
 import templates from './routes/templates.js';
 import files from './routes/files.js';
 import insight from './routes/insight.js';
+import pub from './routes/public.js';
+import ocr from './routes/ocr.js';
+import { stopOcr } from './ocr.js';
 
 export function createApp() {
   const app = express();
@@ -29,7 +32,7 @@ export function createApp() {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:'],
+        imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'"],
         frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
@@ -45,7 +48,9 @@ export function createApp() {
   const api = express.Router();
   api.use(csrfGuard);
   api.use('/auth', auth);
+  api.use('/public', pub);
   api.use(requireAuth);
+  api.use('/ocr', ocr);
   api.use('/letters-in', lettersIn);
   api.use('/dispositions', dispositions);
   api.use('/tasks', tasks);
@@ -84,7 +89,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createApp();
   const server = app.listen(config.port, () => console.log(`Server berjalan di http://localhost:${config.port}`));
   startJobs();
-  const stop = () => server.close(() => pool.end().then(() => process.exit(0)));
+  const stop = () => server.close(() => stopOcr().then(() => pool.end()).then(() => process.exit(0)));
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
 }

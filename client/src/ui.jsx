@@ -42,17 +42,11 @@ export function Sla({ sla }) {
 export const Stamp = ({ children }) => <span className="stamp">{children}</span>;
 
 export function Progress({ value, label }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!ref.current) return undefined;
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) { ref.current.style.transform = `scaleX(${value / 100})`; return undefined; }
-    const c = animate(0, value, { type: 'spring', bounce: 0, duration: 0.6, onUpdate: (v) => { if (ref.current) ref.current.style.transform = `scaleX(${v / 100})`; } });
-    return () => c.stop();
-  }, [value]);
+  const [v, setV] = useState(0);
+  useEffect(() => { const id = requestAnimationFrame(() => setV(value)); return () => cancelAnimationFrame(id); }, [value]);
   return (
     <div className="progress" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-label={label || 'Progres'}>
-      <span ref={ref} style={{ width: '100%', transform: 'scaleX(0)' }} />
+      <span style={{ transform: `scaleX(${v / 100})` }} />
     </div>
   );
 }
@@ -167,16 +161,19 @@ export function Sheet({ title, onClose, children, footer, wide }) {
     if (scrimRef.current) scrimRef.current.style.opacity = String(Math.max(0, 1 - v / size()));
   };
 
-  const move = (to, velocity = 0, then) => {
+  // Masuk 300 ms, keluar 220 ms: keluar lebih cepat karena sistem sedang merespons, bukan pengguna sedang memutuskan.
+  const move = (to, velocity = 0, then, duration = 0.3) => {
     ctrl.current?.stop();
     if (reduce()) { paint(to); then?.(); return; }
-    ctrl.current = animate(posRef.current, to, { type: 'spring', bounce: 0, duration: 0.42, velocity, onUpdate: paint, onComplete: then });
+    ctrl.current = animate(posRef.current, to, { type: 'spring', bounce: 0, duration, velocity, onUpdate: paint, onComplete: then });
   };
 
-  const requestClose = (velocity = 0) => {
+  const requestClose = (velocity = 0, instant = false) => {
     if (closing.current) return;
     closing.current = true;
-    move(size() + 8, velocity, onClose);
+    // Tutup lewat keyboard (Escape) tanpa animasi: tindakan keyboard terasa lambat bila dianimasikan.
+    if (instant) { onClose(); return; }
+    move(size() + 8, velocity, onClose, 0.22);
   };
 
   useLayoutEffect(() => {
@@ -193,7 +190,7 @@ export function Sheet({ title, onClose, children, footer, wide }) {
   }, []);
 
   const onKey = (e) => {
-    if (e.key === 'Escape') { e.stopPropagation(); requestClose(); return; }
+    if (e.key === 'Escape') { e.stopPropagation(); requestClose(0, true); return; }
     if (e.key !== 'Tab') return;
     const f = [...sheetRef.current.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
     if (!f.length) return;

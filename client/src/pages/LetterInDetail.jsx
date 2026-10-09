@@ -3,65 +3,30 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get, post, put, upload } from '../api.js';
 import { useUser } from '../auth.jsx';
-import { Async, Empty, Field, FileList, FilePicker, Icon, Input, Loading, ErrorState, Progress, Select, Sheet, Sla, Stamp, StatusDisp, StatusIn, StatusTask, Tabs, Tag, Textarea, useAction } from '../ui.jsx';
-import { fmtDate, fmtDateTime, METODE, plusDays, PRIORITAS, SIFAT, TINDAKAN, todayIso } from '../format.js';
+import { Async, Empty, Field, FileList, FilePicker, Icon, Input, Loading, Progress, Select, Sheet, Sla, Stamp, StatusDisp, StatusIn, StatusTask, Tabs, Tag, Textarea, useAction, useToast } from '../ui.jsx';
+import { Menu, ConfirmDialog } from '../table.jsx';
+import { DisposeFields, Foot, initialDispose, validateDispose } from '../forms.jsx';
+import { fmtDate, fmtDateTime, METODE, plusDays, PRIORITAS, SIFAT, todayIso } from '../format.js';
 
 const KEYS = ['letter', 'letters-in', 'dashboard', 'timeline', 'dispositions', 'tasks'];
 
 function Body({ children }) { return <div className="sheet-body">{children}</div>; }
-function Foot({ close, pending, label, onSubmit, danger }) {
-  return (
-    <>
-      <button type="button" className="btn" onClick={() => close()}>Batal</button>
-      <button type="button" className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} disabled={pending} onClick={onSubmit}>{pending ? 'Memproses...' : label}</button>
-    </>
-  );
-}
-
 /* ---------- Disposisi ---------- */
 function DisposeSheet({ letter, parent, onClose }) {
-  const user = useUser();
-  const users = useQuery({ queryKey: ['user-options'], queryFn: () => get('/users/options') });
-  const units = useQuery({ queryKey: ['units'], queryFn: () => get('/units') });
-  const [f, setF] = useState({ to_user_ids: [], to_unit_ids: [], tindakan: ['Untuk ditindaklanjuti'], instruksi: '', deadline: plusDays(3), prioritas: 'Normal' });
+  const [f, setF] = useState(initialDispose());
   const [err, setErr] = useState('');
-  const toggle = (k, v) => setF((s) => ({ ...s, [k]: s[k].includes(v) ? s[k].filter((x) => x !== v) : [...s[k], v] }));
   const act = useAction(() => post(`/letters-in/${letter.id}/disposisi`, { ...f, parent_id: parent?.id }), { success: parent ? 'Disposisi diteruskan' : 'Disposisi diberikan', keys: KEYS });
   const submit = (close) => {
-    if (f.to_user_ids.length + f.to_unit_ids.length === 0) return setErr('Pilih minimal satu penerima');
-    if (f.tindakan.length === 0) return setErr('Pilih minimal satu tindakan');
-    if (!f.instruksi.trim()) return setErr('Instruksi wajib diisi');
-    setErr('');
-    act.mutate(undefined, { onSuccess: () => close() });
-    return undefined;
+    const e = validateDispose(f);
+    setErr(e);
+    if (!e) act.mutate(undefined, { onSuccess: () => close() });
   };
-  const people = (users.data || []).filter((u) => u.id !== user.id && u.role !== 'viewer' && (!parent || ['pejabat', 'pelaksana'].includes(u.role)));
   return (
     <Sheet title={parent ? 'Teruskan disposisi' : 'Berikan disposisi'} onClose={onClose} wide footer={({ close }) => <Foot close={close} pending={act.isPending} label={parent ? 'Teruskan Disposisi' : 'Kirim Disposisi'} onSubmit={() => submit(close)} />}>
       <Body>
         <p className="muted"><Stamp>{letter.no_agenda}</Stamp> {letter.perihal}</p>
         {err && <div className="alert alert-late" role="alert">{err}</div>}
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="label">Diteruskan kepada unit</legend>
-          {units.isLoading ? <Loading rows={1} /> : (units.data || []).filter((u) => u.aktif && u.kode !== 'PIM').map((u) => (
-            <label key={u.id} className="check-row"><input type="checkbox" checked={f.to_unit_ids.includes(u.id)} onChange={() => toggle('to_unit_ids', u.id)} /><span>{u.nama}</span></label>
-          ))}
-        </fieldset>
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="label">Atau kepada pejabat atau pegawai</legend>
-          {users.isLoading ? <Loading rows={2} /> : users.isError ? <ErrorState error={users.error} /> : people.map((u) => (
-            <label key={u.id} className="check-row"><input type="checkbox" checked={f.to_user_ids.includes(u.id)} onChange={() => toggle('to_user_ids', u.id)} /><span>{u.nama} <span className="muted small">{u.jabatan || ''}{u.unit_nama ? `, ${u.unit_nama}` : ''}</span></span></label>
-          ))}
-        </fieldset>
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="label">Tindakan</legend>
-          {TINDAKAN.map((t) => <label key={t} className="check-row"><input type="checkbox" checked={f.tindakan.includes(t)} onChange={() => toggle('tindakan', t)} /><span>{t}</span></label>)}
-        </fieldset>
-        <Field label="Instruksi">{(id) => <Textarea id={id} value={f.instruksi} onChange={(e) => setF({ ...f, instruksi: e.target.value })} placeholder="Contoh: Mohon ditindaklanjuti dan dikoordinasikan dengan pihak terkait." />}</Field>
-        <div className="form-grid">
-          <Field label="Batas waktu">{(id) => <Input id={id} type="date" min={todayIso()} value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} />}</Field>
-          <Field label="Prioritas">{(id) => <Select id={id} value={f.prioritas} onChange={(e) => setF({ ...f, prioritas: e.target.value })} options={['Normal', 'Tinggi', 'Mendesak']} />}</Field>
-        </div>
+        <DisposeFields f={f} setF={setF} onlyStaff={Boolean(parent)} />
       </Body>
     </Sheet>
   );
@@ -217,6 +182,38 @@ function QrSheet({ id, onClose }) {
   );
 }
 
+function TrackSheet({ id, canEdit, onClose }) {
+  const toast = useToast();
+  const q = useQuery({ queryKey: ['track', id], queryFn: () => get(`/letters-in/${id}/pelacakan`) });
+  const [confirm, setConfirm] = useState(null);
+  const act = useAction((aksi) => post(`/letters-in/${id}/pelacakan`, { aksi }), { success: 'Pengaturan pelacakan disimpan', keys: ['track', 'timeline'], onDone: () => setConfirm(null) });
+  const copy = async (text, what) => { try { await navigator.clipboard.writeText(text); toast(`${what} disalin`); } catch { toast('Tidak dapat menyalin. Salin manual dari kolom.', { error: true }); } };
+  return (
+    <Sheet title="Pelacakan oleh pengirim surat" onClose={onClose}>
+      <Body>
+        <Async q={q} isEmpty={() => false} rows={3}>
+          {(d) => (
+            <>
+              <p className="muted">Berikan tautan atau kode ini kepada pengirim surat agar dapat memantau tahapan tanpa login. Pengirim hanya melihat tahapan umum: tanpa perihal, nama pegawai, atau catatan internal.</p>
+              {d.rahasia && <div className="alert alert-warn">Surat bersifat rahasia. Pelacakan publik dimatikan secara bawaan.</div>}
+              <div className="row"><Tag tone={d.aktif ? 'ok' : 'neutral'}>{d.aktif ? 'Aktif' : 'Nonaktif'}</Tag><span className="muted small">Berakhir otomatis 30 hari setelah surat selesai.</span></div>
+              <Field label="Kode pelacakan" hint="Mudah diketik. Huruf O dan I dibaca sebagai 0 dan 1.">{(fid) => <div className="copy-field"><input id={fid} className="input num" readOnly value={d.kode} onFocus={(e) => e.target.select()} /><button type="button" className="btn" onClick={() => copy(d.kode, 'Kode')}>Salin</button></div>}</Field>
+              <Field label="Tautan pelacakan">{(fid) => <div className="copy-field"><input id={fid} className="input" readOnly value={d.url} onFocus={(e) => e.target.select()} /><button type="button" className="btn" onClick={() => copy(d.url, 'Tautan')}>Salin</button></div>}</Field>
+              {canEdit && (
+                <div className="actions">
+                  <button type="button" className="btn" disabled={act.isPending} onClick={() => act.mutate(d.aktif ? 'nonaktifkan' : 'aktifkan')}>{d.aktif ? 'Nonaktifkan Pelacakan' : 'Aktifkan Pelacakan'}</button>
+                  <button type="button" className="btn btn-danger" onClick={() => setConfirm('buat_ulang')}>Buat Ulang Kode</button>
+                </div>
+              )}
+              {confirm && <ConfirmDialog title="Buat ulang kode pelacakan?" tone="danger" confirmLabel="Buat Ulang" pending={act.isPending} onClose={() => setConfirm(null)} onConfirm={() => act.mutate('buat_ulang')}><p>Tautan dan kode lama langsung tidak berlaku. Gunakan bila tautan terlanjur dibagikan ke pihak yang salah.</p></ConfirmDialog>}
+            </>
+          )}
+        </Async>
+      </Body>
+    </Sheet>
+  );
+}
+
 /* ---------- Riwayat dan komentar ---------- */
 const renderText = (t) => t.split(/(@[a-z0-9._-]+)/gi).map((p, i) => (p.startsWith('@') ? <strong key={i}>{p}</strong> : p));
 
@@ -250,6 +247,37 @@ function Timeline({ id }) {
 }
 
 /* ---------- Halaman ---------- */
+/** Langkah berikutnya untuk pengguna ini pada surat ini. Satu tombol utama, penjelasan satu kalimat. */
+function nextStep(d, user, run) {
+  const l = d.letter;
+  const can = d.can;
+  const openTasks = d.tasks.filter((t) => !['SELESAI', 'DIBATALKAN'].includes(t.status));
+  const mine = openTasks.filter((t) => t.pic_user_id === user.id);
+  const myNew = d.dispositions.find((x) => d.holds.includes(x.id) && x.status === 'BARU');
+  if (l.status === 'DIARSIPKAN') return { quiet: true, title: 'Surat sudah diarsipkan', desc: 'Seluruh dokumen dan riwayat tetap dapat dibuka.' };
+  if (l.status === 'SELESAI') return can.arsipkan ? { title: 'Surat sudah selesai', desc: 'Arsipkan agar tersimpan rapi per tahun dan bulan.', primary: { label: 'Arsipkan Surat', onClick: run.archive } } : { quiet: true, title: 'Surat sudah selesai', desc: 'Menunggu Tata Usaha mengarsipkan.' };
+  if (can.forward) return { title: 'Teruskan surat ini kepada pimpinan', desc: 'Surat sudah tercatat. Pimpinan perlu memberi disposisi.', primary: { label: 'Teruskan kepada Pimpinan', onClick: run.forward } };
+  if (can.terima && myNew) return { title: 'Anda menerima disposisi baru', desc: `Dari ${myNew.dari_nama}: ${myNew.instruksi}`, primary: { label: 'Terima Disposisi', onClick: () => run.accept(myNew.id) } };
+  if (l.status === 'MENUNGGU_DISPOSISI' && can.disposisi && ['pimpinan', 'superadmin'].includes(user.role)) return { title: 'Surat menunggu disposisi Anda', desc: 'Pilih penerima, instruksi, dan batas waktu.', primary: { label: 'Berikan Disposisi', onClick: () => run.sheet({ k: 'dispose' }) } };
+  if (mine.length) return { title: `Anda memegang ${mine.length} tugas pada surat ini`, desc: `Tenggat terdekat ${fmtDate(mine.map((t) => t.deadline).sort()[0])}.`, primary: { label: 'Buka Tugas Saya', to: `/tugas/${mine[0].id}` } };
+  if (can.tugaskan && d.tasks.length === 0 && d.holds.length > 0) return { title: 'Bagi pekerjaan kepada pegawai', desc: 'Buat tugas dengan penanggung jawab dan batas waktu.', primary: { label: 'Tugaskan', onClick: () => run.sheet({ k: 'task' }) } };
+  if (can.selesaikan && d.syarat.ok) return { title: 'Semua syarat penyelesaian terpenuhi', desc: 'Tugas selesai, balasan terkirim, dan konfirmasi dicatat.', primary: { label: 'Selesaikan Surat', onClick: () => run.sheet({ k: 'finish' }) } };
+  if (can.konfirmasi && d.tasks.length > 0 && openTasks.length === 0 && d.confirmations.length === 0) return { title: 'Catat konfirmasi kepada pengirim', desc: 'Semua tugas selesai. Konfirmasi ke pemberi surat belum dicatat.', primary: { label: 'Catat Konfirmasi', onClick: () => run.sheet({ k: 'confirm' }) } };
+  if (openTasks.length) return { quiet: true, title: `Menunggu ${[...new Set(openTasks.map((t) => t.pic_nama))].join(', ')}`, desc: `${openTasks.length} tugas belum selesai.` };
+  if (l.status === 'MENUNGGU_DISPOSISI') return { quiet: true, title: 'Menunggu disposisi pimpinan', desc: 'Pimpinan sudah menerima surat ini.' };
+  if (l.status === 'DIDISPOSISIKAN') return { quiet: true, title: 'Menunggu disposisi diterima', desc: 'Penerima belum menerima disposisi.' };
+  return { quiet: true, title: 'Tidak ada tindakan untuk Anda saat ini', desc: 'Anda tetap dapat menambah catatan atau dokumen.' };
+}
+
+function posisi(d) {
+  const l = d.letter;
+  if (['SELESAI', 'DIARSIPKAN'].includes(l.status)) return l.status === 'SELESAI' ? 'Selesai' : 'Arsip';
+  if (l.status === 'DITERIMA') return 'Tata Usaha';
+  if (l.status === 'MENUNGGU_DISPOSISI') return 'Pimpinan';
+  const names = [...new Set(d.dispositions.filter((x) => ['BARU', 'DITERIMA'].includes(x.status)).map((x) => x.ke_nama || x.ke_unit))];
+  return names.join(', ') || '-';
+}
+
 export default function LetterInDetail() {
   const { id } = useParams();
   const user = useUser();
@@ -269,131 +297,151 @@ export default function LetterInDetail() {
           const can = d.can;
           const myDisp = d.dispositions.filter((x) => d.holds.includes(x.id) && ['BARU', 'DITERIMA'].includes(x.status));
           const fwdTarget = myDisp.find((x) => x.status === 'DITERIMA') || myDisp[0];
+          const step = nextStep(d, user, { forward: () => forward.mutate(), accept: (i) => accept.mutate(i), archive: () => archive.mutate(), sheet: setSheet });
+          const busy = forward.isPending || accept.isPending || archive.isPending;
+          const canTrack = ['superadmin', 'tu', 'pimpinan'].includes(user.role);
+          const more = [
+            can.disposisi && fwdTarget && fwdTarget.status === 'DITERIMA' && { label: 'Teruskan Disposisi', onClick: () => setSheet({ k: 'dispose', parent: fwdTarget }) },
+            can.disposisi && !fwdTarget && !(l.status === 'MENUNGGU_DISPOSISI' && ['pimpinan', 'superadmin'].includes(user.role)) && { label: 'Berikan Disposisi', onClick: () => setSheet({ k: 'dispose' }) },
+            can.tugaskan && { label: 'Tugaskan Pegawai', onClick: () => setSheet({ k: 'task' }) },
+            can.balas && { label: 'Buat Surat Balasan', to: `/surat-keluar/baru?dari=${l.id}` },
+            can.upload && { label: 'Unggah Dokumen', onClick: () => setSheet({ k: 'upload' }) },
+            can.komentar && { label: 'Tambah Catatan', onClick: () => { setTab('riwayat'); } },
+            can.konfirmasi && { label: 'Catat Konfirmasi', onClick: () => setSheet({ k: 'confirm' }) },
+            can.selesaikan && { label: 'Selesaikan Surat', onClick: () => setSheet({ k: 'finish' }) },
+            can.arsipkan && { label: 'Arsipkan', onClick: () => archive.mutate() },
+            { sep: true },
+            can.edit && { label: 'Ubah Data Surat', onClick: () => setSheet({ k: 'edit' }) },
+            can.cetak && { label: 'Lembar Disposisi (cetak)', to: `/surat-masuk/${l.id}/cetak` },
+            { label: 'Kode QR surat', onClick: () => setSheet({ k: 'qr' }) },
+            canTrack && { label: 'Pelacakan oleh pengirim', onClick: () => setSheet({ k: 'track' }) },
+          ].filter(Boolean);
           return (
             <>
+              <nav className="crumb" aria-label="Jejak halaman"><Link to="/surat-masuk">Surat masuk</Link><span aria-hidden="true">/</span><span>{l.no_agenda}</span></nav>
               <div className="case-head">
-                <div className="row"><Stamp>{l.no_agenda}</Stamp><span className="muted small">{l.case_no}</span><StatusIn status={l.status} /><Sla sla={d.sla} /></div>
+                <div className="row"><Stamp>{l.no_agenda}</Stamp><StatusIn status={l.status} /><Sla sla={d.sla} /></div>
                 <h1>{l.perihal}</h1>
-                <div className="case-meta"><span>{l.no_surat}</span><span>Dari {l.asal}{l.instansi ? `, ${l.instansi}` : ''}</span><span>Diterima {fmtDate(l.tgl_diterima)}</span><span>Sifat {l.sifat}</span><span>Prioritas {l.prioritas}</span></div>
+                <div className="case-meta"><span>Dari {l.asal}{l.instansi ? `, ${l.instansi}` : ''}</span><span>{l.no_surat}</span><span>Diterima {fmtDate(l.tgl_diterima)}</span><span>Sifat {l.sifat}</span><span>Prioritas {l.prioritas}</span></div>
               </div>
 
-              <section className="card card-pad" aria-label="Progres surat">
-                <div className="row" style={{ justifyContent: 'space-between' }}><h2>Progres</h2><span className="num" style={{ fontWeight: 650 }}>{d.percent}%</span></div>
-                <div style={{ marginTop: 10 }}><Progress value={d.percent} label="Progres penyelesaian surat" /></div>
-                <ol className="stages">
-                  {d.stages.map((s) => (
-                    <li key={s.key} className={s.done ? 'done' : ''}><span className="stage-mark" aria-hidden="true">{s.done && <Icon name="check" size={12} />}</span><span>{s.label}<span className="sr-only">{s.done ? ', selesai' : ', belum'}</span></span></li>
-                  ))}
-                </ol>
+              <section className={`next-step${step.quiet ? ' quiet' : ''}`} aria-label="Langkah berikutnya">
+                <div><h2>{step.title}</h2><p>{step.desc}</p></div>
+                <div className="actions no-print">
+                  {step.primary && (step.primary.to ? <Link className="btn btn-primary" to={step.primary.to}>{step.primary.label}</Link> : <button type="button" className="btn btn-primary" disabled={busy} onClick={step.primary.onClick}>{step.primary.label}</button>)}
+                  <Menu label="Aksi lain" items={more} />
+                </div>
               </section>
 
-              <div className="quick no-print" role="group" aria-label="Tindakan cepat">
-                {can.forward && <button type="button" className="btn btn-primary" disabled={forward.isPending} onClick={() => forward.mutate()}>Teruskan kepada Pimpinan</button>}
-                {can.terima && myDisp.filter((x) => x.status === 'BARU').map((x) => <button key={x.id} type="button" className="btn btn-primary" disabled={accept.isPending} onClick={() => accept.mutate(x.id)}>Terima Disposisi</button>)}
-                {can.disposisi && !fwdTarget && <button type="button" className="btn btn-primary" onClick={() => setSheet({ k: 'dispose' })}>Berikan Disposisi</button>}
-                {can.disposisi && fwdTarget && fwdTarget.status === 'DITERIMA' && <button type="button" className="btn" onClick={() => setSheet({ k: 'dispose', parent: fwdTarget })}>Teruskan Disposisi</button>}
-                {can.tugaskan && <button type="button" className="btn" onClick={() => setSheet({ k: 'task' })}>Tugaskan</button>}
-                {can.balas && <Link className="btn" to={`/surat-keluar/baru?dari=${l.id}`}>Buat Surat Balasan</Link>}
-                {can.upload && <button type="button" className="btn" onClick={() => setSheet({ k: 'upload' })}>Unggah Dokumen</button>}
-                {can.komentar && <button type="button" className="btn" onClick={() => { setTab('riwayat'); setTimeout(() => document.getElementById('isi')?.scrollIntoView(), 0); }}>Tambah Catatan</button>}
-                {can.konfirmasi && <button type="button" className="btn" onClick={() => setSheet({ k: 'confirm' })}>Konfirmasi</button>}
-                {can.selesaikan && <button type="button" className="btn" onClick={() => setSheet({ k: 'finish' })}>Selesaikan</button>}
-                {can.arsipkan && <button type="button" className="btn" disabled={archive.isPending} onClick={() => archive.mutate()}>Arsipkan</button>}
-                {can.edit && <button type="button" className="btn btn-quiet" onClick={() => setSheet({ k: 'edit' })}>Ubah Data</button>}
-                {can.cetak && <Link className="btn btn-quiet" to={`/surat-masuk/${l.id}/cetak`}>Lembar Disposisi</Link>}
-                <button type="button" className="btn btn-quiet" onClick={() => setSheet({ k: 'qr' })}>Kode QR</button>
-              </div>
+              <div className="detail">
+                <div className="stack" style={{ gap: 20 }}>
+                  <Tabs label="Bagian surat" value={tab} onChange={setTab} tabs={[
+                    { key: 'ringkasan', label: 'Ringkasan' },
+                    { key: 'tindak', label: 'Disposisi dan tugas', count: d.dispositions.length + d.tasks.length },
+                    { key: 'dokumen', label: 'Dokumen', count: d.attachments.length + d.outs.length },
+                    { key: 'riwayat', label: 'Riwayat dan diskusi' },
+                  ]} />
 
-              <Tabs label="Bagian surat" value={tab} onChange={setTab} tabs={[
-                { key: 'ringkasan', label: 'Ringkasan' },
-                { key: 'tindak', label: 'Disposisi dan tugas', count: d.dispositions.length + d.tasks.length },
-                { key: 'dokumen', label: 'Dokumen', count: d.attachments.length + d.outs.length },
-                { key: 'riwayat', label: 'Riwayat dan diskusi' },
-              ]} />
+                  {tab === 'ringkasan' && (
+                    <div className="stack" style={{ gap: 20 }} role="tabpanel" id="panel-ringkasan" aria-labelledby="tab-ringkasan">
+                      <section className="card card-pad">
+                        <dl className="dl">
+                          <dt>Nomor agenda</dt><dd className="num">{l.no_agenda}</dd>
+                          <dt>Nomor surat</dt><dd>{l.no_surat}</dd>
+                          <dt>Tanggal surat</dt><dd>{fmtDate(l.tgl_surat)}</dd>
+                          <dt>Tanggal diterima</dt><dd>{fmtDate(l.tgl_diterima)}</dd>
+                          <dt>Pengirim</dt><dd>{l.asal}{l.instansi ? `, ${l.instansi}` : ''}</dd>
+                          <dt>Alamat</dt><dd>{l.alamat || '-'}</dd>
+                          <dt>Jenis</dt><dd>{l.jenis}</dd>
+                          <dt>Lampiran</dt><dd>{l.lampiran || '-'}</dd>
+                          <dt>Catatan</dt><dd>{l.catatan || '-'}</dd>
+                          <dt>Dicatat oleh</dt><dd>{l.creator_nama}</dd>
+                        </dl>
+                      </section>
+                      <section className="card card-pad stack">
+                        <h3>Surat balasan</h3>
+                        {d.outs.length === 0 ? <p className="muted">Belum ada surat keluar untuk surat ini.</p> : d.outs.map((o) => (
+                          <div key={o.id}><Link to={`/surat-keluar/${o.id}`} className="cell-title">{o.no_agenda}</Link> <span className="muted small">{o.nomor_surat || 'belum bernomor'}</span><div className="small">{o.perihal} <Tag tone="neutral">{o.status}</Tag></div></div>
+                        ))}
+                        <h3 style={{ marginTop: 8 }}>Konfirmasi kepada pengirim</h3>
+                        {d.confirmations.length === 0 ? <p className="muted">Belum ada konfirmasi dicatat.</p> : d.confirmations.map((c) => (
+                          <div key={c.id} className="small"><strong>{fmtDate(c.tanggal)}</strong> melalui {c.metode.toLowerCase()} kepada {c.pihak}<div className="muted">{c.hasil}</div></div>
+                        ))}
+                      </section>
+                    </div>
+                  )}
 
-              {tab === 'ringkasan' && (
-                <div className="split" role="tabpanel" id="panel-ringkasan" aria-labelledby="tab-ringkasan">
-                  <section className="card card-pad">
-                    <dl className="dl">
-                      <dt>Nomor agenda</dt><dd className="num">{l.no_agenda}</dd>
-                      <dt>Nomor surat</dt><dd>{l.no_surat}</dd>
-                      <dt>Tanggal surat</dt><dd>{fmtDate(l.tgl_surat)}</dd>
-                      <dt>Tanggal diterima</dt><dd>{fmtDate(l.tgl_diterima)}</dd>
-                      <dt>Pengirim</dt><dd>{l.asal}{l.instansi ? `, ${l.instansi}` : ''}</dd>
-                      <dt>Alamat</dt><dd>{l.alamat || '-'}</dd>
-                      <dt>Jenis</dt><dd>{l.jenis}</dd>
-                      <dt>Lampiran</dt><dd>{l.lampiran || '-'}</dd>
-                      <dt>Catatan</dt><dd>{l.catatan || '-'}</dd>
-                      <dt>Dicatat oleh</dt><dd>{l.creator_nama}</dd>
-                      <dt>Tenggat</dt><dd>{fmtDate(d.deadline)} <Sla sla={d.sla} /></dd>
-                    </dl>
-                  </section>
-                  <section className="card card-pad stack">
-                    <h3>Surat balasan terkait</h3>
-                    {d.outs.length === 0 ? <p className="muted">Belum ada surat keluar untuk surat ini.</p> : d.outs.map((o) => (
-                      <div key={o.id}><Link to={`/surat-keluar/${o.id}`} className="cell-title">{o.no_agenda}</Link> <span className="muted small">{o.nomor_surat || 'belum bernomor'}</span><div className="small">{o.perihal} <Tag tone="neutral">{o.status}</Tag></div></div>
-                    ))}
-                    <h3 style={{ marginTop: 8 }}>Konfirmasi</h3>
-                    {d.confirmations.length === 0 ? <p className="muted">Belum ada konfirmasi dicatat.</p> : d.confirmations.map((c) => (
-                      <div key={c.id} className="small"><strong>{fmtDate(c.tanggal)}</strong> melalui {c.metode.toLowerCase()} kepada {c.pihak}<div className="muted">{c.hasil}</div></div>
-                    ))}
-                  </section>
-                </div>
-              )}
-
-              {tab === 'tindak' && (
-                <div className="stack" style={{ gap: 20 }} role="tabpanel" id="panel-tindak" aria-labelledby="tab-tindak">
-                  <section className="section">
-                    <h2>Disposisi</h2>
-                    {d.dispositions.length === 0 ? <div className="card"><Empty title="Belum ada disposisi" text="Disposisi pimpinan akan tampil di sini." /></div> : d.dispositions.map((x) => (
-                      <article key={x.id} className="card card-pad stack" style={{ gap: 8 }}>
-                        <div className="row" style={{ justifyContent: 'space-between' }}>
-                          <strong>{x.dari_nama} <span className="muted" style={{ fontWeight: 400 }}>kepada</span> {x.ke_nama || x.ke_unit}</strong>
-                          <StatusDisp status={x.status} />
-                        </div>
-                        <div className="chips">{x.tindakan.map((t) => <Tag key={t} tone="accent">{t}</Tag>)}</div>
-                        <p>{x.instruksi}</p>
-                        <p className="muted small">Batas waktu {fmtDate(x.deadline)}, prioritas {x.prioritas}. Diberikan {fmtDateTime(x.created_at)}{x.accepted_at ? `, diterima ${fmtDateTime(x.accepted_at)}` : ''}.</p>
-                        {x.return_reason && <div className="alert alert-late">Dikembalikan: {x.return_reason}</div>}
-                        {d.holds.includes(x.id) && ['BARU', 'DITERIMA'].includes(x.status) && (
-                          <div className="actions no-print">
-                            {x.status === 'BARU' && <button type="button" className="btn btn-sm btn-primary" onClick={() => accept.mutate(x.id)}>Terima Disposisi</button>}
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => setSheet({ k: 'return', disp: x })}>Kembalikan</button>
+                  {tab === 'tindak' && (
+                    <div className="stack" style={{ gap: 20 }} role="tabpanel" id="panel-tindak" aria-labelledby="tab-tindak">
+                      <section className="section">
+                        <h2>Disposisi</h2>
+                        {d.dispositions.length === 0 ? <div className="card"><Empty title="Belum ada disposisi" text="Disposisi pimpinan akan tampil di sini." /></div> : d.dispositions.map((x) => (
+                          <article key={x.id} className="card card-pad stack" style={{ gap: 8 }}>
+                            <div className="row" style={{ justifyContent: 'space-between' }}>
+                              <strong>{x.dari_nama} <span className="muted" style={{ fontWeight: 400 }}>kepada</span> {x.ke_nama || x.ke_unit}</strong>
+                              <StatusDisp status={x.status} />
+                            </div>
+                            <div className="chips">{x.tindakan.map((t) => <Tag key={t} tone="accent">{t}</Tag>)}</div>
+                            <p>{x.instruksi}</p>
+                            <p className="muted small">Batas waktu {fmtDate(x.deadline)}, prioritas {x.prioritas}. Diberikan {fmtDateTime(x.created_at)}{x.accepted_at ? `, diterima ${fmtDateTime(x.accepted_at)}` : ''}.</p>
+                            {x.return_reason && <div className="alert alert-late">Dikembalikan: {x.return_reason}</div>}
+                            {d.holds.includes(x.id) && ['BARU', 'DITERIMA'].includes(x.status) && (
+                              <div className="actions no-print">
+                                {x.status === 'BARU' && <button type="button" className="btn btn-sm btn-primary" onClick={() => accept.mutate(x.id)}>Terima Disposisi</button>}
+                                <button type="button" className="btn btn-sm btn-danger" onClick={() => setSheet({ k: 'return', disp: x })}>Kembalikan</button>
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </section>
+                      <section className="section">
+                        <h2>Tugas</h2>
+                        {d.tasks.length === 0 ? <div className="card"><Empty title="Belum ada tugas" text="Pejabat penerima disposisi dapat membagi pekerjaan lewat Aksi lain, Tugaskan Pegawai." /></div> : (
+                          <div className="card table-wrap">
+                            <table className="table stackable">
+                              <thead><tr><th>Tugas</th><th>Penanggung jawab</th><th>Status</th><th>Progres</th><th>Tenggat</th></tr></thead>
+                              <tbody>{d.tasks.map((t) => (
+                                <tr key={t.id}>
+                                  <td className="primary"><span className="cell-title"><Link to={`/tugas/${t.id}`}>{t.judul}</Link></span></td>
+                                  <td data-label="Penanggung jawab">{t.pic_nama}</td>
+                                  <td data-label="Status"><StatusTask status={t.status} /></td>
+                                  <td data-label="Progres" className="num">{t.progress}%</td>
+                                  <td data-label="Tenggat">{fmtDate(t.deadline)}</td>
+                                </tr>
+                              ))}</tbody>
+                            </table>
                           </div>
                         )}
-                      </article>
-                    ))}
-                  </section>
-                  <section className="section">
-                    <h2>Tugas</h2>
-                    {d.tasks.length === 0 ? <div className="card"><Empty title="Belum ada tugas" text="Pejabat penerima disposisi dapat membagi pekerjaan melalui tombol Tugaskan." /></div> : (
-                      <div className="card table-wrap">
-                        <table className="table stackable">
-                          <thead><tr><th>Tugas</th><th>PIC</th><th>Status</th><th>Progres</th><th>Tenggat</th></tr></thead>
-                          <tbody>{d.tasks.map((t) => (
-                            <tr key={t.id}>
-                              <td className="primary"><span className="cell-title"><Link to={`/tugas/${t.id}`}>{t.judul}</Link></span></td>
-                              <td data-label="PIC">{t.pic_nama}</td>
-                              <td data-label="Status"><StatusTask status={t.status} /></td>
-                              <td data-label="Progres" className="num">{t.progress}%</td>
-                              <td data-label="Tenggat">{fmtDate(t.deadline)}</td>
-                            </tr>
-                          ))}</tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-                </div>
-              )}
+                      </section>
+                    </div>
+                  )}
 
-              {tab === 'dokumen' && (
-                <section className="card card-pad" role="tabpanel" id="panel-dokumen" aria-labelledby="tab-dokumen">
-                  {user.role === 'viewer' ? <p className="muted">Viewer tidak dapat membuka dokumen surat.</p> : <FileList files={d.attachments} />}
-                </section>
-              )}
-              {tab === 'riwayat' && (
-                <section className="card card-pad" role="tabpanel" id="panel-riwayat" aria-labelledby="tab-riwayat"><Timeline id={id} /></section>
-              )}
+                  {tab === 'dokumen' && (
+                    <section className="card card-pad" role="tabpanel" id="panel-dokumen" aria-labelledby="tab-dokumen">
+                      {user.role === 'viewer' ? <p className="muted">Viewer tidak dapat membuka dokumen surat.</p> : <FileList files={d.attachments} />}
+                    </section>
+                  )}
+                  {tab === 'riwayat' && <section className="card card-pad" role="tabpanel" id="panel-riwayat" aria-labelledby="tab-riwayat"><Timeline id={id} /></section>}
+                </div>
+
+                <aside className="side no-print" aria-label="Ringkasan status">
+                  <section className="card card-pad stack">
+                    <h3>Status saat ini</h3>
+                    <dl className="kv">
+                      <dt>Posisi</dt><dd>{posisi(d)}</dd>
+                      <dt>Tenggat</dt><dd>{fmtDate(d.deadline)}<div><Sla sla={d.sla} /></div></dd>
+                      <dt>Progres</dt><dd className="num">{d.percent}%</dd>
+                    </dl>
+                    <Progress value={d.percent} label="Progres penyelesaian surat" />
+                    <details className="more">
+                      <summary>Lihat tahapan</summary>
+                      <ol className="stages" style={{ gridTemplateColumns: '1fr', margin: 0 }}>
+                        {d.stages.map((s) => (<li key={s.key} className={s.done ? 'done' : ''}><span className="stage-mark" aria-hidden="true">{s.done && <Icon name="check" size={12} />}</span><span>{s.label}<span className="sr-only">{s.done ? ', selesai' : ', belum'}</span></span></li>))}
+                      </ol>
+                    </details>
+                  </section>
+                </aside>
+              </div>
 
               {sheet?.k === 'dispose' && <DisposeSheet letter={l} parent={sheet.parent} onClose={close} />}
               {sheet?.k === 'return' && <ReturnSheet disp={sheet.disp} onClose={close} />}
@@ -403,6 +451,7 @@ export default function LetterInDetail() {
               {sheet?.k === 'finish' && <FinishSheet data={d} onClose={close} />}
               {sheet?.k === 'edit' && <EditSheet data={d} onClose={close} />}
               {sheet?.k === 'qr' && <QrSheet id={l.id} onClose={close} />}
+              {sheet?.k === 'track' && <TrackSheet id={l.id} canEdit={['superadmin', 'tu'].includes(user.role)} onClose={close} />}
             </>
           );
         }}

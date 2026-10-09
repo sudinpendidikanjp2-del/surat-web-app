@@ -9,6 +9,7 @@ import { visibleLettersOut, canWriteOut, canApprove, canReview, is } from '../pe
 import { loadLetterIn, recomputeStatus } from '../cases.js';
 import { renderDocx, formatValues, docxToHtml, docxToPdf } from '../docx.js';
 import { withBawaan } from './templates.js';
+import { pageParams, csvList, sendCsv, runBulk } from '../listing.js';
 
 const r = Router();
 export const STATUS_OUT = {
@@ -82,29 +83,48 @@ function missingRequired(tv, lo) {
 }
 
 /* ---------- Daftar ---------- */
-r.get('/', wrap(async (req, res) => {
+const SORTS = { dibuat: 'lo.id', tgl: 'lo.tgl_surat', perihal: 'lo.perihal', tujuan: 'lo.tujuan', status: 'lo.status', nomor: 'lo.nomor_surat', agenda: 'lo.id' };
+
+function outFilter(req) {
   const vis = visibleLettersOut(req.user, 'lo', 0);
   const params = [...vis.params];
   const where = [vis.sql];
-  if (req.query.status) { params.push(String(req.query.status)); where.push(`lo.status=$${params.length}`); }
-  if (req.query.mine === '1') { params.push(req.user.id); where.push(`lo.created_by=$${params.length}`); }
+  const add = (cond, val) => { params.push(val); where.push(cond.replace(/\?/g, `$${params.length}`)); };
+  const st = csvList(req.query.status);
+  if (st.length) add('lo.status = ANY(?)', st);
+  if (req.query.mine === '1') add('lo.created_by=?', req.user.id);
+  if (req.query.jenis) add('lo.jenis = ?', String(req.query.jenis));
+  if (req.query.from) add('lo.tgl_surat >= ?', dateStr(req.query.from, 'Dari tanggal'));
+  if (req.query.to) add('lo.tgl_surat <= ?', dateStr(req.query.to, 'Sampai tanggal'));
   if (req.query.antrian === 'menunggu_saya') {
     if (canApprove(req.user)) where.push(`lo.status='MENUNGGU_PERSETUJUAN'`);
     else if (canReview(req.user)) where.push(`lo.status='REVIEW'`);
     else where.push('FALSE');
   }
-  if (req.query.q) {
-    params.push(`%${String(req.query.q).slice(0, 100)}%`);
-    const n = params.length;
-    where.push(`(lo.no_agenda ILIKE $${n} OR lo.nomor_surat ILIKE $${n} OR lo.perihal ILIKE $${n} OR lo.tujuan ILIKE $${n})`);
+  if (req.query.q) add(`(lo.no_agenda ILIKE ? OR lo.nomor_surat ILIKE ? OR lo.perihal ILIKE ? OR lo.tujuan ILIKE ?)`, `%${String(req.query.q).slice(0, 100)}%`);
+  return { sql: where.join(' AND '), params };
+}
+const OFROM = `FROM letters_out lo JOIN users u ON u.id=lo.created_by LEFT JOIN letters_in li ON li.id=lo.letter_in_id`;
+
+r.get('/', wrap(async (req, res) => {
+  const w = outFilter(req);
+  const pg = pageParams(req.query, { sorts: SORTS, defaultSort: 'dibuat' });
+  const cols = `lo.id,lo.no_agenda,lo.nomor_surat,lo.jenis,lo.perihal,lo.tujuan,lo.status,lo.tgl_surat,lo.created_at,lo.letter_in_id,u.nama AS pembuat,li.no_agenda AS asal_agenda`;
+  if (req.query.format === 'csv') {
+    const rows = await all(`SELECT ${cols} ${OFROM} WHERE ${w.sql} ORDER BY ${pg.orderBy} LIMIT 5000`, w.params);
+    return sendCsv(res, `surat-keluar-${today()}.csv`, ['No. Agenda', 'Nomor surat', 'Tanggal', 'Jenis', 'Tujuan', 'Perihal', 'Pembuat', 'Status'],
+      rows.map((x) => [x.no_agenda, x.nomor_surat, x.tgl_surat, x.jenis, x.tujuan, x.perihal, x.pembuat, STATUS_OUT[x.status]]));
   }
-  const rows = await all(
-    `SELECT lo.id,lo.no_agenda,lo.nomor_surat,lo.jenis,lo.perihal,lo.tujuan,lo.status,lo.tgl_surat,lo.created_at,lo.letter_in_id,
-            u.nama AS pembuat, li.no_agenda AS asal_agenda
-       FROM letters_out lo JOIN users u ON u.id=lo.created_by LEFT JOIN letters_in li ON li.id=lo.letter_in_id
-      WHERE ${where.join(' AND ')} ORDER BY lo.id DESC LIMIT 200`, params,
-  );
-  res.json(rows.map((x) => ({ ...x, statusLabel: STATUS_OUT[x.status] })));
+  const rows = await all(`SELECT ${cols} ${OFROM} WHERE ${w.sql} ORDER BY ${pg.orderBy}, lo.id DESC LIMIT ${pg.limit} OFFSET ${pg.offset}`, w.params);
+  const total = (await one(`SELECT count(*) AS n ${OFROM} WHERE ${w.sql}`, w.params)).n;
+  res.json({ items: rows.map((x) => ({ ...x, statusLabel: STATUS_OUT[x.status] })), total, page: pg.page, pageSize: pg.pageSize });
+}));
+
+r.get('/ids', wrap(async (req, res) => {
+  const w = outFilter(req);
+  const total = (await one(`SELECT count(*) AS n ${OFROM} WHERE ${w.sql}`, w.params)).n;
+  const ids = (await all(`SELECT lo.id ${OFROM} WHERE ${w.sql} ORDER BY lo.id DESC LIMIT 500`, w.params)).map((x) => x.id);
+  res.json({ ids, total, terpotong: total > ids.length });
 }));
 
 /* ---------- Pratinjau tanpa menyimpan ---------- */
@@ -275,9 +295,16 @@ r.post('/:id/review', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-r.post('/:id/ajukan', wrap(async (req, res) => {
+r.post('/bulk/ajukan', wrap(async (req, res) => {
+  res.json(await runBulk(req.body.ids, (id) => doAjukan(req, id, {})));
+}));
+r.post('/bulk/keputusan', wrap(async (req, res) => {
+  res.json(await runBulk(req.body.ids, (id) => doKeputusan(req, id, req.body)));
+}));
+
+async function doAjukan(req, id, b = {}) {
   await tx(async (db) => {
-    const lo = await lockOut(db, req.user, int(req.params.id, 'ID'));
+    const lo = await lockOut(db, req.user, id);
     if (!['DRAFT', 'REVISI', 'REVIEW'].includes(lo.status)) throw conflict('Surat tidak dapat diajukan pada status ini');
     const owner = lo.created_by === req.user.id || is(req.user, 'superadmin', 'tu');
     if (lo.status === 'REVIEW' ? !canReview(req.user) : !owner) throw forbidden();
@@ -285,8 +312,12 @@ r.post('/:id/ajukan', wrap(async (req, res) => {
     const kurang = missingRequired(tv, lo);
     if (kurang.length) throw bad(`Lengkapi isian berikut sebelum diajukan: ${kurang.join(', ')}`);
     if (!lo.penandatangan_id) throw bad('Pilih penandatangan sebelum diajukan');
-    await step(db, req, lo, { status: 'MENUNGGU_PERSETUJUAN', aksi: 'AJUKAN', catatan: str(req.body.catatan, 'Catatan', { max: 1000, required: false }), teks: 'Diajukan untuk persetujuan', notifyIds: await approverIds(db), notifJudul: 'Surat keluar menunggu persetujuan Anda' });
+    await step(db, req, lo, { status: 'MENUNGGU_PERSETUJUAN', aksi: 'AJUKAN', catatan: str(b.catatan, 'Catatan', { max: 1000, required: false }), teks: 'Diajukan untuk persetujuan', notifyIds: await approverIds(db), notifJudul: 'Surat keluar menunggu persetujuan Anda' });
   });
+}
+
+r.post('/:id/ajukan', wrap(async (req, res) => {
+  await doAjukan(req, int(req.params.id, 'ID'), req.body);
   res.json({ ok: true });
 }));
 
@@ -307,11 +338,11 @@ async function assignNomor(db, lo) {
     .replaceAll('{tahun}', year);
 }
 
-r.post('/:id/keputusan', wrap(async (req, res) => {
-  const aksi = oneOf(req.body.aksi, ['setuju', 'tolak', 'revisi'], 'Keputusan');
-  const catatan = str(req.body.catatan, 'Catatan', { max: 1000, required: aksi !== 'setuju' });
+async function doKeputusan(req, id, b) {
+  const aksi = oneOf(b.aksi, ['setuju', 'tolak', 'revisi'], 'Keputusan');
+  const catatan = str(b.catatan, 'Catatan', { max: 1000, required: aksi !== 'setuju' });
   await tx(async (db) => {
-    const lo = await lockOut(db, req.user, int(req.params.id, 'ID'));
+    const lo = await lockOut(db, req.user, id);
     if (lo.status !== 'MENUNGGU_PERSETUJUAN') throw conflict('Surat tidak sedang menunggu persetujuan');
     if (!canApprove(req.user)) throw forbidden('Hanya pimpinan yang dapat memutuskan persetujuan');
     if (aksi === 'tolak') {
@@ -326,6 +357,10 @@ r.post('/:id/keputusan', wrap(async (req, res) => {
       await step(db, req, withNo, { status: 'NOMOR_DIBERIKAN', aksi: 'SETUJU', catatan, teks: `Disetujui, nomor surat ${nomor} diberikan`, notifyIds: [lo.created_by, ...(await db.all(`SELECT id FROM users WHERE role='tu' AND aktif`)).map((u) => u.id)], notifJudul: 'Surat keluar disetujui' });
     }
   });
+}
+
+r.post('/:id/keputusan', wrap(async (req, res) => {
+  await doKeputusan(req, int(req.params.id, 'ID'), req.body);
   res.json({ ok: true });
 }));
 

@@ -1,8 +1,8 @@
 # DESIGN.md
 
-Arah desain aplikasi Sistem Surat dan Disposisi. Sumber arah: skill apple-design (respons instan, gerak berbasis pegas yang dapat diinterupsi, material translusen, tipografi optik, kesederhanaan). antislop dipakai sebagai filter, bukan sumber gaya.
+Arah desain aplikasi Sistem Surat dan Disposisi. Sumber arah gerak dan kerajinan antarmuka: skill emil-design-eng (Emil Kowalski), terpasang di `.agents/skills`. antislop dipakai sebagai filter, bukan sumber gaya. Skill apple-design tidak lagi dipakai.
 
-Design Read: sistem kerja internal instansi untuk TU, pimpinan, dan pegawai, bahasa visual Apple, dial ENERGY 1 / RHYTHM 2 / MOTION 2.
+Design Read: sistem kerja internal instansi untuk TU, pimpinan, dan pegawai, bahasa visual tenang dan padat fungsi, dial ENERGY 1 / RHYTHM 2 / MOTION 2.
 
 ## Identitas
 
@@ -30,14 +30,30 @@ Radius berjenjang: kontrol 8px, kartu 14px, panel 20px, penanda status 6px. Tida
 
 ## Material
 
-`backdrop-filter` hanya pada dua tempat: bilah atas yang tetap (konten bergulir di bawahnya) dan scrim di belakang panel. Sidebar sengaja solid. `prefers-reduced-transparency` membuat keduanya solid.
+`backdrop-filter` hanya pada bilah atas yang tetap, scrim di belakang panel, dan dialog. Sidebar sengaja solid. `prefers-reduced-transparency` membuat semuanya solid.
 
-## Gerak
+## Gerak (aturan emil-design-eng)
 
-- Panel (Sheet): pegas critically damped (bounce 0, 0.42 dtk). Di desktop masuk dan keluar dari kanan (jalur simetris). Di ponsel naik dari bawah, dapat diseret mengikuti jari 1:1, kecepatan lepas dibawa ke pegas, tujuan dipilih dari proyeksi momentum, tarikan ke atas diredam (rubber band).
-- Tekan: `scale(0.97)` seketika pada `:active`.
-- Bilah progres: pegas dari 0 ke nilai.
-- `prefers-reduced-motion`: pegas diganti perpindahan langsung.
+Frekuensi menentukan: tindakan yang dilakukan puluhan kali sehari tidak dianimasikan.
+
+- Kurva: `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)` untuk masuk dan umpan balik, `--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)` untuk sidebar. Tidak ada `ease-in`, tidak ada `transition: all`.
+- Durasi: tekan 160 ms, menu dan popover 150 ms, dialog 180 ms, bilah aksi massal 200 ms, panel 300 ms masuk dan 220 ms keluar (keluar lebih cepat karena sistem merespons). Tidak ada yang melewati 300 ms kecuali bilah progres (500 ms, jarang terlihat).
+- Tekan: `scale(0.97)` seketika pada `:active` untuk tombol, chip, tab, tombol halaman.
+- Tidak ada animasi dari `scale(0)`. Popover mulai dari `scale(0.97)` dengan `transform-origin` di pemicunya (kanan atas atau kiri atas), dialog tetap berpusat.
+- Tindakan keyboard tidak dianimasikan: Escape menutup panel seketika, menu yang dibuka dengan Enter atau Spasi tampil tanpa transisi.
+- Panel (Sheet): pegas critically damped. Di desktop masuk dan keluar dari kanan (jalur simetris). Di ponsel naik dari bawah, dapat diseret mengikuti jari 1:1, kecepatan lepas dibawa ke pegas, tujuan dipilih dari proyeksi momentum, tarikan ke atas diredam. Satu jari saja yang dihitung (pointer capture).
+- Efek `:hover` hanya pada `(hover: hover) and (pointer: fine)`.
+- Masuk memakai `@starting-style` dan transisi CSS (dapat diinterupsi), bukan keyframe.
+- `prefers-reduced-motion`: pegas diganti perpindahan langsung, sisanya hanya memudar.
+
+## Tata letak dan alur (agar tidak membingungkan)
+
+- Satu tombol utama per layar. Halaman detail surat membuka dengan kartu "Langkah berikutnya" yang menyebut apa yang perlu Anda lakukan sekarang dan memberi tepat satu tombol utama; sisanya masuk menu "Aksi lain".
+- Panel status di sisi kanan menjawab tiga pertanyaan PRD: surat ada di mana (Posisi), kapan harus selesai (Tenggat), sudah sampai mana (Progres).
+- Beranda dibuka dengan "Perlu tindakan Anda", daftar pekerjaan yang menunggu pengguna itu, masing-masing dengan satu tombol. Angka ringkasan ada di bawahnya.
+- Semua daftar data memakai satu pola: tab cepat, kotak cari, saringan (popover) dengan chip aktif yang dapat dihapus, tabel yang dapat diurutkan, pilih baris, bilah aksi massal, halaman. Status daftar tersimpan di URL sehingga tombol kembali dan tautan tetap bermakna.
+- Aksi massal selalu meminta konfirmasi bila tidak dapat diurungkan, berjalan per data (satu gagal tidak menggagalkan yang lain), dan melaporkan rincian kegagalan.
+- Urutan tombol di panel dan dialog selalu: Batal di kiri, tindakan utama di kanan, tindakan merusak berwarna merah dan terpisah.
 
 ## Interaksi dan akses
 
@@ -45,4 +61,4 @@ Semua kontrol dapat dioperasikan keyboard, fokus terlihat (`:focus-visible`), pa
 
 ## Yang sengaja tidak dibuat
 
-Ikon pustaka (hanya enam glif yang artinya jelas), logo (nama teks, tunggu logo asli dari instansi), foto atau avatar, statistik contoh, testimoni, FAQ.
+Ikon pustaka (hanya beberapa glif yang artinya jelas), logo (nama teks, tunggu logo asli dari instansi), foto atau avatar, statistik contoh, testimoni, FAQ.
