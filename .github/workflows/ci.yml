@@ -1,0 +1,33 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: surat
+          POSTGRES_PASSWORD: surat_dev
+          POSTGRES_DB: surat
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U surat" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://surat:surat_dev@localhost:5432/surat_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer-nogui
+      - run: PGPASSWORD=surat_dev psql -h localhost -U surat -d surat -c "ALTER ROLE surat CREATEDB"
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t surat-web-app .

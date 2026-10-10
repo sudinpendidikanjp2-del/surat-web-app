@@ -1,0 +1,8 @@
+node_modules
+client/dist
+storage
+.env
+.git
+.agents
+.claude
+*.log

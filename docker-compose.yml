@@ -1,0 +1,37 @@
+# Produksi: aplikasi + PostgreSQL. Salin .env.example menjadi .env dan isi nilainya dulu.
+#   docker compose up -d --build
+# Taruh di belakang reverse proxy HTTPS (lihat deploy/Caddyfile).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-surat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env}
+      POSTGRES_DB: ${POSTGRES_DB:-surat}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-surat} -d ${POSTGRES_DB:-surat}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-surat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-surat}
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
+      SESSION_HOURS: ${SESSION_HOURS:-12}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-15}
+      OCR_ENGINE: ${OCR_ENGINE:-tesseract}
+      OCR_URL: ${OCR_URL:-}
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"   # hanya lokal; publikasikan lewat reverse proxy
+    volumes:
+      - storage:/data
+volumes:
+  pgdata:
+  storage:

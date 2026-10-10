@@ -45,6 +45,12 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
   app.use(loadUser);
 
+  // Pemeriksaan kesehatan untuk orkestrator/load balancer. /healthz: proses hidup. /readyz: database terjangkau.
+  app.get('/healthz', (_req, res) => res.json({ ok: true }));
+  app.get('/readyz', async (_req, res) => {
+    try { await pool.query('SELECT 1'); res.json({ ok: true }); } catch { res.status(503).json({ ok: false }); }
+  });
+
   const api = express.Router();
   api.use(csrfGuard);
   api.use('/auth', auth);
@@ -89,7 +95,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createApp();
   const server = app.listen(config.port, () => console.log(`Server berjalan di http://localhost:${config.port}`));
   startJobs();
-  const stop = () => server.close(() => stopOcr().then(() => pool.end()).then(() => process.exit(0)));
+  const stop = () => {
+    setTimeout(() => process.exit(1), 15000).unref(); // paksa keluar bila koneksi menggantung
+    server.close(() => stopOcr().then(() => pool.end()).then(() => process.exit(0)));
+  };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
 }

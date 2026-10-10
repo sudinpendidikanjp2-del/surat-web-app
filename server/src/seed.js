@@ -3,7 +3,12 @@ import { hashPassword } from './security.js';
 import { buildDocx, extractFields, DEFAULT_TEMPLATES } from './docx.js';
 import { saveBuffer } from './storage.js';
 
-const INITIAL_PASSWORD = process.env.SEED_PASSWORD || 'surat12345';
+import { randomBytes } from 'node:crypto';
+import { config } from './config.js';
+
+// Di produksi, kata sandi bawaan yang dikenal publik tidak boleh dipakai: bila SEED_PASSWORD tidak diisi, dibuat acak.
+const GENERATED = config.production && !process.env.SEED_PASSWORD;
+const INITIAL_PASSWORD = process.env.SEED_PASSWORD || (GENERATED ? randomBytes(12).toString('base64url') : 'surat12345');
 
 const UNITS = [
   { kode: 'PIM', nama: 'Pimpinan' },
@@ -33,7 +38,7 @@ export async function ensureBaseData() {
         [u.username, u.nama, u.nip || null, u.pangkat || null, u.jabatan, u.role, unit.id, hash],
       );
     }
-    console.log(`Akun awal dibuat (${USERS.map((u) => u.username).join(', ')}). Kata sandi awal: ${INITIAL_PASSWORD}. Segera ganti.`);
+    console.log(`Akun awal dibuat (${USERS.map((u) => u.username).join(', ')}). Kata sandi awal: ${INITIAL_PASSWORD}. Segera ganti.${GENERATED ? ' (dibuat acak, catat sekarang, tidak ditampilkan lagi)' : ''}`);
   }
   const defaults = {
     instansi: { nama: 'Sudin Pendidikan JP2', alamat: '', kota: 'Jakarta', kode_unit: 'Sudin-JP2' },

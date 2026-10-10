@@ -1,0 +1,8 @@
+# Reverse proxy HTTPS otomatis (Let's Encrypt). Ganti domain, lalu jalankan: caddy run --config deploy/Caddyfile
+surat.contoh.go.id {
+	encode zstd gzip
+	request_body {
+		max_size 20MB
+	}
+	reverse_proxy 127.0.0.1:3000
+}

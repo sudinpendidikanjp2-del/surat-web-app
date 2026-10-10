@@ -120,9 +120,42 @@ Halaman publik `/lacak` (tanpa login) agar pengirim dapat memantau suratnya. Dip
 
 ## Belum ada (di luar MVP, sesuai fase PRD)
 
-Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, sinkronisasi Google Drive, OCR dan pencarian isi dokumen, ekspor Excel dan PDF laporan (CSV tersedia), tracking publik, TTE, fitur AI, backup otomatis (gunakan `pg_dump` dan salin folder `storage`).
+Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, sinkronisasi Google Drive, OCR dan pencarian isi dokumen, ekspor Excel dan PDF laporan (CSV tersedia), tracking publik, TTE, fitur AI, backup terkelola di luar server (skrip `scripts/backup.sh` tersedia).
 
 Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint mengembalikan pesan jelas dan DOCX tetap dapat diunduh.
+
+## Uji lokal dengan database siap pakai
+
+Cara tercepat (butuh Docker dan Node 22):
+
+```bash
+./scripts/local-setup.sh        # PostgreSQL di Docker (db surat dan surat_test), npm install, build
+npm run dev:server              # API :3000, migrasi dan akun awal otomatis
+npm run dev:client              # UI :5173
+npm run seed:demo               # opsional, saat server jalan: isi data contoh
+npm test                        # 17 uji backend (membuat db uji sendiri)
+```
+
+Tanpa Docker: pakai PostgreSQL sendiri, buat role `surat` dengan hak `CREATEDB`, lalu `SKIP_DOCKER=1 ./scripts/local-setup.sh`. Atur `DATABASE_URL` dan `TEST_DATABASE_URL` bila nama/sandi berbeda. Masuk dengan `admin` / `surat12345`.
+
+## Deploy produksi (Docker)
+
+```bash
+cp .env.example .env            # isi POSTGRES_PASSWORD (wajib) dan SEED_PASSWORD
+docker compose up -d --build    # app :3000 (hanya 127.0.0.1) + PostgreSQL 16, data di volume
+docker compose logs app | grep "Akun awal"   # bila SEED_PASSWORD kosong, kata sandi acak tampil di sini
+```
+
+1. Taruh HTTPS di depan aplikasi. Contoh Caddy (sertifikat otomatis) ada di `deploy/Caddyfile`. Cookie sesi bertanda `Secure`, jadi login hanya jalan lewat HTTPS (localhost dikecualikan oleh peramban).
+2. Masuk sebagai `admin`, ganti kata sandi semua akun bawaan, lalu ubah nama instansi, unit, dan pengaturan penomoran.
+3. Cadangan harian: `./scripts/backup.sh` (database dan file privat, simpan 14 hari). Jadwalkan dengan cron. Pulihkan dengan `./scripts/restore.sh`. Coba pulihkan di mesin lain sebelum mengandalkannya.
+4. Pemantauan: `GET /healthz` (proses hidup) dan `GET /readyz` (database terjangkau). Image punya HEALTHCHECK bawaan.
+5. Pembaruan: `git pull && docker compose up -d --build`. Migrasi skema berjalan otomatis saat start.
+6. Image memasang LibreOffice (untuk PDF), sehingga cukup besar. Hapus baris `apt-get` di `Dockerfile` bila PDF tidak dibutuhkan.
+
+CI (`.github/workflows/ci.yml`) menjalankan build dan seluruh uji dengan PostgreSQL, serta membangun image Docker.
+
+Belum teruji di lingkungan pengembangan saya: `docker build` dan `docker compose` (tidak ada daemon Docker di sana). Server diuji langsung dengan `NODE_ENV=production`: kata sandi acak, `/healthz`, `/readyz`, cookie Secure, dan header keamanan. Jalankan build pertama di server Anda dan periksa `docker compose ps` menunjukkan `healthy`.
 
 ## Catatan produksi
 
