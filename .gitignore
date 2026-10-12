@@ -3,3 +3,7 @@ client/dist
 storage
 .env
 *.log
+
+.next/
+next-env.d.ts
+*.tsbuildinfo
