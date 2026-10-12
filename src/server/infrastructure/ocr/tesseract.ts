@@ -182,9 +182,7 @@ export async function preprocess(buffer: Buffer) {
   const meta = await base.metadata();
   const srcW = meta.width || 0;
   // Jangan memperbesar tanpa perlu: interpolasi menipiskan goresan huruf. Perbesar hanya foto kecil.
-  const rotatedW = (meta.orientation && meta.orientation >= 5 ? meta.height : meta.width) || srcW;
-  const targetW = TARGET_W + 0 * rotatedW;
-  let resized = await base.clone().resize({ width: targetW, withoutEnlargement: false, kernel: 'lanczos3' }).grayscale().normalise().raw().toBuffer({ resolveWithObject: true });
+  const resized = await base.clone().resize({ width: TARGET_W, withoutEnlargement: false, kernel: 'lanczos3' }).grayscale().normalise().raw().toBuffer({ resolveWithObject: true });
   let f = await flatten(resized.data, resized.info.width, resized.info.height);
   const noise = paperNoise(f.ratio);
   if (noise > 6) {

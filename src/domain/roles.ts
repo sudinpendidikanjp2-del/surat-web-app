@@ -32,17 +32,17 @@ export const SEES_ALL_IN: Role[] = ['superadmin', 'tu', 'pimpinan'];
 export const SEES_ALL_OUT: Role[] = ['superadmin', 'tu', 'pimpinan'];
 
 export const can = {
-  manageIn: (u: Actor) => is(u, 'superadmin', 'tu'),
-  dispose: (u: Actor) => is(u, 'superadmin', 'pimpinan'),
-  assign: (u: Actor) => is(u, 'superadmin', 'pimpinan', 'pejabat'),
-  writeOut: (u: Actor) => is(u, 'superadmin', 'tu', 'pejabat', 'pelaksana'),
-  approve: (u: Actor) => is(u, 'superadmin', 'pimpinan'),
-  review: (u: Actor) => is(u, 'superadmin', 'pimpinan', 'pejabat'),
-  admin: (u: Actor) => is(u, 'superadmin'),
-  audit: (u: Actor) => is(u, 'superadmin', 'pimpinan'),
-  report: (u: Actor) => !is(u, 'pelaksana'),
-  work: (u: Actor) => !is(u, 'viewer'),
-  ocr: (u: Actor) => is(u, 'superadmin', 'tu'),
+  manageIn: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'tu'),
+  dispose: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'pimpinan'),
+  assign: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'pimpinan', 'pejabat'),
+  writeOut: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'tu', 'pejabat', 'pelaksana'),
+  approve: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'pimpinan'),
+  review: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'pimpinan', 'pejabat'),
+  admin: (u: Pick<Actor, 'role'>) => is(u, 'superadmin'),
+  audit: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'pimpinan'),
+  report: (u: Pick<Actor, 'role'>) => !is(u, 'pelaksana'),
+  work: (u: Pick<Actor, 'role'>) => !is(u, 'viewer'),
+  ocr: (u: Pick<Actor, 'role'>) => is(u, 'superadmin', 'tu'),
 };
 
 /** Bentuk pengguna yang dikirim ke klien. */

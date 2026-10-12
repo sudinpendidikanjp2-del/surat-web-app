@@ -10,7 +10,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['test/**/*.test.ts'],
+    // Tolok ukur OCR lambat, jadi hanya dijalankan lewat `npm run bench:ocr`.
+    include: process.env.OCR_BENCH ? ['scripts/ocr/*.test.ts'] : ['test/**/*.test.ts'],
     fileParallelism: false,
     testTimeout: 120_000,
     hookTimeout: 180_000,

@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
-import type pg from 'pg';
 import * as demoModule from '../scripts/demo.mjs';
 import { startServer, type TestServer } from './support/server';
 
 const demo: any = demoModule;
 const S: any = demo.Session;
-let srv: TestServer; let url: string; let pool: pg.Pool;
+let srv: TestServer; let url: string;
 let tu: any; let pm: any; let kasi: any; let andi: any;
 
 
@@ -21,7 +20,6 @@ const expectStatus = async (p: Promise<unknown>, status: number) => assert.rejec
 beforeAll(async () => {
   srv = await startServer('surat_test2');
   url = srv.url;
-  pool = srv.pool;
   [tu, pm, kasi, andi] = await Promise.all(['tu', 'pimpinan', 'kasi.data', 'andi'].map((n) => new S(url, n).login()));
 });
 

@@ -1,1 +1,94 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * Sistem Surat: token desain. Alasan setiap keputusan ada di DESIGN.md.
+ * Arah: alat kerja harian untuk pegawai senior. Huruf besar, kontras AAA (7:1), satu aksen hijau tinta,
+ * hampir tanpa gerak. Hanya tema terang: kertas putih dan tinta hitam, seperti surat yang mereka pegang.
+ */
+@theme {
+  --font-sans: var(--font-atkinson), system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  --color-background: #f4f2ec;
+  --color-foreground: #141414;
+  --color-card: #ffffff;
+  --color-card-foreground: #141414;
+  --color-muted: #ebe8e1;
+  --color-muted-foreground: #383838;
+  --color-border: #7a7466;
+  --color-input: #5d584c;
+  --color-ring: #0b5a48;
+
+  --color-primary: #0b5a48;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #e3f1ec;
+  --color-secondary: #ffffff;
+  --color-secondary-foreground: #141414;
+  --color-destructive: #9b1c13;
+  --color-destructive-foreground: #ffffff;
+
+  --color-ok: #134d2a;
+  --color-ok-soft: #e3f2e7;
+  --color-warn: #5c3a00;
+  --color-warn-soft: #fdf1d3;
+  --color-late: #8d1c13;
+  --color-late-soft: #fbe9e7;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Skala huruf: dasar 18px. Tidak ada teks di bawah 16px. */
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.125rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.875rem;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 1.2;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+  h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; }
+  /* Tautan selalu bergaris bawah: warna saja tidak cukup untuk menandai tautan. */
+  a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+  /* Cincin fokus tebal dan selalu terlihat saat memakai keyboard. */
+  :focus-visible { outline: 3px solid var(--color-ring); outline-offset: 3px; border-radius: 4px; }
+  ::selection { background: #cfe7df; }
+  /* Ketuk tanpa kilat abu, tanpa jeda ketuk ganda. Umpan balik datang dari warna tombol. */
+  a, button, label, summary { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  /* Stempel agenda: motif identitas, nomor agenda dalam bingkai seperti cap penerimaan surat. */
+  .stamp {
+    display: inline-block; font-weight: 700; font-size: 1rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+    padding: 2px 10px; border: 2px solid currentColor; border-radius: 4px; color: var(--color-primary); white-space: nowrap;
+  }
+  .preview-doc { background: #fff; color: #111; font-family: 'Times New Roman', Times, serif; line-height: 1.5; overflow-x: auto; }
+  .preview-doc p { margin: 0 0 8px; white-space: pre-wrap; tab-size: 12ch; overflow-wrap: anywhere; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}
