@@ -16,9 +16,8 @@ export function normalizeCode(input) {
 
 function Header() {
   return (
-    <div className="row" style={{ gap: 10 }}>
-      <span className="brand-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M5 7h14M5 12h14M5 17h9" /></svg></span>
-      <strong>Pelacakan Surat</strong>
+    <div className="brand public-brand">
+      <span className="brand-name">Pelacakan Surat</span>
     </div>
   );
 }
@@ -35,7 +34,7 @@ function Form({ initial = '', error }) {
     nav(`/lacak/${c}`);
   };
   return (
-    <form className="card card-pad stack" style={{ gap: 14 }} onSubmit={submit} noValidate>
+    <form className="card card-pad stack stack-md" onSubmit={submit} noValidate>
       <Field label="Kode pelacakan atau tautan" hint="Kode diberikan oleh petugas yang menerima surat Anda." error={err}>{(id, e) => <Input id={id} error={e} value={v} onChange={(ev) => setV(ev.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck="false" autoFocus />}</Field>
       <div><button type="submit" className="btn btn-primary">Cek Status Surat</button></div>
     </form>
@@ -64,7 +63,7 @@ export default function Track() {
         <Header />
         {!code && (
           <>
-            <div><h1>Cek progres surat Anda</h1><p className="muted" style={{ marginTop: 8 }}>Masukkan kode pelacakan untuk melihat tahapan surat tanpa perlu masuk.</p></div>
+            <div><h1>Cek progres surat Anda</h1><p className="muted gap-top">Masukkan kode pelacakan untuk melihat tahapan surat tanpa perlu masuk.</p></div>
             <Form />
           </>
         )}
@@ -80,8 +79,8 @@ export default function Track() {
           <>
             <div>
               <p className="muted small">Surat nomor</p>
-              <h1 style={{ overflowWrap: 'anywhere' }}>{q.data.no_surat}</h1>
-              <p className="muted" style={{ marginTop: 6 }}>Diterima {fmtDate(q.data.tgl_diterima)}. Diperbarui {fmtDate(q.data.diperbarui)}.</p>
+              <h1 className="wrap">{q.data.no_surat}</h1>
+              <p className="muted gap-top">Diterima {fmtDate(q.data.tgl_diterima)}. Diperbarui {fmtDate(q.data.diperbarui)}.</p>
             </div>
             <section className="card card-pad stack" aria-label="Status surat">
               <div className={`alert ${q.data.selesai ? 'alert-ok' : 'alert-warn'}`} role="status"><strong>{q.data.selesai ? 'Selesai' : 'Sedang diproses'}</strong>. Tahap terakhir: {q.data.posisi}.</div>
@@ -91,7 +90,7 @@ export default function Track() {
                   return (
                     <li key={s.key} className={`${s.done ? 'done' : ''}${lastDone && !q.data.selesai ? ' now' : ''}`}>
                       <span className="dot" aria-hidden="true">{s.done && <Icon name="check" size={14} />}</span>
-                      <span><span className="lbl">{s.label}<span className="sr-only">{s.done ? ', selesai' : ', belum'}</span></span>{s.tanggal && <span className="when" style={{ display: 'block' }}>{fmtDate(s.tanggal)}</span>}</span>
+                      <span><span className="lbl">{s.label}<span className="sr-only">{s.done ? ', selesai' : ', belum'}</span></span>{s.tanggal && <span className="when block">{fmtDate(s.tanggal)}</span>}</span>
                     </li>
                   );
                 })}

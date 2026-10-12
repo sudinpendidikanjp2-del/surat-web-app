@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get, qs } from '../api.js';
@@ -12,6 +12,13 @@ export function Search() {
   const set = (patch) => { const n = { ...f, ...patch }; const p = {}; for (const [k, v] of Object.entries(n)) if (v && !(k === 'jenis' && v === 'semua')) p[k] = v; setSp(p, { replace: true }); };
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
+  // Kata kunci ditulis ke URL (dan dicari) 300 ms setelah berhenti mengetik, bukan di setiap ketukan.
+  const [kw, setKw] = useState(f.q);
+  useEffect(() => setKw(f.q), [f.q]);
+  useEffect(() => { if (kw === f.q) return undefined; const t = setTimeout(() => set({ q: kw }), 300); return () => clearTimeout(t); }, [kw]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Saringan berubah: hasil lama di halaman 3 tidak berarti untuk pencarian baru.
+  const sig = sp.toString();
+  useEffect(() => setPage(1), [sig]);
   const [adv, setAdv] = useState(Boolean(f.status || f.sifat || f.prioritas || f.from || f.to || f.unit || f.pic || f.tahun));
   const hasFilter = Object.entries(f).some(([k, v]) => v && !(k === 'jenis' && v === 'semua'));
   const q = useQuery({ queryKey: ['search', f], queryFn: () => get(`/search${qs(f)}`), enabled: hasFilter });
@@ -23,12 +30,12 @@ export function Search() {
       <PageHead title="Pencarian surat" sub="Cari surat masuk dan keluar dari nomor, perihal, pengirim, instruksi disposisi, judul tugas, atau nama dokumen." />
       <form className="card card-pad stack" role="search" onSubmit={(e) => e.preventDefault()}>
         <div className="form-grid">
-          <Field label="Kata kunci" span2>{(id) => <Input id={id} type="search" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Contoh: KJP" autoFocus />}</Field>
+          <Field label="Kata kunci" span2>{(id) => <Input id={id} type="search" value={kw} onChange={(e) => setKw(e.target.value)} placeholder="Contoh: KJP" autoFocus />}</Field>
           <Field label="Jenis surat">{(id) => <Select id={id} value={f.jenis} onChange={(e) => set({ jenis: e.target.value, status: '' })} options={[{ value: 'semua', label: 'Surat masuk dan keluar' }, { value: 'masuk', label: 'Surat masuk' }, { value: 'keluar', label: 'Surat keluar' }]} />}</Field>
-          <div className="field" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn" aria-expanded={adv} onClick={() => setAdv(!adv)}>{adv ? 'Sembunyikan Filter Lanjutan' : 'Filter Lanjutan'}</button></div>
+          <div className="field field-end"><button type="button" className="btn" aria-expanded={adv} onClick={() => setAdv(!adv)}>{adv ? 'Sembunyikan Filter Lanjutan' : 'Filter Lanjutan'}</button></div>
         </div>
         {adv && (
-          <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+          <div className="form-grid form-grid-auto">
             <Field label="Tanggal dari">{(id) => <Input id={id} type="date" value={f.from} onChange={(e) => set({ from: e.target.value })} />}</Field>
             <Field label="Tanggal sampai">{(id) => <Input id={id} type="date" value={f.to} onChange={(e) => set({ to: e.target.value })} />}</Field>
             <Field label="Tahun">{(id) => <Input id={id} type="number" min="2000" max="2100" value={f.tahun} onChange={(e) => set({ tahun: e.target.value })} />}</Field>
@@ -40,7 +47,7 @@ export function Search() {
           </div>
         )}
       </form>
-      {!hasFilter ? <Empty title="Mulai dengan kata kunci" text="Ketik nomor surat, perihal, atau nama pengirim. Hasil muncul saat Anda mengetik." /> : (
+      {!hasFilter ? <div className="card"><Empty title="Mulai dengan kata kunci" text="Ketik nomor surat, perihal, atau nama pengirim. Hasil muncul saat Anda berhenti mengetik." /></div> : (
         <div className="card">
           <Async q={q} empty={<Empty title="Tidak ada surat yang cocok" text="Coba kata kunci lain atau longgarkan filter." />}>
             {(all) => { const rows = all.slice((page - 1) * size, page * size); return (
@@ -99,15 +106,15 @@ export function Archive() {
         {(years) => years.map((y) => (
           <section key={y.tahun} className="section" aria-label={`Arsip ${y.tahun}`}>
             <h2>{y.tahun}</h2>
-            <div className="split" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+            <div className="split split-auto">
               {[['masuk', 'Surat masuk', y.masuk], ['keluar', 'Surat keluar', y.keluar]].map(([jenis, label, months]) => (
-                <div key={jenis} className="card card-pad stack" style={{ gap: 4 }}>
+                <div key={jenis} className="card card-pad stack stack-xs">
                   <h3>{label}</h3>
                   {months.every((m) => m.jumlah === 0) ? <p className="muted">Tidak ada surat.</p> : months.filter((m) => m.jumlah > 0).map((m) => {
                     const key = `${y.tahun}-${jenis}-${m.bulan}`;
                     return (
                       <div key={key}>
-                        <button type="button" className="nav-link" style={{ width: '100%', background: 'none', border: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)' }} aria-expanded={Boolean(open[key])} onClick={() => setOpen({ ...open, [key]: !open[key] })}>
+                        <button type="button" className="nav-link disclosure" aria-expanded={Boolean(open[key])} onClick={() => setOpen({ ...open, [key]: !open[key] })}>
                           <span>{m.nama}</span><span className="num muted">{m.jumlah}</span>
                         </button>
                         {open[key] && <ArchiveList tahun={y.tahun} jenis={jenis} bulan={m.bulan} nama={m.nama} />}

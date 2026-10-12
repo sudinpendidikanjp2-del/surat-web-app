@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { animate } from 'motion';
-import { STATUS_IN, STATUS_OUT, STATUS_TASK, STATUS_DISP, fmtSize } from './format.js';
+import { get, post } from './api.js';
+import { STATUS_IN, STATUS_OUT, STATUS_TASK, STATUS_DISP, fmtDateTime, fmtSize } from './format.js';
 
 /* ---------- Ikon: glif sederhana, dipakai hanya bila artinya jelas ---------- */
 const PATHS = {
@@ -51,6 +53,43 @@ export function Progress({ value, label }) {
   );
 }
 
+/** Tahapan berurutan dengan tanda centang. items: { key, label, done } */
+export function Stages({ items, label, compact }) {
+  return (
+    <ol className={`stages${compact ? ' stages-1' : ''}`} aria-label={label}>
+      {items.map((s) => (
+        <li key={s.key} className={s.done ? 'done' : ''}>
+          <span className="stage-mark" aria-hidden="true">{s.done && <Icon name="check" size={12} />}</span>
+          <span>{s.label}<span className="sr-only">{s.done ? ', selesai' : ', belum'}</span></span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Satu angka pada buku ringkasan (ledger). Menjadi tautan bila `to` diisi. */
+export function Figure({ to, n, cap, lead, late }) {
+  const inner = <><span className="figure">{n ?? 0}</span><span className="cap">{cap}</span></>;
+  const cls = `ledger-item${lead ? ' lead' : ''}${late && n > 0 ? ' is-late' : ''}`;
+  return to ? <Link to={to} className={cls}>{inner}</Link> : <div className={cls}>{inner}</div>;
+}
+
+/** Kartu "Langkah berikutnya": satu kalimat, satu tombol utama, sisanya di menu. */
+export function NextStep({ step, busy, children }) {
+  const p = step.primary;
+  return (
+    <section className={`next-step${step.quiet ? ' quiet' : ''}`} aria-label="Langkah berikutnya">
+      <div><h2>{step.title}</h2>{step.desc && <p>{step.desc}</p>}</div>
+      <div className="actions no-print">
+        {p && (p.to ? <Link className="btn btn-primary" to={p.to}>{p.label}</Link>
+          : p.href ? <a className="btn btn-primary" href={p.href}>{p.label}</a>
+            : <button type="button" className="btn btn-primary" disabled={busy} onClick={p.onClick}>{p.label}</button>)}
+        {children}
+      </div>
+    </section>
+  );
+}
+
 /* ---------- Form ---------- */
 export function Field({ label, hint, error, span2, children, id }) {
   const auto = useId();
@@ -64,6 +103,10 @@ export function Field({ label, hint, error, span2, children, id }) {
       {error && <span className="err" role="alert">{error}</span>}
     </div>
   );
+}
+/** Kelompok isian tanpa bingkai bawaan peramban. */
+export function Group({ legend, children }) {
+  return <fieldset className="group"><legend className="label">{legend}</legend>{children}</fieldset>;
 }
 export const Input = ({ id, error, ...p }) => <input id={id} className="input" aria-invalid={error ? 'true' : undefined} {...p} />;
 export const Textarea = ({ id, error, ...p }) => <textarea id={id} className="input" aria-invalid={error ? 'true' : undefined} {...p} />;
@@ -87,11 +130,11 @@ export function FilePicker({ files, setFiles, multiple = true, accept, label = '
         onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}
       >
-        <label htmlFor={id} style={{ cursor: 'pointer', display: 'block' }}>{label}</label>
-        <input id={id} type="file" multiple={multiple} accept={accept} onChange={(e) => { add(e.target.files); e.target.value = ''; }} style={{ marginTop: 8, maxWidth: '100%' }} />
+        <label htmlFor={id} className="drop-label">{label}</label>
+        <input id={id} type="file" multiple={multiple} accept={accept} onChange={(e) => { add(e.target.files); e.target.value = ''; }} />
       </div>
       {files.length > 0 && (
-        <ul className="file-list" style={{ marginTop: 8 }}>
+        <ul className="file-list file-list-picked">
           {files.map((f, i) => (
             <li key={`${f.name}-${i}`}>
               <span className="file-name">{f.name} <span className="muted small">{fmtSize(f.size)}</span></span>
@@ -112,13 +155,15 @@ export function ToastProvider({ children }) {
   const push = useCallback((message, opts = {}) => {
     const id = Math.random().toString(36).slice(2);
     setItems((x) => [...x, { id, message, error: opts.error }]);
-    setTimeout(() => setItems((x) => x.filter((t) => t.id !== id)), opts.error ? 6000 : 3500);
+    // Keluar lebih cepat dari masuk (160 ms vs 220 ms): sistem sedang merespons, pengguna tidak sedang menunggu.
+    setTimeout(() => setItems((x) => x.map((t) => (t.id === id ? { ...t, leaving: true } : t))), opts.error ? 6000 : 3500);
+    setTimeout(() => setItems((x) => x.filter((t) => t.id !== id)), (opts.error ? 6000 : 3500) + 160);
   }, []);
   return (
     <ToastCtx.Provider value={push}>
       {children}
       <div className="toasts" role="status" aria-live="polite">
-        {items.map((t) => <div key={t.id} className={`toast${t.error ? ' error' : ''}`}>{t.message}</div>)}
+        {items.map((t) => <div key={t.id} className={`toast${t.error ? ' error' : ''}`} data-leaving={t.leaving ? 'true' : undefined}>{t.message}</div>)}
       </div>
     </ToastCtx.Provider>
   );
@@ -181,7 +226,9 @@ export function Sheet({ title, onClose, children, footer, wide }) {
     move(0);
     const prev = document.activeElement;
     const el = sheetRef.current;
-    const first = el.querySelector('input:not([type=hidden]), select, textarea, button.btn-primary') || el;
+    // Di layar sentuh fokus ke panel saja: memfokus isian langsung memunculkan papan ketik dan menutupi panel yang sedang naik.
+    const touch = matchMedia('(pointer: coarse)').matches;
+    const first = (!touch && el.querySelector('input:not([type=hidden]), select, textarea, button.btn-primary')) || el;
     first.focus({ preventScroll: true });
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -230,7 +277,7 @@ export function Sheet({ title, onClose, children, footer, wide }) {
   return (
     <>
       <div ref={scrimRef} className="scrim" onClick={() => requestClose()} aria-hidden="true" />
-      <div ref={sheetRef} className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKey} style={wide ? { width: 'min(760px, 100vw)' } : undefined}>
+      <div ref={sheetRef} className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKey} data-wide={wide ? 'true' : undefined}>
         <div className="sheet-grip" aria-hidden="true" />
         <div className="sheet-head" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
           <h2 id={titleId}>{title}</h2>
@@ -239,6 +286,18 @@ export function Sheet({ title, onClose, children, footer, wide }) {
         {typeof children === 'function' ? children({ close: requestClose }) : children}
         {footer && <div className="sheet-foot">{typeof footer === 'function' ? footer({ close: requestClose }) : footer}</div>}
       </div>
+    </>
+  );
+}
+
+export const SheetBody = ({ children }) => <div className="sheet-body">{children}</div>;
+
+/** Kaki panel: Batal di kiri, tindakan utama di kanan, merah bila merusak. */
+export function SheetFoot({ close, pending, label, onSubmit, danger }) {
+  return (
+    <>
+      <button type="button" className="btn" onClick={() => close()}>Batal</button>
+      <button type="button" className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} disabled={pending} onClick={onSubmit}>{pending ? 'Memproses…' : label}</button>
     </>
   );
 }
@@ -280,11 +339,21 @@ export function Async({ q, isEmpty, empty, rows, children }) {
   return children(d);
 }
 
+/** Tab ARIA: panah kiri/kanan, Home, End berpindah tab; hanya tab aktif yang masuk urutan Tab. */
 export function Tabs({ tabs, value, onChange, label }) {
+  const onKey = (e) => {
+    const i = tabs.findIndex((t) => t.key === value);
+    const n = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (n === undefined) return;
+    e.preventDefault();
+    const next = tabs[(n + tabs.length) % tabs.length];
+    onChange(next.key);
+    e.currentTarget.querySelector(`#tab-${next.key}`)?.focus();
+  };
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
+    <div className="tabs" role="tablist" aria-label={label} onKeyDown={onKey}>
       {tabs.map((t) => (
-        <button key={t.key} type="button" role="tab" id={`tab-${t.key}`} aria-selected={value === t.key} aria-controls={`panel-${t.key}`} className="tab" onClick={() => onChange(t.key)}>
+        <button key={t.key} type="button" role="tab" id={`tab-${t.key}`} aria-selected={value === t.key} aria-controls={`panel-${t.key}`} tabIndex={value === t.key ? 0 : -1} className="tab" onClick={() => onChange(t.key)}>
           {t.label}{t.count != null ? ` (${t.count})` : ''}
         </button>
       ))}
@@ -318,5 +387,36 @@ export function FileList({ files, empty = 'Belum ada dokumen' }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/* ---------- Riwayat dan diskusi: satu komponen untuk surat masuk dan keluar ---------- */
+const renderText = (t) => t.split(/(@[a-z0-9._-]+)/gi).map((p, i) => (p.startsWith('@') ? <strong key={i}>{p}</strong> : p));
+
+export function Discussion({ queryKey, base, canWrite, label, fieldLabel = 'Tambah catatan atau komentar' }) {
+  const q = useQuery({ queryKey, queryFn: () => get(`${base}/timeline`) });
+  const [teks, setTeks] = useState('');
+  const act = useAction(() => post(`${base}/komentar`, { teks }), { keys: ['timeline'], onDone: () => setTeks('') });
+  return (
+    <div className="stack stack-lg">
+      {canWrite && (
+        <form onSubmit={(e) => { e.preventDefault(); if (teks.trim()) act.mutate(); }} className="stack">
+          <Field label={fieldLabel} hint="Gunakan @namapengguna untuk menyebut rekan, misalnya @andi.">{(fid) => <Textarea id={fid} rows={2} value={teks} onChange={(e) => setTeks(e.target.value)} />}</Field>
+          <div><button type="submit" className="btn btn-primary btn-sm" disabled={act.isPending || !teks.trim()}>{act.isPending ? 'Mengirim…' : 'Kirim Catatan'}</button></div>
+        </form>
+      )}
+      <Async q={q} empty={<Empty title="Belum ada riwayat" />}>
+        {(rows) => (
+          <ol className="thread" aria-label={label}>
+            {[...rows].reverse().map((e) => (
+              <li key={e.id} className={`t-${e.tipe}`}>
+                <div className="when">{fmtDateTime(e.created_at)}{e.user_nama ? ` · ${e.user_nama}` : ''}</div>
+                {e.tipe === 'komentar' ? <div className="comment-text">{renderText(e.teks)}</div> : <div>{e.teks}</div>}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Async>
+    </div>
   );
 }

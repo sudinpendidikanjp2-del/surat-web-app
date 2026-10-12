@@ -2,19 +2,13 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get, post } from '../api.js';
 import { useUser } from '../auth.jsx';
-import { Async, Empty, Sla, Stamp, useAction } from '../ui.jsx';
+import { Async, Empty, Figure as Fig, Stamp, useAction } from '../ui.jsx';
 import { fmtDate, fmtDateLong, greeting } from '../format.js';
-
-const Fig = ({ to, n, cap, lead, late }) => {
-  const inner = (<><span className="figure">{n ?? 0}</span><span className="cap">{cap}</span></>);
-  const cls = `ledger-item${lead ? ' lead' : ''}${late && n > 0 ? ' is-late' : ''}`;
-  return to ? <Link to={to} className={cls}>{inner}</Link> : <div className={cls}>{inner}</div>;
-};
 
 function Bars({ data }) {
   const max = Math.max(1, ...data.flatMap((d) => [d.masuk, d.selesai]));
   return (
-    <figure style={{ margin: 0 }}>
+    <figure className="chart">
       <div className="legend"><span><i />Surat masuk</span><span><i className="alt" />Selesai</span></div>
       <div className="bars" role="img" aria-label={`Surat masuk dan selesai per bulan. ${data.map((d) => `${d.bulan}: ${d.masuk} masuk, ${d.selesai} selesai`).join('; ')}`}>
         {data.map((d) => (
@@ -88,7 +82,7 @@ function Charts({ d }) {
         <div className="section-title"><h2 id="unit">Distribusi per unit</h2>{d.rata_hari_selesai != null && <span className="muted small">Rata-rata selesai {d.rata_hari_selesai} hari</span>}</div>
         <div className="card card-pad">
           {d.per_unit.length === 0 ? <p className="muted">Belum ada disposisi ke unit.</p> : d.per_unit.map((u) => (
-            <div className="hbar" key={u.unit}><span>{u.unit}</span><span className="hbar-track"><span className="hbar-fill" style={{ width: `${(u.jumlah / d.per_unit[0].jumlah) * 100}%`, display: 'block' }} /></span><span className="num">{u.jumlah}</span></div>
+            <div className="hbar" key={u.unit}><span>{u.unit}</span><span className="hbar-track"><span className="hbar-fill" style={{ width: `${(u.jumlah / d.per_unit[0].jumlah) * 100}%` }} /></span><span className="num">{u.jumlah}</span></div>
           ))}
         </div>
       </section>
@@ -123,7 +117,7 @@ export default function Dashboard() {
             {d.tugas_saya && user.role !== 'pimpinan' && (
               <section className="section" aria-labelledby="tugas-h">
                 <div className="section-title"><h2 id="tugas-h">Tugas saya</h2><Link to="/tugas">Lihat semua tugas</Link></div>
-                <div className="ledger" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                <div className="ledger ledger-4">
                   <Fig to="/tugas?antrian=terlambat" n={d.tugas_saya.terlambat} cap="Terlambat" lead late />
                   <Fig to="/tugas?antrian=hari_ini" n={d.tugas_saya.hari_ini} cap="Jatuh tempo hari ini" />
                   <Fig to="/tugas?antrian=terbuka" n={d.tugas_saya.belum + d.tugas_saya.diproses + d.tugas_saya.menunggu_data + d.tugas_saya.menunggu_lain} cap="Terbuka" />

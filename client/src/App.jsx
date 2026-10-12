@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, post } from './api.js';
 import { AuthCtx, can } from './auth.jsx';
-import { Icon, Loading, Empty, useAction, useToast } from './ui.jsx';
+import { Icon, Loading, Empty, useAction } from './ui.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import { LettersIn } from './pages/LettersIn.jsx';
@@ -22,11 +22,23 @@ import Notifications from './pages/Notifications.jsx';
 import { ChangePassword } from './pages/Profile.jsx';
 import Track from './pages/Track.jsx';
 
+const BAR = { light: '#faf9f6', dark: '#1b1d1b' };
+const paintBar = (t) => document.querySelector('meta[name="theme-color"]')?.setAttribute('content', BAR[t]);
+
+/** Tema mengikuti sistem sampai pengguna memilih, lalu pilihan itu disimpan. Warna bilah status ponsel ikut berubah. */
 function useTheme() {
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('tema'); } catch { return null; }
   });
-  const effective = theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const [system, setSystem] = useState(() => (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const h = (e) => setSystem(e.matches ? 'dark' : 'light');
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
+  }, []);
+  const effective = theme || system;
+  useEffect(() => paintBar(effective), [effective]);
   const toggle = () => {
     const next = effective === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
@@ -36,12 +48,17 @@ function useTheme() {
   return [effective, toggle];
 }
 
+const isNarrow = () => matchMedia('(max-width: 900px)').matches;
+
 function Shell({ user }) {
   const nav = useNavigate();
   const loc = useLocation();
   const qc = useQueryClient();
-  const toast = useToast();
   const [open, setOpen] = useState(false);
+  // Escape menutup laci menu seketika: tindakan keyboard tidak dianimasikan.
+  const [instant, setInstant] = useState(false);
+  const sideRef = useRef(null);
+  const menuBtn = useRef(null);
   const [theme, toggleTheme] = useTheme();
   const [q, setQ] = useState('');
   const [pw, setPw] = useState(false);
@@ -52,7 +69,9 @@ function Shell({ user }) {
   useEffect(() => { setOpen(false); window.scrollTo(0, 0); }, [loc.pathname]);
   useEffect(() => {
     if (!open) return undefined;
-    const h = (e) => e.key === 'Escape' && setOpen(false);
+    setInstant(false);
+    if (isNarrow()) sideRef.current?.querySelector('a, button')?.focus({ preventScroll: true });
+    const h = (e) => { if (e.key === 'Escape') { setInstant(true); setOpen(false); menuBtn.current?.focus(); } };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [open]);
@@ -86,10 +105,11 @@ function Shell({ user }) {
   return (
     <div className="shell">
       <a className="skip" href="#isi">Lewati ke konten</a>
-      <aside className="sidebar" data-open={open} aria-label="Navigasi utama">
+      <aside ref={sideRef} className="sidebar" data-open={open} data-instant={instant ? 'true' : undefined} aria-label="Navigasi utama">
+        {/* Nama sebagai teks: logo instansi belum diberikan, jadi tidak dibuat tiruannya. */}
         <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M5 7h14M5 12h14M5 17h9" /></svg></span>
-          <span className="brand-name">Sistem Surat<span className="brand-sub">Disposisi dan tindak lanjut</span></span>
+          <span className="brand-name">Sistem Surat</span>
+          <span className="brand-sub">Disposisi dan tindak lanjut</span>
         </Link>
         <nav>
           {groups.map((g, i) => (
@@ -105,17 +125,18 @@ function Shell({ user }) {
           ))}
         </nav>
         <div className="sidebar-foot">
-          <div className="small muted" style={{ padding: '0 10px 8px' }}>
-            <strong style={{ color: 'var(--ink)' }}>{user.nama}</strong><br />{user.roleLabel}{user.unitNama && user.unitNama !== user.roleLabel ? `, ${user.unitNama}` : ''}
+          <div className="who small">
+            <strong>{user.nama}</strong>
+            <span className="muted">{user.roleLabel}{user.unitNama && user.unitNama !== user.roleLabel ? `, ${user.unitNama}` : ''}</span>
           </div>
-          <button type="button" className="nav-link" style={{ width: '100%', background: 'none', border: 0, cursor: 'pointer', font: 'inherit' }} onClick={() => { setPw(true); setOpen(false); }}>Ubah kata sandi</button>
-          <button type="button" className="nav-link" style={{ width: '100%', background: 'none', border: 0, cursor: 'pointer', font: 'inherit' }} onClick={() => logout.mutate()}>Keluar</button>
+          <button type="button" className="nav-link" onClick={() => { setPw(true); setOpen(false); }}>Ubah kata sandi</button>
+          <button type="button" className="nav-link" disabled={logout.isPending} onClick={() => logout.mutate()}>{logout.isPending ? 'Keluar…' : 'Keluar'}</button>
         </div>
       </aside>
       <div className="scrim-nav" data-open={open} onClick={() => setOpen(false)} aria-hidden="true" />
       <div className="main">
         <header className="topbar">
-          <button type="button" className="btn btn-quiet icon-btn menu-btn" onClick={() => setOpen(true)} aria-label="Buka menu" aria-expanded={open}><Icon name="menu" /></button>
+          <button ref={menuBtn} type="button" className="btn btn-quiet icon-btn menu-btn" onClick={() => setOpen(true)} aria-label="Buka menu" aria-expanded={open}><Icon name="menu" /></button>
           <form className="topbar-search" role="search" onSubmit={submitSearch}>
             <Icon name="search" size={18} />
             <label className="sr-only" htmlFor="cari-global">Cari surat</label>

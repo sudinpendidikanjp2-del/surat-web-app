@@ -3,14 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get, post, put, upload } from '../api.js';
 import { useUser } from '../auth.jsx';
-import { Async, Empty, Field, FileList, FilePicker, Icon, Input, Loading, Progress, Select, Sheet, Sla, Stamp, StatusDisp, StatusIn, StatusTask, Tabs, Tag, Textarea, useAction, useToast } from '../ui.jsx';
+import { Async, Discussion, Empty, Field, FileList, FilePicker, Icon, Input, NextStep, Progress, Select, Sheet, SheetBody as Body, SheetFoot as Foot, Sla, Stages, Stamp, StatusDisp, StatusIn, StatusOut, StatusTask, Tabs, Tag, Textarea, useAction, useToast } from '../ui.jsx';
 import { Menu, ConfirmDialog } from '../table.jsx';
-import { DisposeFields, Foot, initialDispose, validateDispose } from '../forms.jsx';
+import { DisposeFields, initialDispose, validateDispose } from '../forms.jsx';
 import { fmtDate, fmtDateTime, METODE, plusDays, PRIORITAS, SIFAT, todayIso } from '../format.js';
 
 const KEYS = ['letter', 'letters-in', 'dashboard', 'timeline', 'dispositions', 'tasks'];
 
-function Body({ children }) { return <div className="sheet-body">{children}</div>; }
 /* ---------- Disposisi ---------- */
 function DisposeSheet({ letter, parent, onClose }) {
   const [f, setF] = useState(initialDispose());
@@ -129,7 +128,7 @@ function FinishSheet({ data, onClose }) {
         <p><strong>Apakah seluruh tindak lanjut surat ini telah selesai?</strong></p>
         <ul className="checklist">
           {data.syarat.checks.map((c) => (
-            <li key={c.label}><span className={c.ok ? 'ok' : 'no'} aria-hidden="true">{c.ok ? <Icon name="check" size={18} /> : <span style={{ display: 'inline-block', width: 18, textAlign: 'center' }}>-</span>}</span><span>{c.label}<span className="sr-only">{c.ok ? ', terpenuhi' : ', belum terpenuhi'}</span></span></li>
+            <li key={c.label}><span className={c.ok ? 'ok' : 'no'} aria-hidden="true">{c.ok ? <Icon name="check" size={18} /> : <span className="check-blank">-</span>}</span><span>{c.label}<span className="sr-only">{c.ok ? ', terpenuhi' : ', belum terpenuhi'}</span></span></li>
           ))}
         </ul>
         {!data.syarat.ok && <div className="alert alert-warn">Syarat belum terpenuhi. Surat baru dapat diselesaikan setelah semuanya terpenuhi.</div>}
@@ -170,10 +169,10 @@ function QrSheet({ id, onClose }) {
       <Body>
         <Async q={q} isEmpty={() => false} rows={2}>
           {(d) => (
-            <div className="stack" style={{ alignItems: 'center', textAlign: 'center' }}>
+            <div className="stack center">
               <img src={d.dataUrl} alt="Kode QR untuk membuka halaman status surat" width="240" height="240" />
               <p className="muted small">Pindai untuk membuka status surat. Pengguna wajib masuk dan memiliki hak akses ke surat ini.</p>
-              <code className="small" style={{ overflowWrap: 'anywhere' }}>{d.url}</code>
+              <code className="small wrap">{d.url}</code>
             </div>
           )}
         </Async>
@@ -211,38 +210,6 @@ function TrackSheet({ id, canEdit, onClose }) {
         </Async>
       </Body>
     </Sheet>
-  );
-}
-
-/* ---------- Riwayat dan komentar ---------- */
-const renderText = (t) => t.split(/(@[a-z0-9._-]+)/gi).map((p, i) => (p.startsWith('@') ? <strong key={i}>{p}</strong> : p));
-
-function Timeline({ id }) {
-  const user = useUser();
-  const q = useQuery({ queryKey: ['timeline', id], queryFn: () => get(`/letters-in/${id}/timeline`) });
-  const [teks, setTeks] = useState('');
-  const act = useAction(() => post(`/letters-in/${id}/komentar`, { teks }), { keys: ['timeline'], onDone: () => setTeks('') });
-  return (
-    <div className="stack" style={{ gap: 20 }}>
-      {user.role !== 'viewer' && (
-        <form onSubmit={(e) => { e.preventDefault(); if (teks.trim()) act.mutate(); }} className="stack">
-          <Field label="Tambah catatan atau komentar" hint="Gunakan @namapengguna untuk menyebut rekan, misalnya @andi.">{(fid) => <Textarea id={fid} rows={2} value={teks} onChange={(e) => setTeks(e.target.value)} />}</Field>
-          <div><button type="submit" className="btn btn-primary btn-sm" disabled={act.isPending || !teks.trim()}>Kirim Catatan</button></div>
-        </form>
-      )}
-      <Async q={q} empty={<Empty title="Belum ada riwayat" />}>
-        {(rows) => (
-          <ol className="thread" aria-label="Riwayat surat">
-            {[...rows].reverse().map((e) => (
-              <li key={e.id} className={`t-${e.tipe}`}>
-                <div className="when">{fmtDateTime(e.created_at)}{e.user_nama ? ` · ${e.user_nama}` : ''}</div>
-                {e.tipe === 'komentar' ? <div className="comment-text">{renderText(e.teks)}</div> : <div>{e.teks}</div>}
-              </li>
-            ))}
-          </ol>
-        )}
-      </Async>
-    </div>
   );
 }
 
@@ -325,16 +292,10 @@ export default function LetterInDetail() {
                 <div className="case-meta"><span>Dari {l.asal}{l.instansi ? `, ${l.instansi}` : ''}</span><span>{l.no_surat}</span><span>Diterima {fmtDate(l.tgl_diterima)}</span><span>Sifat {l.sifat}</span><span>Prioritas {l.prioritas}</span></div>
               </div>
 
-              <section className={`next-step${step.quiet ? ' quiet' : ''}`} aria-label="Langkah berikutnya">
-                <div><h2>{step.title}</h2><p>{step.desc}</p></div>
-                <div className="actions no-print">
-                  {step.primary && (step.primary.to ? <Link className="btn btn-primary" to={step.primary.to}>{step.primary.label}</Link> : <button type="button" className="btn btn-primary" disabled={busy} onClick={step.primary.onClick}>{step.primary.label}</button>)}
-                  <Menu label="Aksi lain" items={more} />
-                </div>
-              </section>
+              <NextStep step={step} busy={busy}><Menu label="Aksi lain" items={more} /></NextStep>
 
               <div className="detail">
-                <div className="stack" style={{ gap: 20 }}>
+                <div className="stack stack-lg">
                   <Tabs label="Bagian surat" value={tab} onChange={setTab} tabs={[
                     { key: 'ringkasan', label: 'Ringkasan' },
                     { key: 'tindak', label: 'Disposisi dan tugas', count: d.dispositions.length + d.tasks.length },
@@ -343,7 +304,7 @@ export default function LetterInDetail() {
                   ]} />
 
                   {tab === 'ringkasan' && (
-                    <div className="stack" style={{ gap: 20 }} role="tabpanel" id="panel-ringkasan" aria-labelledby="tab-ringkasan">
+                    <div className="stack stack-lg" role="tabpanel" id="panel-ringkasan" aria-labelledby="tab-ringkasan">
                       <section className="card card-pad">
                         <dl className="dl">
                           <dt>Nomor agenda</dt><dd className="num">{l.no_agenda}</dd>
@@ -361,9 +322,9 @@ export default function LetterInDetail() {
                       <section className="card card-pad stack">
                         <h3>Surat balasan</h3>
                         {d.outs.length === 0 ? <p className="muted">Belum ada surat keluar untuk surat ini.</p> : d.outs.map((o) => (
-                          <div key={o.id}><Link to={`/surat-keluar/${o.id}`} className="cell-title">{o.no_agenda}</Link> <span className="muted small">{o.nomor_surat || 'belum bernomor'}</span><div className="small">{o.perihal} <Tag tone="neutral">{o.status}</Tag></div></div>
+                          <div key={o.id}><Link to={`/surat-keluar/${o.id}`} className="cell-title">{o.no_agenda}</Link> <span className="muted small">{o.nomor_surat || 'belum bernomor'}</span><div className="small">{o.perihal} <StatusOut status={o.status} /></div></div>
                         ))}
-                        <h3 style={{ marginTop: 8 }}>Konfirmasi kepada pengirim</h3>
+                        <h3 className="sub-head">Konfirmasi kepada pengirim</h3>
                         {d.confirmations.length === 0 ? <p className="muted">Belum ada konfirmasi dicatat.</p> : d.confirmations.map((c) => (
                           <div key={c.id} className="small"><strong>{fmtDate(c.tanggal)}</strong> melalui {c.metode.toLowerCase()} kepada {c.pihak}<div className="muted">{c.hasil}</div></div>
                         ))}
@@ -372,13 +333,13 @@ export default function LetterInDetail() {
                   )}
 
                   {tab === 'tindak' && (
-                    <div className="stack" style={{ gap: 20 }} role="tabpanel" id="panel-tindak" aria-labelledby="tab-tindak">
+                    <div className="stack stack-lg" role="tabpanel" id="panel-tindak" aria-labelledby="tab-tindak">
                       <section className="section">
                         <h2>Disposisi</h2>
                         {d.dispositions.length === 0 ? <div className="card"><Empty title="Belum ada disposisi" text="Disposisi pimpinan akan tampil di sini." /></div> : d.dispositions.map((x) => (
-                          <article key={x.id} className="card card-pad stack" style={{ gap: 8 }}>
-                            <div className="row" style={{ justifyContent: 'space-between' }}>
-                              <strong>{x.dari_nama} <span className="muted" style={{ fontWeight: 400 }}>kepada</span> {x.ke_nama || x.ke_unit}</strong>
+                          <article key={x.id} className="card card-pad stack stack-sm">
+                            <div className="row between">
+                              <strong>{x.dari_nama} <span className="muted plain">kepada</span> {x.ke_nama || x.ke_unit}</strong>
                               <StatusDisp status={x.status} />
                             </div>
                             <div className="chips">{x.tindakan.map((t) => <Tag key={t} tone="accent">{t}</Tag>)}</div>
@@ -387,7 +348,7 @@ export default function LetterInDetail() {
                             {x.return_reason && <div className="alert alert-late">Dikembalikan: {x.return_reason}</div>}
                             {d.holds.includes(x.id) && ['BARU', 'DITERIMA'].includes(x.status) && (
                               <div className="actions no-print">
-                                {x.status === 'BARU' && <button type="button" className="btn btn-sm btn-primary" onClick={() => accept.mutate(x.id)}>Terima Disposisi</button>}
+                                {x.status === 'BARU' && <button type="button" className="btn btn-sm btn-primary" disabled={accept.isPending} onClick={() => accept.mutate(x.id)}>Terima Disposisi</button>}
                                 <button type="button" className="btn btn-sm btn-danger" onClick={() => setSheet({ k: 'return', disp: x })}>Kembalikan</button>
                               </div>
                             )}
@@ -421,7 +382,7 @@ export default function LetterInDetail() {
                       {user.role === 'viewer' ? <p className="muted">Viewer tidak dapat membuka dokumen surat.</p> : <FileList files={d.attachments} />}
                     </section>
                   )}
-                  {tab === 'riwayat' && <section className="card card-pad" role="tabpanel" id="panel-riwayat" aria-labelledby="tab-riwayat"><Timeline id={id} /></section>}
+                  {tab === 'riwayat' && <section className="card card-pad" role="tabpanel" id="panel-riwayat" aria-labelledby="tab-riwayat"><Discussion queryKey={['timeline', id]} base={`/letters-in/${id}`} canWrite={user.role !== 'viewer'} label="Riwayat surat" /></section>}
                 </div>
 
                 <aside className="side no-print" aria-label="Ringkasan status">
@@ -435,9 +396,7 @@ export default function LetterInDetail() {
                     <Progress value={d.percent} label="Progres penyelesaian surat" />
                     <details className="more">
                       <summary>Lihat tahapan</summary>
-                      <ol className="stages" style={{ gridTemplateColumns: '1fr', margin: 0 }}>
-                        {d.stages.map((s) => (<li key={s.key} className={s.done ? 'done' : ''}><span className="stage-mark" aria-hidden="true">{s.done && <Icon name="check" size={12} />}</span><span>{s.label}<span className="sr-only">{s.done ? ', selesai' : ', belum'}</span></span></li>))}
-                      </ol>
+                      <Stages items={d.stages} label="Tahapan surat" compact />
                     </details>
                   </section>
                 </aside>

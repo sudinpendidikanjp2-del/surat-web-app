@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get, put, upload } from '../api.js';
 import { useUser } from '../auth.jsx';
-import { Async, Empty, Field, FileList, FilePicker, Input, PageHead, Progress, Select, Sheet, Sla, Stamp, StatusTask, Textarea, useAction } from '../ui.jsx';
+import { Async, Empty, Field, FileList, FilePicker, Group, Input, Progress, Select, Sheet, SheetBody, SheetFoot, Sla, Stamp, StatusTask, Textarea, useAction } from '../ui.jsx';
 import { ListView } from '../table.jsx';
 import { DateSheet, NoteSheet } from '../forms.jsx';
 import { fmtDate, fmtDateTime, PRIORITAS, STATUS_TASK } from '../format.js';
@@ -71,14 +71,14 @@ function UpdateSheet({ data, onClose }) {
     return undefined;
   };
   return (
-    <Sheet title="Perbarui progres" onClose={onClose} footer={({ close }) => (<><button type="button" className="btn" onClick={() => close()}>Batal</button><button type="button" className="btn btn-primary" disabled={act.isPending} onClick={() => submit(close)}>Simpan Pembaruan</button></>)}>
-      <div className="sheet-body">
+    <Sheet title="Perbarui progres" onClose={onClose} footer={({ close }) => <SheetFoot close={close} pending={act.isPending} label="Simpan Pembaruan" onSubmit={() => submit(close)} />}>
+      <SheetBody>
         {err && <div className="alert alert-late" role="alert">{err}</div>}
         <Field label="Status">{(id) => <Select id={id} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value, progress: e.target.value === 'SELESAI' ? 100 : f.progress })} options={opts} />}</Field>
-        <Field label={`Progres: ${f.progress}%`}>{(id) => <input id={id} type="range" min="0" max="100" step="5" value={f.progress} onChange={(e) => setF({ ...f, progress: Number(e.target.value) })} style={{ width: '100%', accentColor: 'var(--accent)' }} />}</Field>
+        <Field label={`Progres: ${f.progress}%`}>{(id) => <input id={id} type="range" min="0" max="100" step="5" value={f.progress} onChange={(e) => setF({ ...f, progress: Number(e.target.value) })} className="range" />}</Field>
         <Field label="Catatan" hint={f.status === 'MENUNGGU_DATA' ? 'Tulis data apa yang dibutuhkan. Pemberi tugas akan diberi tahu.' : undefined}>{(id) => <Textarea id={id} rows={3} value={f.catatan} onChange={(e) => setF({ ...f, catatan: e.target.value })} placeholder="Contoh: Koordinasi dengan sekolah sudah dilakukan, menunggu dokumen pendukung." />}</Field>
         <div className="field"><span className="label">Lampiran hasil (opsional)</span><FilePicker files={files} setFiles={setFiles} accept=".pdf,.docx,.xlsx,.xls,.doc,.png,.jpg,.jpeg,.csv,.txt" /></div>
-      </div>
+      </SheetBody>
     </Sheet>
   );
 }
@@ -89,8 +89,8 @@ function EditSheet({ data, onClose }) {
   const [f, setF] = useState({ judul: task.judul, deskripsi: task.deskripsi || '', deadline: task.deadline?.slice(0, 10) || '', prioritas: task.prioritas, pic_user_id: task.pic_user_id });
   const act = useAction(() => put(`/tasks/${task.id}`, { ...f, pic_user_id: Number(f.pic_user_id) }), { success: 'Tugas diperbarui', keys: ['task', 'tasks', 'letter', 'timeline'] });
   return (
-    <Sheet title="Ubah tugas" onClose={onClose} footer={({ close }) => (<><button type="button" className="btn" onClick={() => close()}>Batal</button><button type="button" className="btn btn-primary" disabled={act.isPending} onClick={() => act.mutate(undefined, { onSuccess: () => close() })}>Simpan</button></>)}>
-      <div className="sheet-body">
+    <Sheet title="Ubah tugas" onClose={onClose} footer={({ close }) => <SheetFoot close={close} pending={act.isPending} label="Simpan Perubahan" onSubmit={() => act.mutate(undefined, { onSuccess: () => close() })} />}>
+      <SheetBody>
         <Field label="Judul">{(id) => <Input id={id} value={f.judul} onChange={(e) => setF({ ...f, judul: e.target.value })} />}</Field>
         <Field label="Deskripsi">{(id) => <Textarea id={id} rows={3} value={f.deskripsi} onChange={(e) => setF({ ...f, deskripsi: e.target.value })} />}</Field>
         <div className="form-grid">
@@ -98,7 +98,7 @@ function EditSheet({ data, onClose }) {
           <Field label="Prioritas">{(id) => <Select id={id} value={f.prioritas} onChange={(e) => setF({ ...f, prioritas: e.target.value })} options={PRIORITAS} />}</Field>
           <Field label="Batas waktu">{(id) => <Input id={id} type="date" value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} />}</Field>
         </div>
-      </div>
+      </SheetBody>
     </Sheet>
   );
 }
@@ -133,18 +133,17 @@ export function TaskDetail() {
                 <Link className="btn btn-quiet" to={`/surat-masuk/${t.letter_in_id}`}>Buka Surat</Link>
               </div>
               <div className="split">
-                <div className="stack" style={{ gap: 20 }}>
+                <div className="stack stack-lg">
                   <section className="card card-pad stack">
-                    <div className="row" style={{ justifyContent: 'space-between' }}><h2>Progres</h2><span className="num" style={{ fontWeight: 650 }}>{t.progress}%</span></div>
+                    <div className="row between"><h2>Progres</h2><span className="num strong">{t.progress}%</span></div>
                     <Progress value={t.progress} label="Progres tugas" />
                     {t.deskripsi && <p>{t.deskripsi}</p>}
                     {t.checklist.length > 0 && (
-                      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-                        <legend className="label">Daftar periksa</legend>
+                      <Group legend="Daftar periksa">
                         {(local ?? t.checklist).map((c, i) => (
                           <label key={i} className="check-row"><input type="checkbox" checked={c.selesai} disabled={!d.can.update} onChange={() => flip(local ?? t.checklist, i)} /><span>{c.teks}</span></label>
                         ))}
-                      </fieldset>
+                      </Group>
                     )}
                   </section>
                   <section className="card card-pad stack">

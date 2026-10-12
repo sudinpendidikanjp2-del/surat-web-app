@@ -39,7 +39,7 @@ export function LettersOut() {
       cell: (l) => (
         <>
           <Stamp>{l.no_agenda}</Stamp>
-          <div className="cell-title" style={{ marginTop: 4 }}><Link to={`/surat-keluar/${l.id}`}>{l.perihal}</Link></div>
+          <div className="cell-title cell-gap"><Link to={`/surat-keluar/${l.id}`}>{l.perihal}</Link></div>
           <div className="muted small">{l.jenis}, dibuat {l.pembuat}{l.asal_agenda ? `, balasan ${l.asal_agenda}` : ''}</div>
         </>
       ) },
@@ -54,7 +54,7 @@ export function LettersOut() {
       queryKey="letters-out" endpoint="/letters-out" idsEndpoint="/letters-out/ids" csv
       filters={OUT_FILTERS} extraKeys={OUT_EXTRA} tabs={tabs} columns={columns} rowTo={(l) => `/surat-keluar/${l.id}`} bulk={bulk}
       defaults={OUT_DEFAULTS} searchPlaceholder="Cari nomor, perihal, tujuan"
-      empty={<Empty title="Belum ada surat keluar" text="Buat surat dari template, atau dari halaman surat masuk untuk surat balasan."/>}
+      empty={<Empty title="Belum ada surat keluar" text="Buat surat dari template, atau dari halaman surat masuk untuk surat balasan." />}
     />
   );
 }
@@ -78,7 +78,7 @@ export function LetterForm({ template, versionId, initial, signers, onSubmit, pe
   };
   const prev = useAction(() => post('/letters-out/pratinjau', { template_version_id: versionId, ...f }), { onDone: (r) => setPreview(r.html) });
   return (
-    <form className="card card-pad stack" style={{ gap: 20 }} noValidate onSubmit={(e) => { e.preventDefault(); if (validate()) onSubmit(f); }}>
+    <form className="card card-pad stack stack-lg" noValidate onSubmit={(e) => { e.preventDefault(); if (validate()) onSubmit(f); }}>
       <div className="form-grid">
         <Field label={hasPerihal ? 'Perihal / Hal' : 'Perihal'} span2 error={errs.perihal}>{(id, e) => <Input id={id} error={e} value={f.perihal} onChange={(ev) => setF({ ...f, perihal: ev.target.value })} />}</Field>
         <Field label={hasTujuan ? 'Tujuan surat (Yth. / Kepada)' : 'Tujuan surat'} span2 error={errs.tujuan}>{(id, e) => <Input id={id} error={e} value={f.tujuan} onChange={(ev) => setF({ ...f, tujuan: ev.target.value })} />}</Field>
@@ -94,8 +94,8 @@ export function LetterForm({ template, versionId, initial, signers, onSubmit, pe
         ))}
       </div>
       <div className="actions">
-        <button type="submit" className="btn btn-primary" disabled={pending}>{pending ? 'Menyimpan...' : submitLabel}</button>
-        <button type="button" className="btn" disabled={prev.isPending} onClick={() => validate() && prev.mutate()}>{prev.isPending ? 'Menyusun...' : 'Pratinjau Surat'}</button>
+        <button type="submit" className="btn btn-primary" disabled={pending}>{pending ? 'Menyimpan…' : submitLabel}</button>
+        <button type="button" className="btn" disabled={prev.isPending} onClick={() => validate() && prev.mutate()}>{prev.isPending ? 'Menyusun…' : 'Pratinjau Surat'}</button>
         {onCancel}
       </div>
       {preview != null && (

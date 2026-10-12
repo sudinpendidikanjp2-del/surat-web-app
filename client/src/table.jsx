@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, post, qs } from './api.js';
-import { Empty, ErrorState, Field, Icon, Input, Loading, PageHead, Select, Sheet, useToast } from './ui.jsx';
+import { Empty, ErrorState, Field, Group, Icon, Input, Loading, PageHead, Select, Sheet, useToast } from './ui.jsx';
 
 /* ======================================================================
    Primitif: popover, menu, dialog konfirmasi
@@ -26,42 +26,57 @@ export function Popover({ trigger, children, align = 'right', wide = false, labe
       {trigger({
         ref: btn,
         'aria-expanded': open,
-        'aria-haspopup': 'true',
+        'aria-haspopup': wide ? 'dialog' : 'menu',
         // Dibuka dengan keyboard (detail 0): tanpa animasi, karena tindakan keyboard sering dan harus terasa langsung.
         onClick: (e) => { setInstant(e.detail === 0); setOpen((o) => !o); },
       })}
       {open && (
         <div className={`pop${align === 'left' ? ' left' : ''}${wide ? ' wide' : ''}${instant ? ' instant' : ''}`} role={wide ? 'dialog' : 'menu'} aria-label={label}>
-          {typeof children === 'function' ? children({ close }) : children}
+          {typeof children === 'function' ? children({ close, keyboard: instant }) : children}
         </div>
       )}
     </div>
   );
 }
 
-/** Menu aksi. items: { label, onClick?, to?, danger?, disabled?, sep? } */
-export function Menu({ label = 'Aksi lain', items, align = 'right', className = 'btn', icon }) {
+/** Isi menu: fokus ke butir pertama sekali saat dibuka, lalu panah atas/bawah, Home, End. */
+function MenuList({ items, close, keyboard }) {
   const nav = useNavigate();
-  const visible = items.filter(Boolean);
+  const ref = useRef(null);
+  // Hanya saat terpasang (callback ref akan merebut fokus di setiap render). Dibuka dengan keyboard: fokus ke butir pertama.
+  // Dibuka dengan tunjuk atau ketuk: fokus ke wadah saja, agar butir pertama tidak tampak sudah terpilih; panah tetap berfungsi.
+  useEffect(() => {
+    const first = ref.current?.querySelector('[role=menuitem]:not([disabled])');
+    (keyboard ? first : ref.current)?.focus({ preventScroll: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const onKey = (e) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
-    const els = [...e.currentTarget.querySelectorAll('[role=menuitem]:not([disabled])')];
+    const els = [...ref.current.querySelectorAll('[role=menuitem]:not([disabled])')];
     if (!els.length) return;
     e.preventDefault();
     const i = els.indexOf(document.activeElement);
-    const next = e.key === 'Home' ? 0 : e.key === 'End' ? els.length - 1 : e.key === 'ArrowDown' ? (i + 1) % els.length : (i - 1 + els.length) % els.length;
+    const up = i < 0 ? els.length - 1 : (i - 1 + els.length) % els.length;
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? els.length - 1 : e.key === 'ArrowDown' ? (i + 1) % els.length : up;
     els[next].focus();
   };
   return (
+    <div ref={ref} tabIndex={-1} className="menu-list" onKeyDown={onKey}>
+      {items.map((it, i) => (it.sep ? <div key={`s${i}`} className="menu-sep" role="separator" /> : (
+        <button key={it.label} type="button" role="menuitem" className={`menu-item${it.danger ? ' danger' : ''}`} disabled={it.disabled}
+          onClick={() => { close(); if (it.to) nav(it.to); else it.onClick?.(); }}>{it.label}</button>
+      )))}
+    </div>
+  );
+}
+
+/** Menu aksi. items: { label, onClick?, to?, danger?, disabled?, sep? } */
+export function Menu({ label = 'Aksi lain', items, align = 'right', className = 'btn', icon }) {
+  // Pemisah di awal, di akhir, atau berurutan tidak berarti apa-apa.
+  const visible = items.filter(Boolean).filter((it, i, a) => !it.sep || (i > 0 && i < a.length - 1 && !a[i + 1].sep));
+  if (!visible.length) return null;
+  return (
     <Popover align={align} label={label} trigger={(p) => <button type="button" className={className} {...p}>{icon}{label}</button>}>
-      {({ close }) => (
-        <div onKeyDown={onKey} ref={(el) => el?.querySelector('[role=menuitem]:not([disabled])')?.focus({ preventScroll: true })}>
-          {visible.map((it, i) => (it.sep ? <div key={`s${i}`} className="menu-sep" role="separator" /> : (
-            <button key={it.label} type="button" role="menuitem" className={`menu-item${it.danger ? ' danger' : ''}`} disabled={it.disabled}
-              onClick={() => { close(); if (it.to) nav(it.to); else it.onClick?.(); }}>{it.label}</button>
-          )))}
-        </div>
-      )}
+      {({ close, keyboard }) => <MenuList items={visible} close={close} keyboard={keyboard} />}
     </Popover>
   );
 }
@@ -84,7 +99,7 @@ export function ConfirmDialog({ title, children, confirmLabel = 'Lanjutkan', ton
     <Dialog title={title} onClose={onClose} footer={({ close }) => (
       <>
         <button type="button" className="btn" onClick={close}>Batal</button>
-        <button type="button" className={`btn ${tone === 'danger' ? 'btn-danger' : 'btn-primary'}`} disabled={pending} onClick={onConfirm}>{pending ? 'Memproses...' : confirmLabel}</button>
+        <button type="button" className={`btn ${tone === 'danger' ? 'btn-danger' : 'btn-primary'}`} disabled={pending} onClick={onConfirm}>{pending ? 'Memproses…' : confirmLabel}</button>
       </>
     )}>
       {children}
@@ -205,7 +220,7 @@ export function Pagination({ page, pageSize, total, onPage, onSize, sizes = [10,
   const id = useId();
   return (
     <nav className="pager" aria-label="Halaman data">
-      <div className="row" style={{ gap: 10 }}>
+      <div className="row row-tight">
         <span className="muted small" aria-live="polite">Menampilkan <strong className="num">{from}-{to}</strong> dari <strong className="num">{total}</strong></span>
         <label className="sr-only" htmlFor={id}>Baris per halaman</label>
         <select id={id} className="input" value={pageSize} onChange={(e) => onSize(Number(e.target.value))}>
@@ -269,13 +284,12 @@ function FilterFields({ filters, params, set }) {
     if (f.type === 'multi') {
       const cur = params[f.key] ? params[f.key].split(',') : [];
       return (
-        <fieldset key={f.key} style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="label">{f.label}</legend>
+        <Group key={f.key} legend={f.label}>
           {f.options.map((o) => {
             const v = o.value ?? o;
-            return <label key={v} className="check-row" style={{ minHeight: 32, padding: '3px 0' }}><input type="checkbox" checked={cur.includes(v)} onChange={() => set({ [f.key]: (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]).join(',') })} /><span>{o.label ?? o}</span></label>;
+            return <label key={v} className="check-row tight"><input type="checkbox" checked={cur.includes(v)} onChange={() => set({ [f.key]: (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]).join(',') })} /><span>{o.label ?? o}</span></label>;
           })}
-        </fieldset>
+        </Group>
       );
     }
     if (f.type === 'date') return <Field key={f.key} label={f.label}>{(id) => <Input id={id} type="date" value={params[f.key]} onChange={(e) => set({ [f.key]: e.target.value })} />}</Field>;
@@ -351,7 +365,7 @@ export function ListView({
   return (
     <div className="page">
       <PageHead title={title} sub={sub}>{actions}</PageHead>
-      <div className="stack" style={{ gap: 12 }}>
+      <div className="stack">
         {tabs.length > 0 && (
           <div className="seg" role="group" aria-label="Tampilan cepat">
             {tabs.map((t) => <button key={t.label} type="button" aria-pressed={tabActive(t)} onClick={() => set(t.patch)}>{t.label}</button>)}
@@ -364,7 +378,7 @@ export function ListView({
               {() => (
                 <>
                   <FilterFields filters={filters} params={params} set={set} />
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <div className="row">
                     <button type="button" className="btn btn-sm btn-quiet" onClick={reset} disabled={!filterCount && !params.q}>Atur ulang</button>
                   </div>
                 </>
@@ -406,7 +420,8 @@ export function ListView({
           <p>{confirm.confirm.body(selection.size)}</p>
         </ConfirmDialog>
       )}
-      {sheet && <sheet.sheet ids={ids} count={ids.length} onClose={() => setSheet(null)} run={(extra) => runBulkAction(sheet, extra)} pending={bulkRunner.pending} />}
+      {/* sheet adalah fungsi render, bukan komponen: fungsi panah yang dibuat ulang tiap render akan dipasang ulang dan kehilangan isiannya. */}
+      {sheet && sheet.sheet({ ids, count: ids.length, onClose: () => setSheet(null), run: (extra) => runBulkAction(sheet, extra), pending: bulkRunner.pending })}
       {bulkRunner.dialog}
     </div>
   );

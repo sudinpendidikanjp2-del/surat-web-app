@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { upload } from '../api.js';
-import { Field, Icon, Input, PageHead, Select, Textarea, useAction, useToast } from '../ui.jsx';
+import { Field, Input, PageHead, Select, Textarea, useAction, useToast } from '../ui.jsx';
 import { PRIORITAS, SIFAT, todayIso } from '../format.js';
 
 const EMPTY = { no_surat: '', tgl_surat: todayIso(), tgl_diterima: todayIso(), asal: '', instansi: '', alamat: '', perihal: '', jenis: 'Surat Dinas', sifat: 'Biasa', prioritas: 'Normal', lampiran: '', catatan: '' };
@@ -67,11 +67,11 @@ export function LetterInNew() {
     return (
       <div className="page">
         <PageHead title="Catat surat masuk" sub="Pilih cara yang paling cepat. Sistem memberi nomor agenda otomatis setelah disimpan." />
-        <div className="ocr-split" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+        <div className="ocr-split ocr-choose">
           <section className={`capture${over ? ' over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); readPhoto(e.dataTransfer.files[0]); }} aria-labelledby="h-foto">
             <h2 id="h-foto">Dari foto surat</h2>
             <p className="muted">Foto halaman pertama surat. Sistem membaca nomor, tanggal, pengirim, dan perihal. Anda tinggal memeriksa.</p>
-            <div className="actions" style={{ justifyContent: 'center' }}>
+            <div className="actions center">
               <button type="button" className="btn btn-primary" onClick={() => camRef.current?.click()}>Ambil Foto Surat</button>
               <button type="button" className="btn" onClick={() => fileRef.current?.click()}>Pilih Foto dari Galeri</button>
             </div>
@@ -90,8 +90,8 @@ export function LetterInNew() {
   }
 
   const form = (
-    <form className="stack" style={{ gap: 18 }} onSubmit={submit} noValidate>
-      <div className="card card-pad stack" style={{ gap: 16 }}>
+    <form className="stack stack-md" onSubmit={submit} noValidate>
+      <div className="card card-pad stack stack-md">
         <h2>Identitas surat</h2>
         <div className="form-grid">
           <Field label="Nomor surat" error={errs.no_surat}>{(id, e) => <Conf ocr={ocr} k="no_surat"><Input id={id} error={e} value={f.no_surat} onChange={set('no_surat')} /></Conf>}</Field>
@@ -101,7 +101,7 @@ export function LetterInNew() {
           <Field label="Lampiran">{(id) => <Conf ocr={ocr} k="lampiran"><Input id={id} value={f.lampiran} onChange={set('lampiran')} placeholder="Contoh: 1 berkas" /></Conf>}</Field>
         </div>
       </div>
-      <div className="card card-pad stack" style={{ gap: 16 }}>
+      <div className="card card-pad stack stack-md">
         <h2>Pengirim</h2>
         <div className="form-grid">
           <Field label="Asal surat (jabatan atau nama pengirim)" error={errs.asal}>{(id, e) => <Conf ocr={ocr} k="asal"><Input id={id} error={e} value={f.asal} onChange={set('asal')} /></Conf>}</Field>
@@ -109,7 +109,7 @@ export function LetterInNew() {
           <Field label="Alamat pengirim" span2>{(id) => <Conf ocr={ocr} k="alamat"><Input id={id} value={f.alamat} onChange={set('alamat')} /></Conf>}</Field>
         </div>
       </div>
-      <div className="card card-pad stack" style={{ gap: 16 }}>
+      <div className="card card-pad stack stack-md">
         <h2>Penerimaan</h2>
         <div className="form-grid">
           <Field label="Tanggal diterima" error={errs.tgl_diterima}>{(id, e) => <Input id={id} type="date" error={e} value={f.tgl_diterima} onChange={set('tgl_diterima')} />}</Field>
@@ -127,7 +127,7 @@ export function LetterInNew() {
       </div>
       <div className="sticky-actions">
         <Link to="/surat-masuk" className="btn">Batal</Link>
-        <button type="submit" className="btn btn-primary" disabled={save.isPending || reading}>{save.isPending ? 'Menyimpan...' : 'Simpan dan Beri Nomor Agenda'}</button>
+        <button type="submit" className="btn btn-primary" disabled={save.isPending || reading}>{save.isPending ? 'Menyimpan…' : 'Simpan dan Beri Nomor Agenda'}</button>
       </div>
     </form>
   );
@@ -140,9 +140,9 @@ export function LetterInNew() {
       <PageHead title="Periksa hasil pembacaan foto" sub="Bandingkan dengan foto di samping. Isian berlatar kuning kurang yakin dibaca."><button type="button" className="btn btn-quiet" onClick={() => { setMode(null); setPhoto(null); setOcr(null); setF(EMPTY); }}>Foto Ulang</button></PageHead>
       <div className="ocr-split">
         <aside className="ocr-photo" aria-label="Foto surat">{photo && <img src={photo.url} alt="Foto surat yang diunggah" />}</aside>
-        <div className="stack" style={{ gap: 18 }}>
+        <div className="stack stack-md">
           {reading ? (
-            <div className="card card-pad" role="status" aria-live="polite"><strong>Membaca surat...</strong><p className="muted">Biasanya 5 sampai 15 detik. Jangan tutup halaman ini.</p><div className="skeleton" style={{ width: '70%', marginTop: 12 }} /><div className="skeleton" style={{ width: '50%', marginTop: 8 }} /></div>
+            <div className="card card-pad" role="status" aria-live="polite"><strong>Membaca surat…</strong><p className="muted">Biasanya 5 sampai 15 detik. Jangan tutup halaman ini.</p><div className="skeleton w-70" /><div className="skeleton w-50" /></div>
           ) : ocr && (
             <>
               {ocr.quality.warnings.map((w) => <div key={w} className="alert alert-warn" role="alert">{w}</div>)}

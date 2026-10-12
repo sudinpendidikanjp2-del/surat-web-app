@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get, post, put, upload } from '../api.js';
 import { useUser } from '../auth.jsx';
-import { Async, Empty, Field, FilePicker, Input, PageHead, Select, Sheet, Tag, Textarea, useAction } from '../ui.jsx';
+import { Async, Empty, Field, FilePicker, Input, PageHead, Select, Sheet, SheetFoot, Tag, Textarea, useAction } from '../ui.jsx';
 import { fmtDate } from '../format.js';
 
 function NewTemplateSheet({ onClose }) {
@@ -13,7 +13,7 @@ function NewTemplateSheet({ onClose }) {
   const act = useAction(() => upload('/templates', f, { file: files[0] }), { success: 'Template dibuat', keys: ['templates'] });
   const s = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
-    <Sheet title="Unggah template baru" onClose={onClose} wide footer={({ close }) => (<><button type="button" className="btn" onClick={() => close()}>Batal</button><button type="button" className="btn btn-primary" disabled={act.isPending} onClick={() => { if (!f.nama.trim() || !f.jenis.trim() || !f.kode.trim()) return setErr('Nama, jenis, dan kode wajib diisi'); if (!files.length) return setErr('Pilih file DOCX'); setErr(''); act.mutate(undefined, { onSuccess: () => close() }); return undefined; }}>Unggah Template</button></>)}>
+    <Sheet title="Unggah template baru" onClose={onClose} wide footer={({ close }) => <SheetFoot close={close} pending={act.isPending} label="Unggah Template" onSubmit={() => { if (!f.nama.trim() || !f.jenis.trim() || !f.kode.trim()) return setErr('Nama, jenis, dan kode wajib diisi'); if (!files.length) return setErr('Pilih file DOCX'); setErr(''); act.mutate(undefined, { onSuccess: () => close() }); return undefined; }} />}>
       <div className="sheet-body">
         <p className="muted">Tulis field di dalam dokumen Word dengan format <code>{'{{nama_field}}'}</code>, misalnya <code>{'{{nama_kegiatan}}'}</code>. Sistem membaca field otomatis.</p>
         {err && <div className="alert alert-late" role="alert">{err}</div>}
@@ -73,7 +73,7 @@ function VersionSheet({ id, onClose }) {
   const [err, setErr] = useState('');
   const act = useAction(() => upload(`/templates/${id}/versi`, { catatan, aktifkan: aktif }, { file: files[0] }), { success: 'Versi baru ditambahkan', keys: ['template', 'templates'] });
   return (
-    <Sheet title="Unggah versi baru" onClose={onClose} footer={({ close }) => (<><button type="button" className="btn" onClick={() => close()}>Batal</button><button type="button" className="btn btn-primary" disabled={act.isPending} onClick={() => { if (!files.length) return setErr('Pilih file DOCX'); act.mutate(undefined, { onSuccess: () => close() }); return undefined; }}>Unggah Versi</button></>)}>
+    <Sheet title="Unggah versi baru" onClose={onClose} footer={({ close }) => <SheetFoot close={close} pending={act.isPending} label="Unggah Versi" onSubmit={() => { if (!files.length) return setErr('Pilih file DOCX'); act.mutate(undefined, { onSuccess: () => close() }); return undefined; }} />}>
       <div className="sheet-body">
         {err && <div className="alert alert-late" role="alert">{err}</div>}
         <FilePicker files={files} setFiles={setFiles} multiple={false} accept=".docx" label="Pilih file DOCX versi baru" />
@@ -89,13 +89,13 @@ function FieldsSheet({ id, version, onClose }) {
   const act = useAction(() => put(`/templates/${id}/versi/${version.id}/field`, { fields }), { success: 'Definisi field disimpan', keys: ['template'] });
   const set = (name, patch) => setFields(fields.map((f) => (f.name === name ? { ...f, ...patch } : f)));
   return (
-    <Sheet title={`Field versi ${version.versi}`} wide onClose={onClose} footer={({ close }) => (<><button type="button" className="btn" onClick={() => close()}>Batal</button><button type="button" className="btn btn-primary" disabled={act.isPending} onClick={() => act.mutate(undefined, { onSuccess: () => close() })}>Simpan</button></>)}>
+    <Sheet title={`Field versi ${version.versi}`} wide onClose={onClose} footer={({ close }) => <SheetFoot close={close} pending={act.isPending} label="Simpan Field" onSubmit={() => act.mutate(undefined, { onSuccess: () => close() })} />}>
       <div className="sheet-body">
         <p className="muted">Field sistem (nomor, tanggal, kop, penandatangan) dan kolom bawaan formulir tidak dapat diubah.</p>
         {fields.map((f) => (f.sistem || f.bawaan ? (
           <div key={f.name} className="row"><code>{`{{${f.name}}}`}</code><Tag tone="neutral">{f.sistem ? 'Diisi sistem' : 'Kolom bawaan'}</Tag></div>
         ) : (
-          <div key={f.name} className="form-grid" style={{ gridTemplateColumns: 'minmax(0,1fr) 140px auto', alignItems: 'end' }}>
+          <div key={f.name} className="form-grid field-row">
             <Field label={`Label untuk ${f.name}`}>{(id2) => <Input id={id2} value={f.label} onChange={(e) => set(f.name, { label: e.target.value })} />}</Field>
             <Field label="Tipe">{(id2) => <Select id={id2} value={f.type} onChange={(e) => set(f.name, { type: e.target.value })} options={[{ value: 'text', label: 'Teks' }, { value: 'textarea', label: 'Teks panjang' }, { value: 'date', label: 'Tanggal' }]} />}</Field>
             <label className="check-row"><input type="checkbox" checked={f.required} onChange={(e) => set(f.name, { required: e.target.checked })} /><span>Wajib</span></label>

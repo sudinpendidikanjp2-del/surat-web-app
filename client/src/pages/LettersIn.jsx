@@ -32,14 +32,14 @@ export function LettersIn() {
       { key: 'teruskan', label: 'Teruskan kepada Pimpinan', tone: 'primary', url: '/letters-in/bulk/teruskan', confirm: { title: (n) => `Teruskan ${n} surat kepada pimpinan?`, body: (n) => `${n} surat akan berstatus menunggu disposisi dan pimpinan diberi tahu. Surat yang sudah diteruskan dilewati.`, button: 'Teruskan' } },
       { key: 'arsip', label: 'Arsipkan', url: '/letters-in/bulk/arsipkan', confirm: { title: (n) => `Arsipkan ${n} surat?`, body: () => 'Hanya surat berstatus selesai yang dapat diarsipkan. Lainnya dilewati.', button: 'Arsipkan' } },
     ] : []),
-    ...(isLeader ? [{ key: 'disposisi', label: 'Berikan Disposisi', tone: 'primary', url: '/letters-in/bulk/disposisi', sheet: BulkDisposeSheet }] : []),
+    ...(isLeader ? [{ key: 'disposisi', label: 'Berikan Disposisi', tone: 'primary', url: '/letters-in/bulk/disposisi', sheet: (p) => <BulkDisposeSheet {...p} /> }] : []),
   ];
   const columns = [
     { key: 'surat', header: 'Surat', sort: 'perihal', primary: true, title: (r) => r.perihal,
       cell: (l) => (
         <>
-          <div className="row" style={{ gap: 8 }}><Stamp>{l.no_agenda}</Stamp>{l.sifat !== 'Biasa' && <span className="small" style={{ fontWeight: 600 }}>{l.sifat}</span>}{l.prioritas === 'Mendesak' && <span className="small" style={{ fontWeight: 600, color: 'var(--late-ink)' }}>Mendesak</span>}</div>
-          <div className="cell-title" style={{ marginTop: 4 }}><Link to={`/surat-masuk/${l.id}`}>{l.perihal}</Link></div>
+          <div className="row row-tight"><Stamp>{l.no_agenda}</Stamp>{l.sifat !== 'Biasa' && <span className="flag">{l.sifat}</span>}{l.prioritas === 'Mendesak' && <span className="flag late">Mendesak</span>}</div>
+          <div className="cell-title cell-gap"><Link to={`/surat-masuk/${l.id}`}>{l.perihal}</Link></div>
           <div className="muted small">Dari {l.asal}{l.instansi ? `, ${l.instansi}` : ''} · {l.no_surat} · diterima {fmtDate(l.tgl_diterima)}</div>
         </>
       ) },
@@ -54,7 +54,7 @@ export function LettersIn() {
       queryKey="letters-in" endpoint="/letters-in" idsEndpoint="/letters-in/ids" csv
       filters={FILTERS} extraKeys={EXTRA} tabs={tabs} columns={columns} rowTo={(l) => `/surat-masuk/${l.id}`} bulk={bulk}
       defaults={DEFAULTS} searchPlaceholder="Cari nomor agenda, nomor surat, perihal, pengirim"
-      empty={<Empty title="Belum ada surat masuk" text={isTu ? 'Catat surat pertama dengan foto atau isian manual.' : 'Surat yang diterima Tata Usaha akan tampil di sini.'}/>}
+      empty={<Empty title="Belum ada surat masuk" text={isTu ? 'Catat surat pertama dengan foto atau isian manual.' : 'Surat yang diterima Tata Usaha akan tampil di sini.'} />}
     />
   );
 }
