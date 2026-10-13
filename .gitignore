@@ -1,7 +1,8 @@
 node_modules
-client/dist
 storage
 .env
+.env.local
+.data/
 *.log
 
 .next/

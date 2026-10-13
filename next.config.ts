@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
   // Image Docker memakai build mandiri (BUILD_STANDALONE=1). Lokal dan uji memakai `next start` biasa.
   output: process.env.BUILD_STANDALONE === '1' ? 'standalone' : undefined,
   poweredByHeader: false,
+  // Jangan membuat AGENTS.md otomatis saat `next dev`.
+  agentRules: false,
   // Data bahasa Tesseract dibaca dari disk saat berjalan, jadi ikut disalin ke build mandiri.
   outputFileTracingIncludes: {
     '/api/ocr/**': ['./node_modules/@tesseract.js-data/ind/4.0.0_best_int/**', './node_modules/tesseract.js/**', './node_modules/tesseract.js-core/**'],

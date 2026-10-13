@@ -32,24 +32,25 @@ Saat server mulai (`src/instrumentation.ts`), migrasi skema dan data awal berjal
 
 Catatan deviasi dari PRD: PRD menyebut Prisma. Versi ini memakai `pg` dengan SQL langsung agar tidak bergantung pada unduhan mesin Prisma. Skema memakai SQL standar dan mudah dipindah ke Prisma.
 
-## Menjalankan
+## Menjalankan di komputer sendiri
 
-Prasyarat: Node 22 atau lebih baru, PostgreSQL, dan (opsional, untuk unduh PDF) LibreOffice.
+Prasyarat: Node 22 atau lebih baru. PostgreSQL dan Docker **tidak wajib**.
 
 ```bash
-createdb surat   # atau sesuaikan DATABASE_URL
-npm install
-npm run build
-DATABASE_URL=postgres://surat:surat_dev@localhost:5432/surat npm start
+npm run setup        # npm install + membuat .env.local (DATABASE_URL dan lainnya)
+npm run dev:local    # PostgreSQL 16 tertanam + aplikasi, satu perintah. Berhenti: Ctrl+C
 ```
 
-Buka http://localhost:3000. Saat database kosong, server membuat tabel, unit, akun awal, pengaturan, dan lima template bawaan.
+Buka http://localhost:3000 dan masuk sebagai `admin` / `surat12345`. Saat database kosong, aplikasi membuat tabel, unit, akun awal, pengaturan, dan lima template bawaan.
 
-Pengembangan: `npm run dev` (halaman dan API di port 3000). Next.js membaca `.env` secara otomatis. Pemeriksaan: `npm run lint` dan `npm run typecheck`.
-
-Data contoh (opsional, perihal diawali `[CONTOH]`): jalankan server, lalu `npm run seed:demo`.
-
-Uji: `npm test` (membuat ulang database `surat_test`; butuh hak membuat database).
+- PostgreSQL datang dari paket npm `embedded-postgres` (biner untuk Windows, macOS, dan Linux). Data tersimpan di `.data/postgres` dan tetap ada setelah berhenti. Hapus folder itu untuk mulai dari kosong.
+- Database dan aplikasi terpisah: `npm run db` di satu jendela, `npm run dev` di jendela lain.
+- Sudah punya Docker: `npm run db:docker` lalu `npm run dev`.
+- Sudah punya PostgreSQL sendiri: ubah `DATABASE_URL` di `.env.local` (akun perlu hak `CREATEDB` untuk `npm test`), lalu `npm run dev`.
+- Port 5432 terpakai: `DEV_DB_PORT=5433 npm run dev:local` dan ubah port di `.env.local`.
+- Data contoh (perihal diawali `[CONTOH]`), saat aplikasi berjalan: `npm run seed:demo`.
+- Pemeriksaan: `npm run lint`, `npm run typecheck`, `npm run build`, lalu `npm test` (17 uji, membuat ulang database `surat_test`; database harus menyala).
+- Unduh PDF surat keluar butuh LibreOffice (opsional). Tanpanya, DOCX tetap dapat diunduh.
 
 ## Akun awal
 
@@ -136,19 +137,6 @@ Halaman publik `/lacak` (tanpa login) agar pengirim dapat memantau suratnya. Dip
 Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, sinkronisasi Google Drive, pencarian isi dokumen, ekspor Excel dan PDF laporan (CSV tersedia), TTE, fitur AI, backup terkelola di luar server (skrip `scripts/backup.sh` tersedia).
 
 Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint mengembalikan pesan jelas dan DOCX tetap dapat diunduh.
-
-## Uji lokal dengan database siap pakai
-
-Cara tercepat (butuh Docker dan Node 22):
-
-```bash
-./scripts/local-setup.sh        # PostgreSQL di Docker (db surat dan surat_test), npm install, build
-npm run dev                     # aplikasi :3000, migrasi dan akun awal otomatis
-npm run seed:demo               # opsional, saat server jalan: isi data contoh
-npm test                        # 17 uji backend (membuat db uji sendiri)
-```
-
-Tanpa Docker: pakai PostgreSQL sendiri, buat role `surat` dengan hak `CREATEDB`, lalu `SKIP_DOCKER=1 ./scripts/local-setup.sh`. Atur `DATABASE_URL` dan `TEST_DATABASE_URL` bila nama/sandi berbeda. Masuk dengan `admin` / `surat12345`.
 
 ## Deploy produksi (Docker)
 
