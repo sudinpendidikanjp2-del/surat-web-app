@@ -81,15 +81,15 @@ export function NewLetterInPage() {
   if (mode === 'pilih') {
     return (
       <Page>
-        <PageHeader back={{ href: '/surat-masuk', label: 'Kembali ke daftar Surat Masuk' }} title="Catat surat masuk" intro="Pilih salah satu cara. Nomor agenda diberikan otomatis setelah surat disimpan." />
+        <PageHeader back={{ href: '/surat-masuk', label: 'Surat Masuk' }} title="Catat surat masuk" intro="Pilih salah satu cara. Nomor agenda diberikan otomatis setelah surat disimpan." />
         <div className="grid gap-5 md:grid-cols-2">
           <Card><CardContent className="flex h-full flex-col gap-4">
             <h2 className="flex items-center gap-2 text-xl"><CameraIcon className="size-7" aria-hidden /> Dari foto surat</h2>
             <p className="text-lg">Foto halaman pertama surat. Sistem membaca nomor, tanggal, pengirim, dan perihal. Anda tinggal memeriksa.</p>
             <p className="text-muted-foreground">Letakkan surat di meja yang rata dan terang. Pastikan seluruh halaman masuk foto.</p>
             <div className="mt-auto flex flex-col gap-3">
-              <Button size="lg" onClick={() => cam.current?.click()}><CameraIcon aria-hidden /> Ambil Foto Surat</Button>
-              <Button size="lg" variant="outline" onClick={() => gal.current?.click()}><ImageIcon aria-hidden /> Pilih Foto yang Sudah Ada</Button>
+              <Button onClick={() => cam.current?.click()}><CameraIcon aria-hidden /> Ambil Foto Surat</Button>
+              <Button variant="outline" onClick={() => gal.current?.click()}><ImageIcon aria-hidden /> Pilih Foto yang Sudah Ada</Button>
             </div>
             <input ref={cam} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} onChange={(e) => readPhoto(e.target.files?.[0])} />
             <input ref={gal} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" tabIndex={-1} onChange={(e) => readPhoto(e.target.files?.[0])} />
@@ -97,7 +97,7 @@ export function NewLetterInPage() {
           <Card><CardContent className="flex h-full flex-col gap-4">
             <h2 className="flex items-center gap-2 text-xl"><KeyboardIcon className="size-7" aria-hidden /> Ketik sendiri</h2>
             <p className="text-lg">Isi data surat dengan mengetik. Cocok untuk surat berupa file PDF atau bila foto sulit dibaca.</p>
-            <div className="mt-auto"><Button size="lg" variant="outline" className="w-full" onClick={() => setMode('ketik')}><KeyboardIcon aria-hidden /> Ketik Sendiri</Button></div>
+            <div className="mt-auto"><Button variant="outline" className="w-full" onClick={() => setMode('ketik')}><KeyboardIcon aria-hidden /> Ketik Sendiri</Button></div>
           </CardContent></Card>
         </div>
       </Page>
@@ -139,8 +139,8 @@ export function NewLetterInPage() {
         </CardContent></Card>
       </Section>
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" size="lg" disabled={save.isPending || reading}>{save.isPending ? 'Sedang menyimpan…' : 'Simpan dan Beri Nomor Agenda'}</Button>
-        <Button asChild size="lg" variant="outline" className="no-underline"><Link href="/surat-masuk">Batal</Link></Button>
+        <Button type="submit" disabled={save.isPending || reading}>{save.isPending ? 'Sedang menyimpan…' : 'Simpan dan Beri Nomor Agenda'}</Button>
+        <Button asChild variant="outline" className="no-underline"><Link href="/surat-masuk">Batal</Link></Button>
       </div>
     </form>
   );
@@ -148,7 +148,7 @@ export function NewLetterInPage() {
   if (mode === 'ketik') {
     return (
       <Page>
-        <PageHeader back={{ href: '/surat-masuk', label: 'Kembali ke daftar Surat Masuk' }} title="Catat surat masuk" intro="Isi data surat di bawah, lalu tekan Simpan.">
+        <PageHeader back={{ href: '/surat-masuk', label: 'Surat Masuk' }} title="Catat surat masuk" intro="Isi data surat di bawah, lalu tekan Simpan.">
           <Button variant="outline" onClick={() => setMode('pilih')}>Ganti Cara Mencatat</Button>
         </PageHeader>
         {form}
@@ -158,11 +158,11 @@ export function NewLetterInPage() {
 
   return (
     <Page className="max-w-6xl">
-      <PageHeader back={{ href: '/surat-masuk', label: 'Kembali ke daftar Surat Masuk' }} title="Periksa hasil pembacaan foto" intro="Bandingkan isian dengan foto surat. Isian bertanda kuning perlu diperiksa.">
+      <PageHeader back={{ href: '/surat-masuk', label: 'Surat Masuk' }} title="Periksa hasil pembacaan foto" intro="Bandingkan isian dengan foto surat. Isian bertanda kuning perlu diperiksa.">
         <Button variant="outline" onClick={() => { setMode('pilih'); setPhoto(null); setOcr(null); setF(EMPTY); }}>Foto Ulang</Button>
       </PageHeader>
       <div className="grid items-start gap-6 lg:grid-cols-[5fr_6fr]">
-        <figure className="overflow-hidden rounded-lg border-2 border-[#d6d1c4] bg-card lg:sticky lg:top-4">
+        <figure className="overflow-hidden rounded-lg border border-border bg-card lg:sticky lg:top-4">
           {photo && <img src={photo.url} alt="Foto surat yang Anda pilih" className="block max-h-[80vh] w-full object-contain" />}
         </figure>
         <div className="flex flex-col gap-5">

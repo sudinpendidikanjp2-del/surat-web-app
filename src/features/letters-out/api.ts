@@ -21,7 +21,7 @@ export interface TemplateDetail { template: TemplateRow & { kode_klasifikasi: st
 export const KEYS = ['letter-out', 'letters-out', 'dashboard', 'letter', 'timeline', 'letters-in'];
 
 export const useLettersOut = (params: Record<string, string | number>) =>
-  useQuery({ queryKey: ['letters-out', params], queryFn: () => api.get<Page<LetterOutRow>>(`/letters-out${qs({ pageSize: 10, ...params })}`), placeholderData: (p) => p });
+  useQuery({ queryKey: ['letters-out', params], queryFn: () => api.get<Page<LetterOutRow>>(`/letters-out${qs({ pageSize: 20, ...params })}`), placeholderData: (p) => p });
 export const useLetterOut = (id: string) => useQuery({ queryKey: ['letter-out', id], queryFn: () => api.get<LetterOutDetail>(`/letters-out/${id}`) });
 export const useTemplates = () => useQuery({ queryKey: ['templates'], queryFn: () => api.get<TemplateRow[]>('/templates') });
 export const useTemplate = (id: string | number | null) => useQuery({ queryKey: ['template', String(id)], queryFn: () => api.get<TemplateDetail>(`/templates/${id}`), enabled: Boolean(id) });

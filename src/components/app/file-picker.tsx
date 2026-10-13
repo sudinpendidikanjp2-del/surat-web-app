@@ -19,7 +19,7 @@ export function FilePicker({ files, onChange, multiple = true, accept, label = '
       {files.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label="File yang dipilih">
           {files.map((f, i) => (
-            <li key={`${f.name}-${i}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border-2 border-[#d6d1c4] bg-card px-4 py-2">
+            <li key={`${f.name}-${i}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-2">
               <span className="flex min-w-0 items-center gap-2 break-all"><FileIcon className="size-5 shrink-0" aria-hidden />{f.name} <span className="text-muted-foreground">({fmtSize(f.size)})</span></span>
               <Button type="button" size="sm" variant="ghost" onClick={() => onChange(files.filter((_, j) => j !== i))}>Hapus dari daftar</Button>
             </li>

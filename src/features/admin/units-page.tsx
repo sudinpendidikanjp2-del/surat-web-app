@@ -20,7 +20,7 @@ export function UnitsPage() {
   const [edit, setEdit] = useState<UnitOption | 'baru' | null>(null);
   return (
     <Page>
-      <PageHeader title="Unit Kerja" intro="Bagian atau bidang di kantor. Disposisi dapat ditujukan ke unit, lalu diterima kepala unitnya." back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }}>
+      <PageHeader title="Unit Kerja" intro="Bagian atau bidang di kantor. Disposisi dapat ditujukan ke unit, lalu diterima kepala unitnya.">
         <Button onClick={() => setEdit('baru')}><PlusIcon aria-hidden /> Tambah Unit</Button>
       </PageHeader>
       <Async q={units} empty={<Empty title="Belum ada unit kerja" />}>
@@ -29,7 +29,7 @@ export function UnitsPage() {
             {rows.map((u) => (
               <li key={u.id}><Card><CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-col gap-1">
-                  <p className="flex flex-wrap items-center gap-2 text-xl font-bold">{u.nama}{!u.aktif && <Badge tone="late">Tidak dipakai</Badge>}</p>
+                  <p className="flex flex-wrap items-center gap-2 text-base font-bold">{u.nama}{!u.aktif && <Badge tone="late">Tidak dipakai</Badge>}</p>
                   <p className="flex flex-wrap items-center gap-2"><Stamp>{u.kode}</Stamp> {u.jumlah_pengguna} pengguna aktif</p>
                 </div>
                 <Button variant="outline" onClick={() => setEdit(u)}>Ubah {u.kode}</Button>
@@ -60,7 +60,7 @@ function UnitDialog({ unit, onClose }: { unit: UnitOption | null; onClose: () =>
         {unit ? <p>Kode unit: <Stamp>{unit.kode}</Stamp> (tidak dapat diubah karena dipakai pada nomor surat)</p>
           : <Field label="Kode unit" required hint="Singkatan pendek, misalnya SAR untuk Sarana Prasarana.">{(p) => <Input {...p} value={kode} onChange={(e) => setKode(e.target.value.toUpperCase())} />}</Field>}
         {unit && (
-          <label className="flex min-h-[52px] cursor-pointer items-center gap-3 rounded-md border-2 border-[#d6d1c4] px-4">
+          <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 text-sm">
             <Checkbox checked={aktif} onCheckedChange={(c) => setAktif(c === true)} /> Unit masih dipakai
           </label>
         )}

@@ -61,7 +61,7 @@ function ProgressDialog({ d, open, onOpenChange }: { d: TaskDetail; open: boolea
           <div role="group" className="grid grid-cols-5 gap-2">
             {STEPS.map((p) => (
               <button key={p} type="button" aria-pressed={progress === p} onClick={() => setProgress(p)}
-                className={`min-h-[56px] cursor-pointer rounded-md border-2 text-lg font-bold ${progress === p ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-card hover:bg-muted'}`}>{p}%</button>
+                className={`pressable h-11 cursor-pointer rounded-md border text-sm font-semibold tabular-nums sm:h-10 ${progress === p ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-card hover:bg-muted'}`}>{p}%</button>
             ))}
           </div>
         </Choices>
@@ -69,7 +69,7 @@ function ProgressDialog({ d, open, onOpenChange }: { d: TaskDetail; open: boolea
       <Field label={status === 'MENUNGGU_DATA' ? 'Data apa yang Anda tunggu' : status === 'DIBATALKAN' ? 'Alasan pembatalan' : 'Catatan'} required={status === 'MENUNGGU_DATA' || status === 'DIBATALKAN'}>
         {(p) => <Textarea {...p} value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Contoh: Data kelas 1 sampai 5 sudah direkap." />}
       </Field>
-      <div className="flex flex-col gap-2"><span className="font-bold">File hasil pekerjaan <span className="font-normal text-muted-foreground">(boleh dikosongkan)</span></span>
+      <div className="flex flex-col gap-1.5"><span className="text-sm font-semibold">File hasil pekerjaan</span>
         <FilePicker files={files} onChange={setFiles} accept=".pdf,.docx,.xlsx,.xls,.doc,.png,.jpg,.jpeg,.csv,.txt" /></div>
     </ActionDialog>
   );
@@ -101,61 +101,67 @@ function Detail({ d }: { d: TaskDetail }) {
   const closed = ['SELESAI', 'DIBATALKAN'].includes(t.status);
   return (
     <>
-      <PageHeader back={{ href: '/pekerjaan', label: 'Kembali ke Pekerjaan Saya' }} title={t.judul}>
-        <div className="flex flex-wrap items-center gap-2"><Stamp>{t.no_agenda}</Stamp><StatusTask status={t.status} /><Deadline sla={t.sla} /></div>
+      <PageHeader back={{ href: '/pekerjaan', label: 'Pekerjaan Saya' }} title={t.judul}
+        meta={<><Stamp>{t.no_agenda}</Stamp><StatusTask status={t.status} /><Deadline sla={t.sla} /></>}>
+        {d.can.edit && <Button variant="outline" onClick={() => setDlg('edit')}>Ubah tugas</Button>}
+        <Button asChild variant="outline"><Link href={`/surat-masuk/${t.letter_in_id}`}>Buka surat asal</Link></Button>
       </PageHeader>
-      <NextStep step={closed ? { quiet: true, title: t.status === 'SELESAI' ? 'Tugas ini sudah selesai' : 'Tugas ini dibatalkan' } : d.can.update
-        ? { title: 'Laporkan kemajuan pekerjaan Anda', desc: 'Pilih keadaan dan persentase. Pemberi tugas akan mendapat kabar.', primary: { label: 'Laporkan Kemajuan', onClick: () => setDlg('progress') } }
-        : { quiet: true, title: 'Anda dapat melihat tugas ini', desc: 'Hanya penanggung jawab dan pemberi tugas yang dapat melaporkan kemajuan.' }} />
-      <div className="flex flex-wrap gap-3 no-print">
-        {d.can.edit && <Button variant="outline" onClick={() => setDlg('edit')}>Ubah Tugas</Button>}
-        <Button asChild variant="outline" className="no-underline"><Link href={`/surat-masuk/${t.letter_in_id}`}>Buka Surat Asalnya</Link></Button>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <NextStep step={closed ? { quiet: true, title: t.status === 'SELESAI' ? 'Tugas ini sudah selesai' : 'Tugas ini dibatalkan' } : d.can.update
+            ? { title: 'Laporkan kemajuan pekerjaan Anda', desc: 'Pemberi tugas mendapat kabar setiap kali Anda melapor.', primary: { label: 'Laporkan kemajuan', onClick: () => setDlg('progress') } }
+            : { quiet: true, title: 'Anda dapat melihat tugas ini', desc: 'Hanya penanggung jawab dan pemberi tugas yang dapat melaporkan kemajuan.' }} />
+
+          {t.deskripsi && <Section title="Penjelasan"><p className="whitespace-pre-wrap rounded-lg border border-border bg-card px-4 py-3">{t.deskripsi}</p></Section>}
+
+          {list.length > 0 && (
+            <Section title="Daftar langkah" intro={d.can.update ? 'Centang langkah yang selesai. Tersimpan otomatis.' : undefined}
+              action={<span className="text-sm text-muted-foreground">{list.filter((c) => c.selesai).length} dari {list.length}</span>}>
+              <div className="flex flex-col gap-1.5">
+                {list.map((c, i) => (
+                  <ChoiceRow key={i}><Checkbox checked={c.selesai} disabled={!d.can.update} onCheckedChange={() => flip(i)} /><span className={c.selesai ? 'text-muted-foreground line-through' : ''}>{c.teks}</span></ChoiceRow>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          <Section title="Hasil pekerjaan"><FileList files={d.attachments} empty="Belum ada file hasil." /></Section>
+
+          <Section title="Riwayat laporan">
+            {d.updates.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada laporan kemajuan.</p> : (
+              <ol className="flex flex-col rounded-lg border border-border bg-card px-4 py-1">
+                {d.updates.map((u) => (
+                  <li key={u.id} className="flex flex-col gap-0.5 border-t border-line py-3 text-sm first:border-t-0">
+                    <span className="font-semibold">{TASK_STATUS[u.status as keyof typeof TASK_STATUS] || u.status}, {u.progress}%</span>
+                    <span className="text-muted-foreground">{fmtDateTime(u.created_at)}, {u.user_nama}</span>
+                    {u.catatan && <p className="mt-1 whitespace-pre-wrap rounded-md bg-muted px-3 py-2">{u.catatan}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Section>
+        </div>
+
+        <aside className="flex flex-col gap-6">
+          <Section title="Rincian">
+            <Card><CardContent className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <p className="flex items-baseline justify-between text-sm"><span className="text-muted-foreground">Kemajuan</span><span className="text-lg font-bold tabular-nums">{t.progress}%</span></p>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={t.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Kemajuan tugas">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${t.progress}%` }} />
+                </div>
+              </div>
+              <dl className="flex flex-col gap-2 text-sm">
+                {([['Dikerjakan oleh', t.pic_nama], ['Diberikan oleh', t.assigner_nama], ['Batas waktu', fmtDate(t.deadline)], ['Prioritas', t.prioritas]] as const).map(([k, v]) => (
+                  <div key={k} className="flex flex-col"><dt className="text-muted-foreground">{k}</dt><dd className="font-medium">{v}</dd></div>
+                ))}
+                <div className="flex flex-col"><dt className="text-muted-foreground">Surat</dt><dd><Link href={`/surat-masuk/${t.letter_in_id}`}>{t.perihal}</Link></dd></div>
+              </dl>
+            </CardContent></Card>
+          </Section>
+        </aside>
       </div>
-
-      <Section title="Rincian tugas">
-        <Card><CardContent className="flex flex-col gap-5">
-          <dl className="grid gap-x-8 gap-y-3 text-lg sm:grid-cols-[220px_1fr]">
-            <dt className="text-muted-foreground">Dikerjakan oleh</dt><dd className="font-semibold">{t.pic_nama}</dd>
-            <dt className="text-muted-foreground">Diberikan oleh</dt><dd className="font-semibold">{t.assigner_nama}</dd>
-            <dt className="text-muted-foreground">Batas waktu</dt><dd className="font-semibold">{fmtDate(t.deadline)}</dd>
-            <dt className="text-muted-foreground">Seberapa mendesak</dt><dd className="font-semibold">{t.prioritas}</dd>
-            <dt className="text-muted-foreground">Surat</dt><dd><Link href={`/surat-masuk/${t.letter_in_id}`}>{t.perihal}</Link></dd>
-          </dl>
-          {t.deskripsi && <p className="whitespace-pre-wrap text-lg">{t.deskripsi}</p>}
-          <div className="flex flex-col gap-2">
-            <p className="text-lg font-bold">Kemajuan: {t.progress}%</p>
-            <div className="h-5 w-full overflow-hidden rounded-sm border-2 border-input bg-card" role="progressbar" aria-valuenow={t.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Kemajuan tugas">
-              <div className="h-full bg-primary" style={{ width: `${t.progress}%` }} />
-            </div>
-          </div>
-        </CardContent></Card>
-      </Section>
-
-      {list.length > 0 && (
-        <Section title="Daftar langkah" intro={d.can.update ? 'Centang langkah yang sudah selesai. Tersimpan otomatis.' : undefined}>
-          <div className="flex flex-col gap-2">
-            {list.map((c, i) => (
-              <ChoiceRow key={i}><Checkbox checked={c.selesai} disabled={!d.can.update} onCheckedChange={() => flip(i)} /><span className={c.selesai ? 'line-through' : ''}>{c.teks}</span></ChoiceRow>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      <Section title="Hasil pekerjaan"><FileList files={d.attachments} empty="Belum ada file hasil." /></Section>
-
-      <Section title="Riwayat laporan">
-        {d.updates.length === 0 ? <p className="text-muted-foreground">Belum ada laporan kemajuan.</p> : (
-          <ol className="flex flex-col">
-            {d.updates.map((u) => (
-              <li key={u.id} className="flex flex-col gap-1 border-t-2 border-[#e4e0d6] py-4 first:border-t-0 first:pt-0">
-                <span className="text-muted-foreground">{fmtDateTime(u.created_at)}, oleh {u.user_nama}</span>
-                <span className="text-lg font-semibold">{TASK_STATUS[u.status as keyof typeof TASK_STATUS] || u.status}, kemajuan {u.progress}%</span>
-                {u.catatan && <p className="whitespace-pre-wrap rounded-md bg-muted px-4 py-3">{u.catatan}</p>}
-              </li>
-            ))}
-          </ol>
-        )}
-      </Section>
       {dlg === 'progress' && <ProgressDialog d={d} open onOpenChange={(o) => !o && setDlg(null)} />}
       {dlg === 'edit' && <EditDialog d={d} open onOpenChange={(o) => !o && setDlg(null)} />}
     </>
@@ -164,5 +170,5 @@ function Detail({ d }: { d: TaskDetail }) {
 
 export function TaskDetailPage({ id }: { id: string }) {
   const q = useTask(id);
-  return <Page><Async q={q} isEmpty={() => false} loadingLabel="Sedang membuka tugas…">{(d) => <Detail d={d} />}</Async></Page>;
+  return <Page wide><Async q={q} isEmpty={() => false} loadingLabel="Membuka tugas…">{(d) => <Detail d={d} />}</Async></Page>;
 }

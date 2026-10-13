@@ -23,8 +23,8 @@ export function DispositionSheetPage({ id }: { id: string }) {
   return (
     <Page>
       <div className="no-print">
-        <PageHeader back={{ href: `/surat-masuk/${id}`, label: 'Kembali ke surat' }} title="Lembar disposisi" intro="Cetak lembar ini, atau simpan sebagai PDF dari jendela cetak.">
-          <Button size="lg" onClick={() => window.print()}><PrinterIcon aria-hidden /> Cetak Lembar Disposisi</Button>
+        <PageHeader back={{ href: `/surat-masuk/${id}`, label: 'Surat' }} title="Lembar disposisi" intro="Cetak lembar ini, atau simpan sebagai PDF dari jendela cetak.">
+          <Button onClick={() => window.print()}><PrinterIcon aria-hidden /> Cetak Lembar Disposisi</Button>
         </PageHeader>
       </div>
       <Async q={q} isEmpty={() => false}>

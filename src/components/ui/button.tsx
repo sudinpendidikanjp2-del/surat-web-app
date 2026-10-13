@@ -4,26 +4,27 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 /**
- * Tombol shadcn, disesuaikan: tinggi minimal 52px, huruf 18px tebal, selalu berlabel teks.
- * Tanpa animasi skala; umpan balik tekan dari perubahan warna yang jelas.
+ * Tombol shadcn. Tinggi 44px di layar sentuh (target ketuk) dan 40px di layar lebar.
+ * Umpan balik tekan: mengecil 3% seketika (kelas `pressable`), warna berubah saat disorot.
  */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-semibold transition-colors disabled:pointer-events-none disabled:opacity-55 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-5 cursor-pointer select-none',
+  'pressable inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-semibold no-underline disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4 cursor-pointer select-none',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-[#08463a] active:bg-[#06352c]',
-        outline: 'border-2 border-input bg-card text-foreground hover:bg-muted active:bg-[#dcd8ce]',
-        destructive: 'border-2 border-destructive bg-card text-destructive hover:bg-late-soft active:bg-[#f5d6d2]',
-        'destructive-solid': 'bg-destructive text-destructive-foreground hover:bg-[#7d160f]',
-        ghost: 'text-foreground hover:bg-muted underline underline-offset-4',
-        link: 'text-primary underline underline-offset-4 decoration-2 px-0 min-h-0',
+        default: 'bg-primary text-primary-foreground hover:bg-primary-hover',
+        outline: 'border border-input bg-card text-foreground hover:bg-muted',
+        secondary: 'bg-muted text-foreground hover:bg-line',
+        destructive: 'border border-destructive bg-card text-destructive hover:bg-late-soft',
+        'destructive-solid': 'bg-destructive text-destructive-foreground hover:bg-destructive-hover',
+        ghost: 'text-foreground hover:bg-muted',
+        link: 'h-auto px-0 text-primary underline underline-offset-3',
       },
       size: {
-        default: 'min-h-[52px] px-5 text-base',
-        sm: 'min-h-[44px] px-4 text-base',
-        lg: 'min-h-[60px] px-7 text-lg',
-        icon: 'size-[52px]',
+        default: 'h-11 px-4 text-base sm:h-10',
+        sm: 'h-11 px-3 text-sm sm:h-8',
+        lg: 'h-12 px-5 text-base',
+        icon: 'size-11 sm:size-10',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },

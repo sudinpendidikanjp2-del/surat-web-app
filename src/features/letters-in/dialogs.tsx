@@ -190,7 +190,7 @@ export function FinishDialog({ data, ...o }: DialogProps & { data: LetterInDetai
       <ul className="flex flex-col gap-2">
         {data.syarat.checks.map((c) => (
           <li key={c.label} className="flex items-start gap-3 text-lg">
-            {c.ok ? <CheckIcon className="mt-1 size-6 shrink-0 text-ok" strokeWidth={3} aria-hidden /> : <MinusIcon className="mt-1 size-6 shrink-0 text-late" strokeWidth={3} aria-hidden />}
+            {c.ok ? <CheckIcon className="mt-1 size-5 shrink-0 text-ok" strokeWidth={3} aria-hidden /> : <MinusIcon className="mt-1 size-5 shrink-0 text-late" strokeWidth={3} aria-hidden />}
             <span>{c.label}<span className="sr-only">{c.ok ? ', sudah terpenuhi' : ', belum terpenuhi'}</span></span>
           </li>
         ))}
@@ -270,7 +270,7 @@ export function TrackDialog({ id, canEdit, ...o }: DialogProps & { id: number; c
                 <div className="flex flex-col gap-2 sm:flex-row"><Input readOnly value={d.url} onFocus={(e) => e.target.select()} aria-label="Tautan pelacakan" /><Button variant="outline" onClick={() => copy(d.url, 'Tautan')}>Salin Tautan</Button></div>
               </div>
               {canEdit && (
-                <div className="flex flex-col gap-3 border-t-2 border-[#e4e0d6] pt-4">
+                <div className="flex flex-col gap-3 border-t border-line pt-4">
                   <Button variant="outline" disabled={act.isPending} onClick={() => act.mutate(d.aktif ? 'nonaktifkan' : 'aktifkan')}>{d.aktif ? 'Matikan Pelacakan' : 'Nyalakan Pelacakan'}</Button>
                   <Button variant="destructive" onClick={() => setConfirm(true)}>Buat Kode Baru</Button>
                 </div>

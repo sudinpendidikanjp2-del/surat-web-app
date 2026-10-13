@@ -21,7 +21,7 @@ export function TemplatesPage() {
   const [adding, setAdding] = useState(false);
   return (
     <Page>
-      <PageHeader title="Contoh Surat (Template)" back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }}
+      <PageHeader title="Template Surat"
         intro="Bentuk surat keluar dalam file Word (DOCX). Bagian yang diisi ditulis seperti {{perihal}} di dalam dokumen.">
         <Button onClick={() => setAdding(true)}><PlusIcon aria-hidden /> Tambah Template</Button>
       </PageHeader>
@@ -35,7 +35,7 @@ export function TemplatesPage() {
                   {!t.aktif && <Badge tone="late">Tidak dipakai</Badge>}
                   {t.aktif && !t.versi_aktif_id && <Badge tone="warn">Belum ada versi yang dipakai</Badge>}
                 </div>
-                <Link href={`/template/${t.id}`} className="text-xl font-bold text-foreground">{t.nama}</Link>
+                <Link href={`/template/${t.id}`} className="font-semibold text-foreground">{t.nama}</Link>
                 {t.deskripsi && <p>{t.deskripsi}</p>}
                 <p className="text-muted-foreground">{t.versi_aktif ? `Versi ${t.versi_aktif} sedang dipakai` : 'Belum ada versi dipakai'}, {t.jumlah_versi} versi tersimpan.</p>
               </CardContent></Card></li>

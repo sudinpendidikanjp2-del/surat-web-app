@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DownloadIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Field } from '@/components/app/form-field';
@@ -32,13 +32,13 @@ export function ReportsPage() {
   const q = useQuery({ queryKey: ['laporan', jenis, from, to], queryFn: () => api.get<Report>(`/laporan/${jenis}${qs({ from, to })}`) });
   return (
     <Page>
-      <PageHeader back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }} title="Laporan" intro="Rekap surat dan pekerjaan. Setiap tabel dapat diunduh untuk dibuka di Excel." />
+      <PageHeader title="Laporan" intro="Rekap surat dan pekerjaan. Setiap tabel dapat diunduh untuk dibuka di Excel." />
       <Async q={stat} isEmpty={() => false}>
         {(s) => (
           <Section title={`Tahun ${s.tahun}`}>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-5">
               {([['Surat masuk', s.masuk], ['Surat keluar', s.keluar], ['Disposisi', s.disposisi], ['Selesai', s.selesai], ['Terlambat', s.terlambat]] as const).map(([k, v]) => (
-                <Card key={k}><CardContent className="flex flex-col"><span className={`text-4xl font-bold tabular-nums ${k === 'Terlambat' && v ? 'text-late' : ''}`}>{v}</span><span className="text-lg font-semibold">{k}</span></CardContent></Card>
+                <div key={k} className="flex flex-col gap-0.5 bg-card px-4 py-3"><span className="text-sm text-muted-foreground">{k}</span><span className={`text-2xl font-bold tabular-nums ${k === 'Terlambat' && v ? 'text-late' : ''}`}>{v}</span></div>
               ))}
             </div>
           </Section>
@@ -57,7 +57,7 @@ export function ReportsPage() {
             {d.catatan && <p className="text-muted-foreground">{d.catatan}</p>}
             {d.tables.map((t, i) => (
               <Section key={t.judul} title={t.judul}>
-                <div><Button asChild variant="outline" className="no-underline"><a href={`/api/laporan/${jenis}${qs({ from, to, format: 'csv', tabel: i })}`}><DownloadIcon aria-hidden /> Unduh Tabel untuk Excel</a></Button></div>
+                <div><Button asChild variant="outline" className="no-underline"><a href={`/api/laporan/${jenis}${qs({ from, to, format: 'csv', tabel: i })}`}><DownloadIcon aria-hidden /> Unduh CSV</a></Button></div>
                 <Card><Table>
                   <TableHeader><TableRow>{t.columns.map((c) => <TableHead key={c}>{c}</TableHead>)}</TableRow></TableHeader>
                   <TableBody>{t.rows.length === 0 ? <TableRow><TableCell colSpan={t.columns.length}>Tidak ada data</TableCell></TableRow> : t.rows.map((r, ri) => <TableRow key={ri}>{r.map((c, ci) => <TableCell key={ci} className={typeof c === 'number' ? 'tabular-nums' : ''}>{c ?? '-'}</TableCell>)}</TableRow>)}</TableBody>

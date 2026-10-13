@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BulkBar, SelectAll, SelectRow, useBulkAction, useSelection } from '@/components/app/bulk';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, NativeSelect } from '@/components/ui/input';
@@ -35,40 +36,75 @@ const ROLE_DESC: Record<Role, string> = {
 const KEYS = ['users', 'user-options'];
 
 export function UsersPage() {
+  const me = useUser();
   const { view, q, page, set } = useListState<View>('aktif');
   const [edit, setEdit] = useState<UserRow | 'baru' | null>(null);
+  const [confirm, setConfirm] = useState<boolean | null>(null);
   const list = useQuery({
     queryKey: ['users', view, q, page],
     queryFn: () => api.get<UserPage>(`/users${qs({ q, page, pageSize: 20, aktif: view === 'aktif' ? '1' : view === 'nonaktif' ? '0' : '' })}`),
+    placeholderData: (p) => p,
   });
+  const rows = list.data?.items || [];
+  const sel = useSelection(rows.filter((u) => u.id !== me.id).map((u) => u.id), `${view}|${q}|${page}`);
+  const bulk = useBulkAction(KEYS, (id) => rows.find((u) => u.id === id)?.nama || `Pengguna ${id}`);
   return (
-    <Page>
-      <PageHeader title="Pengguna" intro="Orang yang dapat masuk ke aplikasi ini, beserta perannya." back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }}>
+    <Page wide>
+      <PageHeader title="Pengguna" intro="Orang yang dapat masuk ke aplikasi ini, beserta perannya.">
         <Button onClick={() => setEdit('baru')}><PlusIcon aria-hidden /> Tambah Pengguna</Button>
       </PageHeader>
-      <div className="flex flex-col gap-5">
-        <SearchForm value={q} onSearch={(v) => set({ q: v })} label="Cari nama, NIP, atau nama pengguna" />
-        <FilterButtons label="Tampilkan" value={view} onChange={(v) => set({ tampil: v })} options={[{ value: 'aktif', label: 'Yang aktif' }, { value: 'nonaktif', label: 'Yang dinonaktifkan' }, { value: 'semua', label: 'Semua' }]} />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <FilterButtons label="Tampilkan" value={view} onChange={(v) => set({ tampil: v })} options={[{ value: 'aktif', label: 'Aktif' }, { value: 'nonaktif', label: 'Dinonaktifkan' }, { value: 'semua', label: 'Semua' }]} />
+        <SearchForm value={q} onSearch={(v) => set({ q: v })} label="Cari pengguna" placeholder="Nama, NIP, atau nama pengguna" />
       </div>
       <Async q={list} isEmpty={(d) => d.items.length === 0} empty={<Empty title="Tidak ada pengguna yang cocok" />}>
         {(d) => (
-          <div className="flex flex-col gap-5">
-            <ul className="flex flex-col gap-3">
-              {d.items.map((u) => (
-                <li key={u.id}><Card><CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <p className="flex flex-wrap items-center gap-2 text-xl font-bold">{u.nama}{!u.aktif && <Badge tone="late">Dinonaktifkan</Badge>}</p>
-                    <p>{ROLE_LABEL[u.role]}{u.jabatan ? `, ${u.jabatan}` : ''}{u.unit_nama ? `, ${u.unit_nama}` : ''}</p>
-                    <p className="text-muted-foreground break-all">Nama pengguna: {u.username}</p>
-                  </div>
-                  <Button variant="outline" onClick={() => setEdit(u)}>Ubah Data {u.nama.split(' ')[0]}</Button>
-                </CardContent></Card></li>
-              ))}
-            </ul>
+          <div className="flex flex-col gap-3">
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10"><SelectAll sel={sel} /></TableHead>
+                    <TableHead>Nama</TableHead>
+                    <TableHead className="hidden md:table-cell">Peran</TableHead>
+                    <TableHead className="hidden lg:table-cell">Unit kerja</TableHead>
+                    <TableHead className="hidden sm:table-cell">Status</TableHead>
+                    <TableHead className="text-right"><span className="sr-only">Tindakan</span></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {d.items.map((u) => (
+                    <TableRow key={u.id} data-state={sel.has(u.id) ? 'selected' : undefined}>
+                      <TableCell>{u.id !== me.id ? <SelectRow sel={sel} id={u.id} label={u.nama} /> : null}</TableCell>
+                      <TableCell>
+                        <span className="block font-semibold">{u.nama}{u.id === me.id && <span className="font-normal text-muted-foreground"> (Anda)</span>}</span>
+                        <span className="block text-muted-foreground">{u.username}{u.jabatan ? ` · ${u.jabatan}` : ''}</span>
+                        <span className="block text-muted-foreground md:hidden">{ROLE_LABEL[u.role]}</span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{ROLE_LABEL[u.role]}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{u.unit_nama || '-'}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{u.aktif ? <Badge tone="ok">Aktif</Badge> : <Badge tone="late">Dinonaktifkan</Badge>}</TableCell>
+                      <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => setEdit(u)} aria-label={`Ubah ${u.nama}`}>Ubah</Button></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
             <Pager page={d.page} pageSize={d.pageSize} total={d.total} onPage={(p) => set({ halaman: p })} />
           </div>
         )}
       </Async>
+      <BulkBar sel={sel}>
+        <Button size="sm" variant="outline" onClick={() => setConfirm(true)}>Aktifkan</Button>
+        <Button size="sm" variant="destructive" onClick={() => setConfirm(false)}>Nonaktifkan</Button>
+      </BulkBar>
+      {bulk.dialog}
+      {confirm !== null && (
+        <ActionDialog open onOpenChange={(o) => !o && setConfirm(null)} title={`${confirm ? 'Aktifkan' : 'Nonaktifkan'} ${sel.count} pengguna?`}
+          confirmLabel={confirm ? 'Aktifkan' : 'Nonaktifkan'} danger={!confirm} pending={bulk.pending}
+          description={confirm ? 'Mereka dapat masuk lagi dengan kata sandi lama.' : 'Mereka langsung dikeluarkan dari semua perangkat dan tidak dapat masuk.'}
+          onConfirm={async () => { if (await bulk.run('/users/bulk/aktif', { aktif: confirm }, confirm ? 'diaktifkan' : 'dinonaktifkan', sel)) setConfirm(null); }} />
+      )}
       {edit && <UserDialog user={edit === 'baru' ? null : edit} onClose={() => setEdit(null)} />}
     </Page>
   );
@@ -119,7 +155,7 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose: () => vo
           {(p) => <Input {...p} type="text" autoComplete="new-password" value={v.password} onChange={put('password')} />}
         </Field>
         {user && !self && (
-          <label className="flex min-h-[52px] cursor-pointer items-center gap-3 rounded-md border-2 border-[#d6d1c4] px-4">
+          <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 text-sm">
             <Checkbox checked={v.aktif} onCheckedChange={(c) => setV((s) => ({ ...s, aktif: c === true }))} />
             Akun aktif (hilangkan centang untuk melarang orang ini masuk)
           </label>

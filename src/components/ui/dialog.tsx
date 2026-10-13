@@ -5,8 +5,9 @@ import { XIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Dialog shadcn, disesuaikan: lebar, di tengah, tombol tutup berlabel "Tutup". Escape menutup.
- * Tidak bergeser atau membesar saat muncul; hanya memudar singkat agar tidak membingungkan.
+ * Dialog shadcn. Di ponsel naik dari bawah selebar layar (jempol dekat tombol), di layar lebar di tengah.
+ * Masuk 200ms ease-out dari skala 0.97 (tidak dari 0), keluar 150ms: sistem merespons lebih cepat dari pengguna.
+ * Dialog tetap berpusat (bukan dari pemicu) karena tidak terikat ke satu tombol.
  */
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -15,13 +16,20 @@ const DialogClose = DialogPrimitive.Close;
 function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/55 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-overlay data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:duration-200 data-[state=closed]:duration-150" />
       <DialogPrimitive.Content data-slot="dialog-content"
-        className={cn('fixed inset-x-0 bottom-0 z-50 flex max-h-[94dvh] flex-col rounded-t-lg border-2 border-[#d6d1c4] bg-card shadow-2xl outline-none sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(680px,calc(100vw-32px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg', className)}
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-xl border border-border bg-card text-card-foreground shadow-xl outline-none',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-200 data-[state=closed]:duration-150 ease-[var(--ease-out)]',
+          'data-[state=open]:slide-in-from-bottom-6 data-[state=closed]:slide-out-to-bottom-6 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
+          'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(600px,calc(100vw-32px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl',
+          'sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=open]:zoom-in-[0.97] sm:data-[state=closed]:zoom-out-[0.97]',
+          className,
+        )}
         {...props}>
         {children}
-        <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex min-h-[44px] items-center gap-1 rounded-md px-3 font-semibold underline underline-offset-4 hover:bg-muted">
-          <XIcon className="size-5" aria-hidden /> Tutup
+        <DialogPrimitive.Close className="pressable absolute right-2 top-2 inline-flex size-11 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:size-9" aria-label="Tutup">
+          <XIcon className="size-5" aria-hidden />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
@@ -29,19 +37,19 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('flex flex-col gap-2 border-b-2 border-[#e4e0d6] px-5 pb-4 pr-28 pt-5 sm:px-6', className)} {...props} />;
+  return <div className={cn('flex flex-col gap-1 px-5 pb-3 pr-14 pt-5', className)} {...props} />;
 }
 function DialogBody({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('flex flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6', className)} {...props} />;
+  return <div className={cn('flex flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 py-2', className)} {...props} />;
 }
 function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('flex flex-col-reverse gap-3 border-t-2 border-[#e4e0d6] px-5 py-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6', className)} {...props} />;
+  return <div className={cn('flex flex-col-reverse gap-2 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:pb-5', className)} {...props} />;
 }
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title className={cn('text-xl font-bold sm:text-2xl', className)} {...props} />;
+  return <DialogPrimitive.Title className={cn('text-lg font-bold', className)} {...props} />;
 }
 function DialogDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  return <DialogPrimitive.Description className={cn('text-muted-foreground', className)} {...props} />;
+  return <DialogPrimitive.Description className={cn('text-sm text-muted-foreground', className)} {...props} />;
 }
 
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription };

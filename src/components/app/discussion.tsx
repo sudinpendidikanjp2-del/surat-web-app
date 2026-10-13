@@ -19,23 +19,23 @@ export function Discussion({ base, queryKey, canWrite }: { base: string; queryKe
   const [teks, setTeks] = useState('');
   const act = useAction(() => api.post(`${base}/komentar`, { teks }), { success: 'Catatan sudah disimpan.', keys: ['timeline'], onDone: () => setTeks('') });
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       {canWrite && (
         <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); if (teks.trim()) act.mutate(); }}>
           <Field label="Tulis catatan" hint="Ketik @ lalu nama pengguna untuk memberi tahu rekan, misalnya @andi.">
             {(p) => <Textarea {...p} rows={3} value={teks} onChange={(e) => setTeks(e.target.value)} />}
           </Field>
-          <div><Button type="submit" disabled={act.isPending || !teks.trim()}>{act.isPending ? 'Sedang menyimpan…' : 'Simpan Catatan'}</Button></div>
+          <div><Button type="submit" disabled={act.isPending || !teks.trim()}>{act.isPending ? 'Menyimpan…' : 'Simpan catatan'}</Button></div>
         </form>
       )}
       <Async q={q} empty={<Empty title="Belum ada riwayat" />}>
         {(rows) => (
           <ol className="flex flex-col gap-0" aria-label="Riwayat">
             {[...rows].reverse().map((e) => (
-              <li key={e.id} className="flex flex-col gap-1 border-t-2 border-[#e4e0d6] py-4 first:border-t-0 first:pt-0">
+              <li key={e.id} className="flex flex-col gap-1 border-t border-line py-3 text-sm first:border-t-0 first:pt-0">
                 <span className="text-muted-foreground">{fmtDateTime(e.created_at)}{e.user_nama ? `, oleh ${e.user_nama}` : ''}</span>
                 {e.tipe === 'komentar'
-                  ? <p className="whitespace-pre-wrap break-words rounded-md bg-muted px-4 py-3"><span className="font-bold">Catatan: </span>{mention(e.teks)}</p>
+                  ? <p className="whitespace-pre-wrap break-words rounded-md bg-muted px-3 py-2"><span className="font-bold">Catatan: </span>{mention(e.teks)}</p>
                   : <p className="break-words">{e.teks}</p>}
               </li>
             ))}

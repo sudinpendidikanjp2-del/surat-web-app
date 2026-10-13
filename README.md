@@ -80,8 +80,13 @@ Sesuai MVP dan sebagian P1 PRD:
 - Surat keluar: generator dari template DOCX, pratinjau, versi dokumen, review, persetujuan, penomoran atomik tanpa nomor ganda, unggah dokumen bertanda tangan, catat pengiriman, relasi dua arah dengan surat masuk.
 - Template: unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field, pratinjau.
 - Beranda per peran dengan daftar "Perlu tindakan Anda", notifikasi, pengingat H-3, H-1, hari H, terlambat dengan eskalasi, komentar dan `@mention`.
-- **Daftar data** (surat masuk, surat keluar, pekerjaan, pengguna, pemberitahuan): pencarian dengan tombol Cari, pilihan tampilan berupa tombol besar, halaman di server dengan tombol "Halaman Sebelumnya/Berikutnya", dan keadaan daftar di alamat (tombol Kembali tetap bekerja).
-- Aksi massal tetap tersedia di API (`/api/*/bulk/*`, maks 200 data per aksi, kegagalan dilaporkan per data), tetapi sengaja tidak ditampilkan: kotak centang banyak data dan menu aksi massal sulit dipakai pengguna lanjut usia, dan satu langkah salah berdampak ke banyak surat.
+- **Daftar data** (surat masuk, surat keluar, pekerjaan, pengguna, pemberitahuan): tabel di layar lebar dan daftar ringkas di ponsel, tampilan cepat, pencarian, halaman di server, dan keadaan daftar di alamat (tombol Kembali tetap bekerja).
+- **Aksi massal**: centang beberapa baris, lalu pilih tindakan di bilah yang muncul di bawah. Server memproses satu per satu (maks 200 data); yang gagal tidak membatalkan yang lain dan alasannya ditampilkan per data.
+  - Surat masuk: teruskan ke pimpinan, arsipkan (TU); beri disposisi yang sama untuk banyak surat (pimpinan).
+  - Surat keluar: ajukan persetujuan; setujui dan beri nomor, kembalikan untuk revisi (pimpinan).
+  - Pekerjaan: terima banyak disposisi; tandai tugas dikerjakan atau selesai; ubah batas waktu atau batalkan tugas yang Anda berikan.
+  - Pengguna: aktifkan dan nonaktifkan. Pemberitahuan: tandai dibaca.
+- Tampilan terang dan gelap (ikuti perangkat atau pilih sendiri di kepala halaman).
 - Pencarian lintas surat masuk dan keluar, arsip per tahun, jenis, bulan, laporan dengan ekspor CSV.
 - Keamanan: hash scrypt, cookie `HttpOnly` `SameSite=Strict`, header CSRF, pembatas laju, CSP, validasi ekstensi dan isi file, file di `storage/private` yang hanya terbuka lewat endpoint berizin, kueri berparameter, urutan kolom lewat daftar putih, CSV dengan perlindungan injeksi rumus.
 

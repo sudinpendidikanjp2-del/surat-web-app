@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
+import { ThemeProvider } from '@/components/app/theme';
 import { setUnauthorizedHandler } from '@/lib/api-client';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -17,9 +18,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return qc;
   });
   return (
-    <QueryClientProvider client={client}>
-      {children}
-      <Toaster />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={client}>
+        {children}
+        <Toaster />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

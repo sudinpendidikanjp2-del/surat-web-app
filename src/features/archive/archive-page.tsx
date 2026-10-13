@@ -17,7 +17,7 @@ function Month({ tahun, jenis, bulan, nama, jumlah }: { tahun: number; jenis: 'm
   const q = useQuery({ queryKey: ['arsip-daftar', tahun, jenis, bulan], queryFn: () => api.get<Item[]>(`/arsip/daftar${qs({ tahun, jenis, bulan })}`), enabled: open });
   const id = `arsip-${tahun}-${jenis}-${bulan}`;
   return (
-    <li className="border-t-2 border-[#e4e0d6] first:border-t-0">
+    <li className="border-t border-line first:border-t-0">
       <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}
         className="flex min-h-[56px] w-full cursor-pointer items-center gap-3 px-1 text-left text-lg font-bold hover:bg-muted">
         {open ? <ChevronDownIcon className="size-6" aria-hidden /> : <ChevronRightIcon className="size-6" aria-hidden />}
@@ -46,7 +46,7 @@ export function ArchivePage() {
   const q = useQuery({ queryKey: ['arsip'], queryFn: () => api.get<Year[]>('/arsip') });
   return (
     <Page>
-      <PageHeader back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }} title="Arsip Surat" intro="Surat tersusun menurut tahun dan bulan. Tekan nama bulan untuk melihat daftar suratnya." />
+      <PageHeader title="Arsip Surat" intro="Surat tersusun menurut tahun dan bulan. Tekan nama bulan untuk melihat daftar suratnya." />
       <Async q={q} empty={<Empty title="Arsip masih kosong" text="Surat yang dicatat akan tersusun otomatis di sini." />}>
         {(years) => years.map((y) => (
           <Section key={y.tahun} title={`Tahun ${y.tahun}`}>

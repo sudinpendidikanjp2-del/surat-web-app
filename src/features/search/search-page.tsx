@@ -37,7 +37,7 @@ export function SearchPage() {
                   return (
                     <li key={`${r.tipe}-${r.id}`}><Card><CardContent className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2"><Badge tone={r.tipe === 'masuk' ? 'accent' : 'neutral'}>{r.tipe === 'masuk' ? 'Surat masuk' : 'Surat keluar'}</Badge><Stamp>{r.no_agenda}</Stamp><span className="font-semibold">{r.statusLabel}</span>{r.sla && r.sla.level !== 'selesai' && <Deadline sla={r.sla} />}</div>
-                      <Link href={href} className="text-xl font-bold text-foreground break-words">{r.perihal}</Link>
+                      <Link href={href} className="font-semibold text-foreground break-words">{r.perihal}</Link>
                       <p className="text-muted-foreground">{r.tipe === 'masuk' ? 'Dari' : 'Kepada'} {r.pihak}. {fmtDate(r.tanggal)}. {r.nomor || 'Belum bernomor'}.</p>
                     </CardContent></Card></li>
                   );

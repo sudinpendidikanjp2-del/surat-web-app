@@ -40,7 +40,7 @@ export interface TimelineEntry { id: number; tipe: string; teks: string; created
 export const KEYS = ['letter', 'letters-in', 'dashboard', 'timeline', 'dispositions', 'tasks', 'notifications'];
 
 export const useLettersIn = (params: Record<string, string | number>) =>
-  useQuery({ queryKey: ['letters-in', params], queryFn: () => api.get<Page<LetterInRow>>(`/letters-in${qs({ pageSize: 10, ...params })}`), placeholderData: (p) => p });
+  useQuery({ queryKey: ['letters-in', params], queryFn: () => api.get<Page<LetterInRow>>(`/letters-in${qs({ pageSize: 20, ...params })}`), placeholderData: (p) => p });
 
 export const useLetterIn = (id: number | string, enabled = true) =>
   useQuery({ queryKey: ['letter', String(id)], queryFn: () => api.get<LetterInDetail>(`/letters-in/${id}`), enabled });

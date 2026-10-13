@@ -3,57 +3,103 @@
 
 /*
  * Sistem Surat: token desain. Alasan setiap keputusan ada di DESIGN.md.
- * Arah: alat kerja harian untuk pegawai senior. Huruf besar, kontras AAA (7:1), satu aksen hijau tinta,
- * hampir tanpa gerak. Hanya tema terang: kertas putih dan tinta hitam, seperti surat yang mereka pegang.
+ * Arah: alat kerja harian kantor. Kertas hangat dan tinta hijau, padat tetapi tenang.
+ * Tema terang dan gelap; bawaan mengikuti sistem, dapat dipilih lewat menu Tampilan.
  */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 @theme {
   --font-sans: var(--font-atkinson), system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
 
-  --color-background: #f4f2ec;
-  --color-foreground: #141414;
+  --color-background: #f6f4ef;
+  --color-foreground: #1a1a18;
   --color-card: #ffffff;
-  --color-card-foreground: #141414;
-  --color-muted: #ebe8e1;
-  --color-muted-foreground: #383838;
-  --color-border: #7a7466;
-  --color-input: #5d584c;
-  --color-ring: #0b5a48;
+  --color-card-foreground: #1a1a18;
+  --color-muted: #efece5;
+  --color-muted-foreground: #57534b;
+  /* Garis: pemisah (line), bingkai kartu (border), bingkai kuat untuk kontrol (strong, input). */
+  --color-line: #e7e3da;
+  --color-border: #d9d4c8;
+  --color-strong: #8e887b;
+  --color-input: #8a8478;
+  --color-ring: #0b6b57;
 
-  --color-primary: #0b5a48;
+  --color-primary: #0b6b57;
+  --color-primary-hover: #095a49;
   --color-primary-foreground: #ffffff;
   --color-primary-soft: #e3f1ec;
-  --color-secondary: #ffffff;
-  --color-secondary-foreground: #141414;
-  --color-destructive: #9b1c13;
+  --color-primary-ink: #064a3c;
+  --color-destructive: #b42318;
+  --color-destructive-hover: #961d14;
   --color-destructive-foreground: #ffffff;
 
-  --color-ok: #134d2a;
-  --color-ok-soft: #e3f2e7;
-  --color-warn: #5c3a00;
-  --color-warn-soft: #fdf1d3;
-  --color-late: #8d1c13;
-  --color-late-soft: #fbe9e7;
+  --color-ok: #1b6b3a;
+  --color-ok-soft: #e6f3ea;
+  --color-warn: #7f4d00;
+  --color-warn-soft: #fcf1d8;
+  --color-late: #b42318;
+  --color-late-soft: #fdecea;
+  --color-overlay: rgb(20 20 18 / 0.5);
 
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
 
-  /* Skala huruf: dasar 18px. Tidak ada teks di bawah 16px. */
-  --text-sm: 1rem;
-  --text-sm--line-height: 1.5;
-  --text-base: 1.125rem;
-  --text-base--line-height: 1.6;
-  --text-lg: 1.25rem;
+  /* Skala huruf dasar 16px. Teks terkecil 14px, hanya untuk keterangan sekunder. */
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.125rem;
   --text-lg--line-height: 1.5;
-  --text-xl: 1.5rem;
-  --text-xl--line-height: 1.35;
-  --text-2xl: 1.875rem;
-  --text-2xl--line-height: 1.25;
-  --text-3xl: 2.25rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.4;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.875rem;
   --text-3xl--line-height: 1.2;
+
+  /* Kurva gerak (emil-design-eng): ease-out kuat untuk masuk dan umpan balik. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* Tema gelap: hijau dinaikkan kecerahannya agar tetap 4.5:1, latar abu kehijauan agar tidak hitam pekat. */
+@layer theme {
+  :root[data-theme='dark'] {
+    --color-background: #121513;
+    --color-foreground: #ecebe6;
+    --color-card: #1b1f1c;
+    --color-card-foreground: #ecebe6;
+    --color-muted: #252a27;
+    --color-muted-foreground: #aeb2ab;
+    --color-line: #2b302d;
+    --color-border: #363c38;
+    --color-strong: #6f7771;
+    --color-input: #7a827c;
+    --color-ring: #5cc9a7;
+    --color-primary: #4fbf9c;
+    --color-primary-hover: #6ccfb0;
+    --color-primary-foreground: #08140f;
+    --color-primary-soft: #173029;
+    --color-primary-ink: #a6e3cf;
+    --color-destructive: #f08074;
+    --color-destructive-hover: #f49b91;
+    --color-destructive-foreground: #1c0805;
+    --color-ok: #74d39a;
+    --color-ok-soft: #16301f;
+    --color-warn: #f0c063;
+    --color-warn-soft: #33280f;
+    --color-late: #f4877b;
+    --color-late-soft: #3a1b18;
+    --color-overlay: rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
 }
 
 @layer base {
+  :root { color-scheme: light; }
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -65,24 +111,29 @@
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
   }
-  h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; }
-  /* Tautan selalu bergaris bawah: warna saja tidak cukup untuk menandai tautan. */
-  a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
-  /* Cincin fokus tebal dan selalu terlihat saat memakai keyboard. */
-  :focus-visible { outline: 3px solid var(--color-ring); outline-offset: 3px; border-radius: 4px; }
-  ::selection { background: #cfe7df; }
-  /* Ketuk tanpa kilat abu, tanpa jeda ketuk ganda. Umpan balik datang dari warna tombol. */
+  h1, h2, h3 { font-weight: 700; letter-spacing: -0.012em; }
+  /* Tautan di dalam teks bergaris bawah; tautan yang tampil sebagai tombol atau baris daftar mematikannya sendiri. */
+  a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; border-radius: 4px; }
+  ::selection { background: color-mix(in srgb, var(--color-primary) 25%, transparent); }
   a, button, label, summary { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  /* Isian 16px di ponsel agar iOS tidak memperbesar halaman saat isian disentuh. */
+  input, select, textarea { font-size: 16px; }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
 }
 
 @layer components {
   /* Stempel agenda: motif identitas, nomor agenda dalam bingkai seperti cap penerimaan surat. */
   .stamp {
-    display: inline-block; font-weight: 700; font-size: 1rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
-    padding: 2px 10px; border: 2px solid currentColor; border-radius: 4px; color: var(--color-primary); white-space: nowrap;
+    display: inline-block; font-weight: 700; font-size: 0.8125rem; letter-spacing: 0.03em; font-variant-numeric: tabular-nums;
+    padding: 1px 7px; border: 1.5px solid currentColor; border-radius: 4px; color: var(--color-primary); white-space: nowrap;
+  }
+  /* Umpan balik tekan: mengecil sedikit seketika, kembali dengan ease-out. Tidak pada perangkat yang meminta gerak dikurangi. */
+  .pressable { transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+  @media (prefers-reduced-motion: no-preference) {
+    .pressable:active:not(:disabled) { transform: scale(0.97); }
   }
   .preview-doc { background: #fff; color: #111; font-family: 'Times New Roman', Times, serif; line-height: 1.5; overflow-x: auto; }
   .preview-doc p { margin: 0 0 8px; white-space: pre-wrap; tab-size: 12ch; overflow-wrap: anywhere; }
@@ -90,5 +141,5 @@
 
 @media print {
   .no-print { display: none !important; }
-  body { background: #fff; }
+  body { background: #fff; color: #000; }
 }

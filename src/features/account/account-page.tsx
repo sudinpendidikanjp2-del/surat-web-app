@@ -34,7 +34,7 @@ export function AccountPage() {
   const rows: [string, string | null][] = [['Nama', user.nama], ['Nama pengguna', user.username], ['Peran', user.roleLabel], ['Jabatan', user.jabatan], ['Unit kerja', user.unitNama], ['NIP', user.nip]];
   return (
     <Page className="max-w-3xl">
-      <PageHeader title="Akun Saya" back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }} />
+      <PageHeader title="Akun Saya" />
       <Section title="Data diri" intro="Bila ada yang salah, minta admin sistem untuk mengubahnya.">
         <Card><CardContent>
           <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[max-content_1fr]">
@@ -49,7 +49,7 @@ export function AccountPage() {
             <Field label="Kata sandi sekarang" required>{(p) => <Input {...p} type={show ? 'text' : 'password'} autoComplete="current-password" value={lama} onChange={(e) => setLama(e.target.value)} />}</Field>
             <Field label="Kata sandi baru" required>{(p) => <Input {...p} type={show ? 'text' : 'password'} autoComplete="new-password" value={baru} onChange={(e) => setBaru(e.target.value)} />}</Field>
             <Field label="Ulangi kata sandi baru" required>{(p) => <Input {...p} type={show ? 'text' : 'password'} autoComplete="new-password" value={ulang} onChange={(e) => setUlang(e.target.value)} />}</Field>
-            <label className="flex min-h-[48px] cursor-pointer items-center gap-3"><Checkbox checked={show} onCheckedChange={(v) => setShow(v === true)} /> Tampilkan kata sandi</label>
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"><Checkbox checked={show} onCheckedChange={(v) => setShow(v === true)} /> Tampilkan kata sandi</label>
             <div><Button type="submit" disabled={save.isPending}>{save.isPending ? 'Sedang menyimpan…' : 'Simpan Kata Sandi Baru'}</Button></div>
           </form>
         </CardContent></Card>

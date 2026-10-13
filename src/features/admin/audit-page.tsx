@@ -24,7 +24,7 @@ export function AuditPage() {
   });
   return (
     <Page>
-      <PageHeader title="Catatan Kegiatan" intro="Setiap perubahan penting dicatat otomatis dan tidak dapat dihapus." back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }} />
+      <PageHeader title="Catatan Kegiatan" intro="Setiap perubahan penting dicatat otomatis dan tidak dapat dihapus." />
       <SearchForm value={q} onSearch={(v) => set({ q: v })} label="Cari nomor data atau isi catatan" />
       <Async q={query} isEmpty={(d) => d.items.length === 0} empty={<Empty title="Tidak ada catatan yang cocok" />}>
         {(d) => (

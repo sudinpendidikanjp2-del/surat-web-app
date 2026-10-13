@@ -66,14 +66,14 @@ export function LetterForm({ fields, versionId, initial, signers, onSubmit, pend
         </CardContent></Card>
       )}
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" size="lg" disabled={pending}>{pending ? 'Sedang menyimpan…' : submitLabel}</Button>
-        <Button type="button" size="lg" variant="outline" disabled={prev.isPending} onClick={() => validate() && prev.mutate()}><EyeIcon aria-hidden /> {prev.isPending ? 'Sedang menyusun…' : 'Lihat Pratinjau Surat'}</Button>
+        <Button type="submit" disabled={pending}>{pending ? 'Sedang menyimpan…' : submitLabel}</Button>
+        <Button type="button" variant="outline" disabled={prev.isPending} onClick={() => validate() && prev.mutate()}><EyeIcon aria-hidden /> {prev.isPending ? 'Sedang menyusun…' : 'Lihat Pratinjau Surat'}</Button>
         {cancel}
       </div>
       <Dialog open={preview != null} onOpenChange={(o) => !o && setPreview(null)}>
         <DialogContent className="sm:w-[min(900px,calc(100vw-32px))]">
           <DialogHeader><DialogTitle>Pratinjau surat</DialogTitle><DialogDescription>Belum tersimpan. Nomor surat muncul setelah disetujui.</DialogDescription></DialogHeader>
-          <DialogBody><div className="preview-doc rounded-md border-2 border-[#d6d1c4] p-6 sm:p-10" dangerouslySetInnerHTML={{ __html: preview || '' }} /></DialogBody>
+          <DialogBody><div className="preview-doc rounded-md border border-border p-6 sm:p-10" dangerouslySetInnerHTML={{ __html: preview || '' }} /></DialogBody>
         </DialogContent>
       </Dialog>
     </form>

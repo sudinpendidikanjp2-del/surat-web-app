@@ -4,32 +4,41 @@ import { AlertTriangleIcon, InboxIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-/** Memuat: kalimat yang jelas, bukan hanya kerangka abu yang bisa dikira halaman kosong. */
-export function Loading({ label = 'Sedang memuat data…', rows = 3 }: { label?: string; rows?: number }) {
+/** Memuat: kerangka abu dengan kalimat untuk pembaca layar. */
+export function Loading({ label = 'Memuat data…', rows = 3 }: { label?: string; rows?: number }) {
   return (
-    <div className="flex flex-col gap-3 py-2" aria-busy="true" aria-live="polite">
-      <p className="font-semibold">{label}</p>
-      {Array.from({ length: rows }).map((_, i) => <Skeleton key={i} className="h-5" style={{ width: `${90 - i * 15}%` }} />)}
+    <div className="flex flex-col gap-2.5 py-1" aria-busy="true" aria-live="polite">
+      <span className="sr-only">{label}</span>
+      {Array.from({ length: rows }).map((_, i) => <Skeleton key={i} className="h-4" style={{ width: `${92 - i * 14}%` }} />)}
     </div>
   );
 }
 
 export function ErrorState({ error, retry }: { error: Error | null; retry?: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-md border-2 border-late bg-late-soft p-5 text-late" role="alert">
-      <p className="flex items-center gap-2 text-lg font-bold"><AlertTriangleIcon className="size-6" aria-hidden /> Data tidak dapat dimuat</p>
-      <p>{error?.message || 'Terjadi kesalahan.'}</p>
-      {retry && <Button variant="outline" onClick={retry}>Coba Muat Lagi</Button>}
+    <div className="flex flex-col items-start gap-2 rounded-lg bg-late-soft p-4 text-late" role="alert">
+      <p className="flex items-center gap-2 font-semibold"><AlertTriangleIcon className="size-4" aria-hidden /> Data tidak dapat dimuat</p>
+      <p className="text-sm">{error?.message || 'Terjadi kesalahan.'}</p>
+      {retry && <Button variant="outline" size="sm" onClick={retry}>Muat ulang</Button>}
     </div>
   );
 }
 
-export function Empty({ title, text, action }: { title: string; text?: React.ReactNode; action?: React.ReactNode }) {
-  return (
-    <div className="flex flex-col items-start gap-3 rounded-md border-2 border-dashed border-[#a8a294] bg-card p-6">
-      <p className="flex items-center gap-2 text-lg font-bold"><InboxIcon className="size-6" aria-hidden /> {title}</p>
+/** Kosong: apa artinya dan apa yang dapat dilakukan. `compact` untuk bagian di dalam halaman detail. */
+export function Empty({ title, text, action, compact }: { title: string; text?: React.ReactNode; action?: React.ReactNode; compact?: boolean }) {
+  if (compact) return (
+    <div className="rounded-lg border border-dashed border-strong px-4 py-3 text-sm">
+      <p className="font-medium">{title}</p>
       {text && <p className="text-muted-foreground">{text}</p>}
-      {action}
+      {action && <div className="pt-2">{action}</div>}
+    </div>
+  );
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-strong bg-card px-6 py-10 text-center">
+      <InboxIcon className="size-6 text-muted-foreground" aria-hidden />
+      <p className="font-semibold">{title}</p>
+      {text && <p className="max-w-md text-sm text-muted-foreground">{text}</p>}
+      {action && <div className="pt-1">{action}</div>}
     </div>
   );
 }

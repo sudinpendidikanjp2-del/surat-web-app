@@ -2,13 +2,13 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
-const alertVariants = cva('relative flex w-full gap-3 rounded-md border-2 px-4 py-3 text-base [&>svg]:mt-0.5 [&>svg]:size-6 [&>svg]:shrink-0', {
+const alertVariants = cva('relative flex w-full gap-3 rounded-md px-4 py-3 text-sm [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0', {
   variants: {
     variant: {
-      info: 'border-primary bg-primary-soft text-[#063d31]',
-      ok: 'border-ok bg-ok-soft text-ok',
-      warn: 'border-warn bg-warn-soft text-warn',
-      late: 'border-late bg-late-soft text-late',
+      info: 'bg-primary-soft text-primary-ink',
+      ok: 'bg-ok-soft text-ok',
+      warn: 'bg-warn-soft text-warn',
+      late: 'bg-late-soft text-late',
     },
   },
   defaultVariants: { variant: 'info' },

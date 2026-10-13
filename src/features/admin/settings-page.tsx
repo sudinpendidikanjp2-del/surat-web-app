@@ -20,7 +20,7 @@ export function SettingsPage() {
   const q = useQuery({ queryKey: ['settings'], queryFn: () => api.get<Settings>('/settings') });
   return (
     <Page className="max-w-3xl">
-      <PageHeader title="Pengaturan Kantor" intro="Setiap bagian disimpan sendiri-sendiri dengan tombol Simpan di bawahnya." back={{ href: '/lainnya', label: 'Kembali ke Menu Lainnya' }} />
+      <PageHeader title="Pengaturan Kantor" intro="Setiap bagian disimpan sendiri-sendiri dengan tombol Simpan di bawahnya." />
       <Async q={q} isEmpty={() => false}>
         {(s) => (
           <>

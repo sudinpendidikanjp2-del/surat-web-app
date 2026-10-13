@@ -1,44 +1,52 @@
+'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { MoreHorizontalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 export interface StepAction { label: string; onClick?: () => void; href?: string }
 export interface NextStepInfo { title: string; desc?: string; quiet?: boolean; primary?: StepAction }
 
-/** "Langkah berikutnya": satu kalimat apa yang perlu dilakukan sekarang, dan tepat satu tombol utama. */
-export function NextStep({ step, busy }: { step: NextStepInfo; busy?: boolean }) {
+/** "Langkah berikutnya": apa yang perlu dilakukan sekarang dan satu tombol utama. Satu titik fokus per halaman detail. */
+export function NextStep({ step, busy, children }: { step: NextStepInfo; busy?: boolean; children?: React.ReactNode }) {
   const p = step.primary;
   return (
-    <section aria-labelledby="langkah" className={`flex flex-col gap-4 rounded-lg border-2 p-5 sm:p-6 ${step.quiet ? 'border-[#d6d1c4] bg-card' : 'border-primary bg-primary-soft'}`}>
-      <div className="flex flex-col gap-1">
-        <p className="font-bold text-primary">Langkah berikutnya</p>
-        <h2 id="langkah" className="text-xl sm:text-2xl">{step.title}</h2>
-        {step.desc && <p className="text-lg">{step.desc}</p>}
+    <section aria-labelledby="langkah" className={cn('flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5', step.quiet ? 'border-border bg-card' : 'border-primary/40 bg-primary-soft')}>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-sm font-semibold text-primary">Langkah berikutnya</p>
+        <h2 id="langkah" className="text-base">{step.title}</h2>
+        {step.desc && <p className="text-sm text-muted-foreground">{step.desc}</p>}
       </div>
-      {p && (
-        <div className="no-print">
-          {p.href ? <Button asChild size="lg" className="no-underline"><Link href={p.href}>{p.label}</Link></Button>
-            : <Button size="lg" disabled={busy} onClick={p.onClick}>{busy ? 'Sedang diproses…' : p.label}</Button>}
+      {(p || children) && (
+        <div className="no-print flex shrink-0 flex-wrap gap-2">
+          {p && (p.href ? <Button asChild><Link href={p.href}>{p.label}</Link></Button>
+            : <Button disabled={busy} onClick={p.onClick}>{busy ? 'Memproses…' : p.label}</Button>)}
+          {children}
         </div>
       )}
     </section>
   );
 }
 
-/** Tindakan lain: terlihat semua (tidak disembunyikan di menu), masing-masing dengan penjelasan satu baris. */
-export function OtherActions({ items }: { items: (StepAction & { desc: string; danger?: boolean })[] }) {
+/** Tindakan lain dalam satu menu "Aksi lain". Tindakan merusak dipisah di bawah garis dan berwarna merah. */
+export function OtherActions({ items, className }: { items: (StepAction & { desc?: string; danger?: boolean })[]; className?: string }) {
+  const router = useRouter();
   if (!items.length) return null;
+  const safe = items.filter((i) => !i.danger);
+  const danger = items.filter((i) => i.danger);
+  const run = (it: StepAction) => (it.href ? router.push(it.href) : it.onClick?.());
   return (
-    <section aria-labelledby="tindakan-lain" className="no-print flex flex-col gap-3">
-      <h2 id="tindakan-lain" className="text-xl">Yang juga bisa Anda lakukan</h2>
-      <ul className="grid gap-3 md:grid-cols-2">
-        {items.map((it) => (
-          <li key={it.label} className="flex flex-col gap-2 rounded-md border-2 border-[#d6d1c4] bg-card p-4">
-            {it.href ? <Button asChild variant={it.danger ? 'destructive' : 'outline'} className="w-full justify-start no-underline"><Link href={it.href}>{it.label}</Link></Button>
-              : <Button variant={it.danger ? 'destructive' : 'outline'} className="w-full justify-start" onClick={it.onClick}>{it.label}</Button>}
-            <p className="text-muted-foreground">{it.desc}</p>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className={cn('no-print', className)}><MoreHorizontalIcon aria-hidden /> Aksi lain</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-64">
+        {safe.map((it) => <DropdownMenuItem key={it.label} onSelect={() => run(it)}>{it.label}</DropdownMenuItem>)}
+        {danger.length > 0 && safe.length > 0 && <DropdownMenuSeparator />}
+        {danger.map((it) => <DropdownMenuItem key={it.label} danger onSelect={() => run(it)}>{it.label}</DropdownMenuItem>)}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

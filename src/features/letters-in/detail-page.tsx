@@ -89,98 +89,105 @@ function Detail({ d }: { d: LetterInDetail }) {
     can.lacak && { label: 'Pelacakan oleh Pengirim', desc: 'Kode agar pengirim bisa melihat tahapan surat.', onClick: () => open('track') },
   ].filter((x): x is NonNullable<typeof x> & { label: string; desc: string } => Boolean(x)).filter((x) => x.label !== title);
 
+  const facts: [string, string][] = [
+    ['Nomor surat', l.no_surat], ['Tanggal surat', fmtDate(l.tgl_surat)], ['Diterima', fmtDate(l.tgl_diterima)],
+    ['Pengirim', `${l.asal}${l.instansi ? `, ${l.instansi}` : ''}`], ['Alamat', l.alamat || '-'], ['Jenis', l.jenis], ['Sifat', l.sifat],
+    ['Prioritas', l.prioritas], ['Lampiran', l.lampiran || '-'], ['Catatan', l.catatan || '-'], ['Dicatat oleh', l.creator_nama || '-'],
+  ];
   return (
     <>
-      <PageHeader back={{ href: '/surat-masuk', label: 'Kembali ke daftar Surat Masuk' }} title={l.perihal}>
-        <div className="flex flex-wrap items-center gap-2"><Stamp>{l.no_agenda}</Stamp><StatusIn status={l.status} /><Deadline sla={d.sla} /></div>
+      <PageHeader back={{ href: '/surat-masuk', label: 'Surat Masuk' }} title={l.perihal}
+        meta={<><Stamp>{l.no_agenda}</Stamp><StatusIn status={l.status} /><Deadline sla={d.sla} /></>}>
+        <OtherActions items={others} />
       </PageHeader>
 
-      <NextStep step={step} busy={busy} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <NextStep step={step} busy={busy} />
 
-      <Section title="Keadaan surat" id="keadaan">
-        <Card><CardContent className="grid gap-6 md:grid-cols-2">
-          <dl className="grid content-start gap-x-6 gap-y-3 text-lg sm:grid-cols-[auto_1fr]">
-            <dt className="text-muted-foreground">Sekarang di</dt><dd className="font-bold">{position(d)}</dd>
-            <dt className="text-muted-foreground">Batas waktu</dt><dd><span className="font-bold">{fmtDate(d.deadline)}</span><br /><Deadline sla={d.sla} /></dd>
-            <dt className="text-muted-foreground">Kemajuan</dt><dd className="font-bold">{d.percent}% tahapan</dd>
-          </dl>
-          <Steps label="Tahapan surat" items={d.stages} />
-        </CardContent></Card>
-      </Section>
+          <Section title={`Disposisi (${d.dispositions.length})`} intro="Arahan pimpinan: siapa mengerjakan dan apa yang harus dilakukan." id="disposisi">
+            {d.dispositions.length === 0 ? <Empty compact title="Belum ada disposisi" text="Disposisi dari pimpinan akan tampil di sini." /> : (
+              <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+                {d.dispositions.map((x) => (
+                  <li key={x.id} className="flex flex-col gap-2 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm"><strong>{x.dari_nama}</strong> kepada <strong>{x.ke_nama || x.ke_unit}</strong></p>
+                      <StatusDisp status={x.status} />
+                    </div>
+                    <p>&ldquo;{x.instruksi}&rdquo;</p>
+                    <div className="flex flex-wrap gap-1.5">{x.tindakan.map((t) => <Badge key={t} tone="accent">{t}</Badge>)}</div>
+                    <p className="text-sm text-muted-foreground">Selesai {fmtDate(x.deadline)}. Diberikan {fmtDateTime(x.created_at)}{x.accepted_at ? `, diterima ${fmtDateTime(x.accepted_at)}` : ''}.</p>
+                    {x.return_reason && <Alert variant="late">Dikembalikan: {x.return_reason}</Alert>}
+                    {d.holds.includes(x.id) && ['BARU', 'DITERIMA'].includes(x.status) && (
+                      <div className="no-print flex flex-wrap gap-2">
+                        {x.status === 'BARU' && <Button size="sm" disabled={accept.isPending} onClick={() => accept.mutate(x.id)}>Terima disposisi</Button>}
+                        <Button size="sm" variant="destructive" onClick={() => open('return', x)}>Kembalikan</Button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
 
-      <OtherActions items={others} />
+          <Section title={`Tugas (${d.tasks.length})`} id="tugas"
+            action={can.tugaskan ? <Button size="sm" variant="outline" onClick={() => open('task')}>Tugaskan pegawai</Button> : undefined}>
+            {d.tasks.length === 0 ? <Empty compact title="Belum ada tugas" text="Penerima disposisi dapat membagi pekerjaan ke pegawai." /> : (
+              <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+                {d.tasks.map((t) => (
+                  <li key={t.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <div className="flex min-w-0 flex-col">
+                      <Link href={`/tugas/${t.id}`} className="font-semibold text-foreground no-underline hover:underline">{t.judul}</Link>
+                      <p className="text-sm text-muted-foreground">{t.pic_nama} · selesai {fmtDate(t.deadline)} · {t.progress}%</p>
+                    </div>
+                    <StatusTask status={t.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
 
-      <Section title="Data surat" id="data">
-        <Card><CardContent>
-          <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-[220px_1fr]">
-            {([
-              ['Nomor agenda', l.no_agenda], ['Nomor surat', l.no_surat], ['Tanggal surat', fmtDate(l.tgl_surat)], ['Tanggal diterima', fmtDate(l.tgl_diterima)],
-              ['Pengirim', `${l.asal}${l.instansi ? `, ${l.instansi}` : ''}`], ['Alamat pengirim', l.alamat || '-'], ['Jenis surat', l.jenis], ['Sifat', l.sifat],
-              ['Seberapa mendesak', l.prioritas], ['Lampiran', l.lampiran || '-'], ['Catatan', l.catatan || '-'], ['Dicatat oleh', l.creator_nama || '-'],
-            ] as const).map(([k, v]) => <div key={k} className="contents"><dt className="text-muted-foreground">{k}</dt><dd className="break-words font-semibold">{v}</dd></div>)}
-          </dl>
-        </CardContent></Card>
-      </Section>
+          <Section title={`Dokumen (${d.attachments.length})`} id="dokumen"
+            action={can.upload ? <Button size="sm" variant="outline" onClick={() => open('upload')}>Tambah dokumen</Button> : undefined}>
+            {user.role === 'viewer' ? <p className="text-sm text-muted-foreground">Peran Pemantau tidak dapat membuka dokumen surat.</p> : <FileList files={d.attachments} />}
+          </Section>
 
-      <Section title={`Disposisi (${d.dispositions.length})`} intro="Disposisi adalah arahan pimpinan: siapa yang mengerjakan dan apa yang harus dilakukan." id="disposisi">
-        {d.dispositions.length === 0 ? <Empty title="Belum ada disposisi" text="Disposisi dari pimpinan akan tampil di sini." /> : (
-          <ul className="flex flex-col gap-4">
-            {d.dispositions.map((x) => (
-              <li key={x.id}><Card><CardContent className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-lg"><strong>{x.dari_nama}</strong> kepada <strong>{x.ke_nama || x.ke_unit}</strong></p>
-                  <StatusDisp status={x.status} />
-                </div>
-                <div className="flex flex-wrap gap-2">{x.tindakan.map((t) => <Badge key={t} tone="accent">{t}</Badge>)}</div>
-                <p className="text-lg">&ldquo;{x.instruksi}&rdquo;</p>
-                <p className="text-muted-foreground">Harus selesai {fmtDate(x.deadline)}. Diberikan {fmtDateTime(x.created_at)}{x.accepted_at ? `. Diterima ${fmtDateTime(x.accepted_at)}` : ''}.</p>
-                {x.return_reason && <Alert variant="late">Dikembalikan dengan alasan: {x.return_reason}</Alert>}
-                {d.holds.includes(x.id) && ['BARU', 'DITERIMA'].includes(x.status) && (
-                  <div className="no-print flex flex-wrap gap-3">
-                    {x.status === 'BARU' && <Button disabled={accept.isPending} onClick={() => accept.mutate(x.id)}>Terima Disposisi</Button>}
-                    <Button variant="destructive" onClick={() => open('return', x)}>Kembalikan</Button>
-                  </div>
-                )}
-              </CardContent></Card></li>
-            ))}
-          </ul>
-        )}
-      </Section>
+          <Section title="Balasan dan kabar ke pengirim" id="balasan">
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+              {d.outs.length === 0 ? <p className="text-muted-foreground">Belum ada surat balasan.</p> : d.outs.map((o) => (
+                <div key={o.id} className="flex flex-wrap items-center gap-2"><Link href={`/surat-keluar/${o.id}`} className="font-semibold">{o.perihal}</Link><StatusOut status={o.status} /><span className="text-muted-foreground">{o.nomor_surat || 'Belum bernomor'}</span></div>
+              ))}
+              {d.confirmations.length === 0 ? <p className="text-muted-foreground">Pengirim belum dikabari.</p> : d.confirmations.map((c) => (
+                <p key={c.id}><strong>{fmtDate(c.tanggal)}</strong>: {c.pihak} dikabari lewat {c.metode.toLowerCase()}. {c.hasil}</p>
+              ))}
+            </div>
+          </Section>
 
-      <Section title={`Tugas (${d.tasks.length})`} id="tugas">
-        {d.tasks.length === 0 ? <Empty title="Belum ada tugas" text="Pejabat penerima disposisi dapat membagi pekerjaan dengan tombol Tugaskan Pegawai." /> : (
-          <ul className="flex flex-col gap-3">
-            {d.tasks.map((t) => (
-              <li key={t.id}><Card><CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-1">
-                  <Link href={`/tugas/${t.id}`} className="text-lg font-bold text-foreground">{t.judul}</Link>
-                  <p className="text-muted-foreground">Dikerjakan {t.pic_nama}. Batas waktu {fmtDate(t.deadline)}. Kemajuan {t.progress}%.</p>
-                </div>
-                <StatusTask status={t.status} />
-              </CardContent></Card></li>
-            ))}
-          </ul>
-        )}
-      </Section>
+          <Section title="Catatan dan riwayat" intro="Tercatat otomatis, terbaru di atas." id="riwayat">
+            <Card><CardContent><Discussion base={`/letters-in/${l.id}`} queryKey={[String(l.id)]} canWrite={can.komentar} /></CardContent></Card>
+          </Section>
+        </div>
 
-      <Section title={`Dokumen (${d.attachments.length})`} id="dokumen">
-        {user.role === 'viewer' ? <p className="text-muted-foreground">Peran Pemantau tidak dapat membuka dokumen surat.</p> : <FileList files={d.attachments} />}
-      </Section>
-
-      <Section title="Surat balasan dan kabar ke pengirim" id="balasan">
-        <Card><CardContent className="flex flex-col gap-4">
-          {d.outs.length === 0 ? <p className="text-muted-foreground">Belum ada surat balasan.</p> : d.outs.map((o) => (
-            <div key={o.id} className="flex flex-wrap items-center gap-2"><Link href={`/surat-keluar/${o.id}`} className="font-bold">{o.perihal}</Link><StatusOut status={o.status} /><span className="text-muted-foreground">{o.nomor_surat || 'Belum bernomor'}</span></div>
-          ))}
-          {d.confirmations.length === 0 ? <p className="text-muted-foreground">Pengirim belum dikabari.</p> : d.confirmations.map((c) => (
-            <p key={c.id}><strong>{fmtDate(c.tanggal)}</strong>: {c.pihak} dikabari lewat {c.metode.toLowerCase()}. {c.hasil}</p>
-          ))}
-        </CardContent></Card>
-      </Section>
-
-      <Section title="Catatan dan riwayat" intro="Semua yang terjadi pada surat ini tercatat otomatis, terbaru di atas." id="riwayat">
-        <Card><CardContent><Discussion base={`/letters-in/${l.id}`} queryKey={[String(l.id)]} canWrite={can.komentar} /></CardContent></Card>
-      </Section>
+        <aside className="flex flex-col gap-6">
+          <Section title="Keadaan" id="keadaan">
+            <Card><CardContent className="flex flex-col gap-4">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                <dt className="text-muted-foreground">Sekarang di</dt><dd className="font-semibold">{position(d)}</dd>
+                <dt className="text-muted-foreground">Batas waktu</dt><dd className="font-semibold">{fmtDate(d.deadline)}</dd>
+                <dt className="text-muted-foreground">Kemajuan</dt><dd className="font-semibold">{d.percent}%</dd>
+              </dl>
+              <Steps label="Tahapan surat" items={d.stages} />
+            </CardContent></Card>
+          </Section>
+          <Section title="Data surat" id="data">
+            <Card><CardContent>
+              <dl className="flex flex-col gap-2 text-sm">
+                {facts.map(([k, v]) => <div key={k} className="flex flex-col"><dt className="text-muted-foreground">{k}</dt><dd className="break-words font-medium">{v}</dd></div>)}
+              </dl>
+            </CardContent></Card>
+          </Section>
+        </aside>
+      </div>
 
       {/* Dialog dipasang hanya saat dibuka, jadi isiannya selalu mulai dari keadaan bersih. */}
       {dlg === 'dispose' && <DisposeDialog open onOpenChange={close} letter={l} />}
@@ -200,8 +207,8 @@ function Detail({ d }: { d: LetterInDetail }) {
 export function LetterInDetailPage({ id }: { id: string }) {
   const q = useLetterIn(id);
   return (
-    <Page>
-      <Async q={q} isEmpty={() => false} loadingLabel="Sedang membuka surat…">{(d) => <Detail d={d} />}</Async>
+    <Page wide>
+      <Async q={q} isEmpty={() => false} loadingLabel="Membuka surat…">{(d) => <Detail d={d} />}</Async>
     </Page>
   );
 }

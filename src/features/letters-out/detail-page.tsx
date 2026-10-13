@@ -123,7 +123,7 @@ function EditDialog({ d, onClose }: { d: LetterOutDetail; onClose: () => void })
           {users.isPending ? <Loading /> : (
             <LetterForm fields={d.template.fields} versionId={l.template_version_id} signers={signers} pending={act.isPending} submitLabel="Simpan Perubahan"
               initial={{ perihal: l.perihal, tujuan: l.tujuan, tgl_surat: l.tgl_surat, penandatangan_id: l.penandatangan_id, fields: l.fields }} onSubmit={(f) => act.mutate(f)}
-              cancel={<Button type="button" size="lg" variant="outline" onClick={onClose}>Batal</Button>} />
+              cancel={<Button type="button" variant="outline" onClick={onClose}>Batal</Button>} />
           )}
         </DialogBody>
       </DialogContent>
@@ -149,57 +149,60 @@ function Detail({ d }: { d: LetterOutDetail }) {
   ].filter((x): x is { label: string; desc: string; onClick: () => void } => Boolean(x));
   return (
     <>
-      <PageHeader back={{ href: '/surat-keluar', label: 'Kembali ke daftar Surat Keluar' }} title={l.perihal}>
-        <div className="flex flex-wrap items-center gap-2"><Stamp>{l.no_agenda}</Stamp><StatusOut status={l.status} />{l.nomor_surat && <span className="text-lg font-bold">Nomor: {l.nomor_surat}</span>}</div>
+      <PageHeader back={{ href: '/surat-keluar', label: 'Surat Keluar' }} title={l.perihal}
+        meta={<><Stamp>{l.no_agenda}</Stamp><StatusOut status={l.status} />{l.nomor_surat && <span className="text-sm font-semibold">Nomor {l.nomor_surat}</span>}</>}>
+        <OtherActions items={others} />
       </PageHeader>
-      <NextStep step={step} busy={submit.isPending || done.isPending} />
-      {l.status === 'REVISI' && d.approvals.length > 0 && <Alert variant="warn"><span><strong>Perlu diperbaiki.</strong> {d.approvals[d.approvals.length - 1].catatan}</span></Alert>}
 
-      <Section title="Tahapan surat">
-        <Card><CardContent className="grid gap-6 md:grid-cols-2">
-          <dl className="grid content-start gap-x-6 gap-y-3 text-lg sm:grid-cols-[auto_1fr]">
-            <dt className="text-muted-foreground">Kepada</dt><dd className="font-semibold">{l.tujuan}</dd>
-            <dt className="text-muted-foreground">Jenis</dt><dd className="font-semibold">{l.jenis}</dd>
-            <dt className="text-muted-foreground">Tanggal</dt><dd className="font-semibold">{fmtDate(l.tgl_surat)}</dd>
-            <dt className="text-muted-foreground">Dibuat oleh</dt><dd className="font-semibold">{l.pembuat}</dd>
-            <dt className="text-muted-foreground">Penandatangan</dt><dd className="font-semibold">{d.signer?.nama || 'Belum dipilih'}</dd>
-            {d.asal && <><dt className="text-muted-foreground">Balasan untuk</dt><dd><Link href={`/surat-masuk/${d.asal.id}`}>{d.asal.perihal}</Link></dd></>}
-          </dl>
-          {l.status === 'DITOLAK' ? <Alert variant="late">Surat ini ditolak.</Alert> : <Steps label="Tahapan surat keluar" items={FLOW.map(([k, label, at]) => ({ key: k, label, done: idx >= ORDER.indexOf(at) }))} />}
-        </CardContent></Card>
-      </Section>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <NextStep step={step} busy={submit.isPending || done.isPending} />
+          {l.status === 'REVISI' && d.approvals.length > 0 && <Alert variant="warn"><span><strong>Perlu diperbaiki.</strong> {d.approvals[d.approvals.length - 1].catatan}</span></Alert>}
 
-      <OtherActions items={others} />
+          <Section title="Isi surat" intro="Sesuai dokumen yang akan dicetak."
+            action={<div className="no-print flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline"><a href={`/api/letters-out/${l.id}/unduh?format=pdf`}><DownloadIcon aria-hidden /> PDF</a></Button>
+              <Button asChild size="sm" variant="outline"><a href={`/api/letters-out/${l.id}/unduh?format=docx`}><DownloadIcon aria-hidden /> Word</a></Button>
+            </div>}>
+            <Async q={preview} isEmpty={() => false} loadingLabel="Menyusun tampilan surat…">
+              {(v) => <div className="preview-doc rounded-lg border border-border p-5 sm:p-8" dangerouslySetInnerHTML={{ __html: v.html }} />}
+            </Async>
+          </Section>
 
-      <Section title="Isi surat" intro="Tampilan surat sesuai dokumen yang akan dicetak.">
-        <div className="flex flex-wrap gap-3 no-print">
-          <Button asChild variant="outline" className="no-underline"><a href={`/api/letters-out/${l.id}/unduh?format=pdf`}><DownloadIcon aria-hidden /> Unduh PDF</a></Button>
-          <Button asChild variant="outline" className="no-underline"><a href={`/api/letters-out/${l.id}/unduh?format=docx`}><DownloadIcon aria-hidden /> Unduh Word</a></Button>
+          <Section title={`Dokumen (${d.attachments.length})`}><FileList files={d.attachments} /></Section>
+
+          <Section title="Catatan dan riwayat">
+            <Card><CardContent><Discussion base={`/letters-out/${l.id}`} queryKey={['out', String(l.id)]} canWrite={c.komentar && user.role !== 'viewer'} /></CardContent></Card>
+          </Section>
         </div>
-        <Async q={preview} isEmpty={() => false} loadingLabel="Sedang menyusun tampilan surat…">
-          {(v) => <div className="preview-doc rounded-lg border-2 border-[#d6d1c4] p-6 sm:p-10" dangerouslySetInnerHTML={{ __html: v.html }} />}
-        </Async>
-      </Section>
 
-      <Section title="Riwayat persetujuan">
-        {d.approvals.length === 0 ? <p className="text-muted-foreground">Belum ada keputusan.</p> : (
-          <ol className="flex flex-col">
-            {[...d.approvals].reverse().map((a) => (
-              <li key={a.id} className="flex flex-col gap-1 border-t-2 border-[#e4e0d6] py-4 first:border-t-0 first:pt-0">
-                <span className="text-muted-foreground">{fmtDateTime(a.created_at)}, oleh {a.user_nama}</span>
-                <span className="text-lg font-semibold">{AKSI[a.aksi] || a.aksi}</span>
-                {a.catatan && <p className="rounded-md bg-muted px-4 py-3">{a.catatan}</p>}
-              </li>
-            ))}
-          </ol>
-        )}
-      </Section>
-
-      <Section title={`Dokumen (${d.attachments.length})`}><FileList files={d.attachments} /></Section>
-
-      <Section title="Catatan dan riwayat">
-        <Card><CardContent><Discussion base={`/letters-out/${l.id}`} queryKey={['out', String(l.id)]} canWrite={c.komentar && user.role !== 'viewer'} /></CardContent></Card>
-      </Section>
+        <aside className="flex flex-col gap-6">
+          <Section title="Tahapan">
+            <Card><CardContent className="flex flex-col gap-4">
+              <dl className="flex flex-col gap-2 text-sm">
+                {([['Kepada', l.tujuan], ['Jenis', l.jenis], ['Tanggal', fmtDate(l.tgl_surat)], ['Dibuat oleh', l.pembuat], ['Penandatangan', d.signer?.nama || 'Belum dipilih']] as const).map(([k, v]) => (
+                  <div key={k} className="flex flex-col"><dt className="text-muted-foreground">{k}</dt><dd className="break-words font-medium">{v}</dd></div>
+                ))}
+                {d.asal && <div className="flex flex-col"><dt className="text-muted-foreground">Balasan untuk</dt><dd><Link href={`/surat-masuk/${d.asal.id}`}>{d.asal.perihal}</Link></dd></div>}
+              </dl>
+              {l.status === 'DITOLAK' ? <Alert variant="late">Surat ini ditolak.</Alert> : <Steps label="Tahapan surat keluar" items={FLOW.map(([k, label, at]) => ({ key: k, label, done: idx >= ORDER.indexOf(at) }))} />}
+            </CardContent></Card>
+          </Section>
+          <Section title="Riwayat persetujuan">
+            {d.approvals.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada keputusan.</p> : (
+              <ol className="flex flex-col rounded-lg border border-border bg-card px-4 py-1">
+                {[...d.approvals].reverse().map((a) => (
+                  <li key={a.id} className="flex flex-col gap-0.5 border-t border-line py-3 text-sm first:border-t-0">
+                    <span className="font-semibold">{AKSI[a.aksi] || a.aksi}</span>
+                    <span className="text-muted-foreground">{fmtDateTime(a.created_at)}, {a.user_nama}</span>
+                    {a.catatan && <p className="mt-1 rounded-md bg-muted px-3 py-2">{a.catatan}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Section>
+        </aside>
+      </div>
 
       {dlg === 'edit' && <EditDialog d={d} onClose={close} />}
       {dlg === 'review' && <DecisionDialog id={l.id} mode="review" onClose={close} />}
@@ -213,5 +216,5 @@ function Detail({ d }: { d: LetterOutDetail }) {
 
 export function LetterOutDetailPage({ id }: { id: string }) {
   const q = useLetterOut(id);
-  return <Page><Async q={q} isEmpty={() => false} loadingLabel="Sedang membuka surat…">{(d) => <Detail d={d} />}</Async></Page>;
+  return <Page wide><Async q={q} isEmpty={() => false} loadingLabel="Membuka surat…">{(d) => <Detail d={d} />}</Async></Page>;
 }

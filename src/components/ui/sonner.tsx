@@ -1,18 +1,18 @@
 'use client';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
+import { useTheme } from '@/components/app/theme';
 
-/** Pesan singkat di atas tengah, huruf besar, tampil 8 detik agar sempat dibaca, dapat ditutup. */
+/** Pesan hasil tindakan di kanan bawah; di ponsel di atas bilah menu bawah. Warna dari token tema (kontras terjaga di kedua tema). */
 function Toaster(props: ToasterProps) {
+  const { resolved } = useTheme();
   return (
-    <Sonner position="top-center" duration={8000} closeButton
-      toastOptions={{
-        classNames: {
-          toast: '!rounded-md !border-2 !text-base !font-semibold !px-5 !py-4 !gap-3',
-          success: '!border-ok !bg-ok-soft !text-ok',
-          error: '!border-late !bg-late-soft !text-late',
-          closeButton: '!size-8 !border-2',
-        },
-      }}
+    <Sonner theme={resolved} position="bottom-right" mobileOffset={{ bottom: 84 }} duration={5000} closeButton
+      toastOptions={{ classNames: {
+        toast: '!rounded-lg !border !border-border !bg-card !text-card-foreground !text-sm !font-medium !shadow-lg',
+        success: '!border-ok/40 [&_[data-icon]]:!text-ok',
+        error: '!border-late/50 !bg-late-soft !text-late',
+        closeButton: '!border-border !bg-card !text-foreground',
+      } }}
       {...props} />
   );
 }

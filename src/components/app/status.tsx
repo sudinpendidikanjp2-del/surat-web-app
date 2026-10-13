@@ -4,6 +4,7 @@ import { STATUS_DISP, STATUS_IN } from '@/domain/letter-in';
 import { STATUS_OUT } from '@/domain/letter-out';
 import { TASK_STATUS } from '@/domain/task';
 import type { SlaIndicator } from '@/domain/sla';
+import { cn } from '@/lib/utils';
 
 type Tone = 'neutral' | 'accent' | 'ok' | 'warn' | 'late';
 
@@ -21,13 +22,13 @@ export const StatusTask = make(TASK_STATUS, TONE_TASK);
 export const StatusDisp = make(STATUS_DISP, TONE_DISP);
 
 /** Sisa waktu: ikon berbeda bentuk per keadaan, jadi tidak hanya bergantung pada warna. */
-export function Deadline({ sla }: { sla: SlaIndicator | null | undefined }) {
-  if (!sla || sla.level === 'none') return <span className="inline-flex items-center gap-1.5 font-semibold text-muted-foreground"><MinusCircleIcon className="size-5" aria-hidden />Tanpa batas waktu</span>;
+export function Deadline({ sla, className }: { sla: SlaIndicator | null | undefined; className?: string }) {
+  if (!sla || sla.level === 'none') return <span className={cn('inline-flex items-center gap-1 text-sm text-muted-foreground', className)}><MinusCircleIcon className="size-3.5" aria-hidden />Tanpa batas waktu</span>;
   const map = {
     ok: ['text-ok', ClockIcon], warn: ['text-warn', AlertCircleIcon], late: ['text-late', AlertCircleIcon], selesai: ['text-ok', CheckCircle2Icon], none: ['', MinusCircleIcon],
   } as const;
   const [cls, Icon] = map[sla.level];
-  return <span className={`inline-flex items-center gap-1.5 font-bold ${cls}`}><Icon className="size-5" aria-hidden />{sla.label}</span>;
+  return <span className={cn('inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold', cls, className)}><Icon className="size-3.5" aria-hidden />{sla.label}</span>;
 }
 
 export const Stamp = ({ children }: { children: React.ReactNode }) => <span className="stamp">{children}</span>;

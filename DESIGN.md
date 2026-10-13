@@ -1,68 +1,81 @@
 # DESIGN.md
 
-Arah desain Sistem Surat dan Disposisi setelah pindah ke Next.js, Tailwind, shadcn/ui, dan React Query. Sasaran utama: **mudah dipakai oleh pegawai lanjut usia** yang jarang memakai aplikasi, membaca dengan kacamata, dan takut salah tekan.
+Arah desain Sistem Surat dan Disposisi (Next.js, Tailwind, shadcn/ui, React Query). Sasaran: alat kerja harian yang **cepat dipindai dan jelas langkah berikutnya**, untuk TU, pimpinan, pejabat, dan pelaksana yang membuka aplikasi berkali-kali sehari.
 
-Skill yang dipakai: antislop (filter mutu, mode DURING), emil-design-eng dari `npx skills add emilkowalski/skill` (hanya bagian yang cocok: frekuensi menentukan gerak, umpan balik tekan, tanpa `transition: all`). Bagian pegas, laci geser, dan menu popover dari arah sebelumnya sengaja dibuang karena bertentangan dengan sasaran di atas.
+Skill yang dipakai: antislop (filter mutu, mode DURING) dan emil-design-eng dari `npx skills add emilkowalski/skill` (aturan gerak: frekuensi menentukan animasi, ease-out kuat, tekan 0.97, menu muncul dari pemicunya, dialog berpusat).
 
-Design Read: alat kerja harian kantor pemerintah untuk TU, pimpinan, dan pegawai senior; bahasa visual kertas dan tinta, tenang, huruf besar; dial ENERGY 1 / RHYTHM 1 / MOTION 1.
+Design Read: aplikasi kerja internal kantor pemerintah untuk pegawai administrasi, bahasa visual kertas hangat dan tinta hijau, padat tetapi tenang; dial **ENERGY 1 / RHYTHM 2 / MOTION 2**.
 
-## Tiga prioritas yang dipilih pengguna
+- ENERGY 1: ini alat kerja. Yang menonjol adalah tenggat, status, dan tombol tindakan, bukan dekorasi.
+- RHYTHM 2: daftar (tabel), detail (dua kolom: isi dan keadaan), dan beranda (antrian kerja dan angka) sengaja berbeda komposisi.
+- MOTION 2: umpan balik tekan, menu, dialog, dan bilah aksi massal bergerak singkat; navigasi dan pilihan tampilan tidak dianimasikan karena dipakai puluhan kali sehari.
 
-1. **Lebih sedikit pilihan.**
-   - Menu utama enam butir di layar lebar (Beranda, Surat Masuk, Pekerjaan Saya, Surat Keluar, Cari Surat, Menu Lainnya) dan empat di ponsel. Arsip, laporan, dan pengaturan pindah ke "Menu Lainnya", masing-masing dengan satu kalimat penjelasan.
-   - Disposisi dan tugas digabung menjadi satu halaman "Pekerjaan Saya". Alamat lama `/disposisi` dan `/tugas` dialihkan ke sana.
-   - Halaman surat dibuka dengan kartu **"Langkah berikutnya"**: satu kalimat apa yang perlu dilakukan sekarang dan tepat satu tombol utama. Tindakan lain tampil sebagai daftar tombol biasa di bawah judul "Yang juga bisa Anda lakukan", tidak tersembunyi di menu tarik-turun.
-   - Aksi massal (kotak centang banyak baris, bilah aksi) dihapus dari tampilan. API-nya tetap ada. Alasannya: satu klik salah berdampak ke banyak surat, dan pola "pilih lalu cari tombolnya" sulit bagi pengguna baru.
-   - Tab diganti bagian bertumpuk dengan judul jelas. Orang tidak perlu tahu ada isi tersembunyi di tab lain.
-   - Saringan berupa tombol besar yang jelas terpilih ("Perlu tindakan", "Semua"), bukan popover dan chip.
-2. **Bahasa sederhana.**
-   - Label status ditulis sebagai kalimat sehari-hari: "Menunggu arahan pimpinan", "Sedang dikerjakan", "Batas waktu hari ini", "Terlambat 2 hari".
-   - Tombol menyebut tindakannya lengkap: "Kirim Disposisi", "Simpan Kata Sandi Baru", "Tandai Semua Sudah Dibaca". Tidak ada "OK", "Submit", atau ikon tanpa tulisan.
-   - Setiap halaman punya satu kalimat "halaman ini untuk apa" di bawah judul, dan tautan kembali di tempat yang sama.
-   - Isian formulir menulis "(wajib)" atau "(boleh dikosongkan)" sebagai kata, bukan bintang merah.
-   - Pesan galat menyebut apa yang harus dilakukan ("Periksa sambungan internet Anda, lalu coba lagi").
-   - Peran diberi nama yang dikenal: "Admin Sistem", "Pemantau".
-3. **Kontras tinggi.** Semua teks memenuhi WCAG AAA (7:1). Hanya tema terang: kertas dan tinta hitam, seperti surat yang mereka pegang. Tema gelap tidak dibuat karena pilihan tambahan adalah beban, dan kontras di tema gelap sering turun di layar murah.
+## Identitas
+
+- **Stempel agenda**: nomor agenda dalam bingkai tipis seperti cap penerimaan surat. Muncul di setiap tempat nomor agenda tampil, tidak dipakai untuk hal lain.
+- **Benang urusan**: tahapan surat sebagai garis vertikal bercentang (Steps), di kolom keadaan halaman detail dan di halaman lacak umum.
+- **Satu titik fokus per layar**: beranda membuka dengan "Perlu tindakan Anda"; halaman detail dengan kartu "Langkah berikutnya" yang memuat tepat satu tombol utama. Tindakan lain ada di menu "Aksi lain" di kanan atas.
 
 ## Warna
 
-| Pemakaian | Teks | Latar | Rasio |
-|---|---|---|---|
-| Isi | `#141414` | latar `#f4f2ec` | 16.5 |
-| Isi di kartu | `#141414` | `#ffffff` | 18.4 |
-| Teks keterangan | `#383838` | `#f4f2ec` | 10.5 |
-| Tombol utama | `#ffffff` | `#0b5a48` | 8.2 |
-| Tautan | `#0b5a48` | `#f4f2ec` | 7.3 |
-| Terlambat | `#8d1c13` | `#fbe9e7` | 7.8 |
-| Perlu perhatian | `#5c3a00` | `#fdf1d3` | 9.1 |
-| Selesai | `#134d2a` | `#e3f2e7` | 8.5 |
-| Petunjuk isian (placeholder) | `#5d584c` | `#ffffff` | 7.1 |
-| Bingkai isian | `#5d584c` | `#ffffff` | 7.1 (syarat 3:1) |
+Netral hangat (kertas) dan satu aksen hijau tinta. Hijau dipilih karena nuansa dokumen resmi dan cap dinas. Warna status (hijau, kuning, merah) hanya untuk tenggat dan status, selalu disertai tulisan dan ikon berbeda bentuk.
 
-Satu aksen hijau tinta. Warna status selalu disertai tulisan dan ikon, tidak pernah warna saja. Tautan selalu bergaris bawah tebal (2px).
+| Token | Terang | Gelap | Kontras |
+|---|---|---|---|
+| Teks / latar | `#1a1a18` / `#f6f4ef` | `#ecebe6` / `#121513` | 15.9 / 15.4 |
+| Teks sekunder / kartu | `#57534b` / `#ffffff` | `#aeb2ab` / `#1b1f1c` | 7.7 / 7.8 |
+| Tombol utama (teks / isi) | `#ffffff` / `#0b6b57` | `#08140f` / `#4fbf9c` | 6.5 / 8.3 |
+| Tautan di latar | `#0b6b57` | `#4fbf9c` | 5.9 / 8.1 |
+| Terlambat | `#b42318` di `#fdecea` | `#f4877b` di `#3a1b18` | 5.8 / 6.4 |
+| Perlu perhatian | `#7f4d00` di `#fcf1d8` | `#f0c063` di `#33280f` | 6.3 / 8.6 |
+| Selesai | `#1b6b3a` di `#e6f3ea` | `#74d39a` di `#16301f` | 5.7 / 7.8 |
+| Bingkai isian | `#8a8478` | `#7a827c` | 3.7 / 4.2 (syarat 3:1) |
+
+Semua teks memenuhi WCAG AA, sebagian besar AAA. Tema gelap: hijau dinaikkan kecerahannya dan teks di atasnya menjadi gelap, latar abu kehijauan agar tidak hitam pekat.
+
+## Tema
+
+Bawaan mengikuti perangkat; dapat dipilih Terang, Gelap, atau Ikuti perangkat lewat ikon di kepala halaman. Pilihan disimpan di peramban (`localStorage`). Skrip kecil di `<head>` memasang tema sebelum halaman tampil sehingga tidak berkedip. Semua warna adalah token (`globals.css`), tidak ada warna tetap di komponen, jadi kedua tema memakai komponen yang sama.
 
 ## Huruf
 
-Atkinson Hyperlegible Next (dari Braille Institute, dirancang untuk pembaca dengan penglihatan rendah: bentuk 1, l, I, 0, O dibedakan jelas). Disajikan sendiri dari paket `@fontsource-variable`, tanpa memanggil layanan luar. Ukuran dasar 18px, tidak ada teks di bawah 16px, judul halaman 30 sampai 36px, jarak baris 1.6.
+Atkinson Hyperlegible Next (Braille Institute): bentuk 1, l, I, 0, O dibedakan jelas, penting untuk nomor surat dan nomor agenda yang sering dicocokkan dengan kertas. Disajikan sendiri dari paket npm. Dasar 16px; keterangan 14px; judul halaman 24px. Isian selalu 16px agar iOS tidak memperbesar halaman.
 
-## Ukuran sentuh dan bentuk
+## Ukuran dan bentuk
 
-- Tombol 52px (kecil 44px, besar 60px), selalu dengan tulisan. Isian 52px dengan bingkai 2px.
-- Baris pilihan (radio, kotak centang) setinggi 52px dan seluruh barisnya dapat diketuk.
-- Cincin fokus 3px berjarak 3px, selalu terlihat saat memakai keyboard. Tautan "Lewati ke isi halaman" di awal.
-- Radius 6 sampai 14px. Tidak ada bayangan bertumpuk, tidak ada kaca buram.
-- Daftar berupa kartu, bukan tabel lebar: tidak perlu menggulir ke samping di ponsel. Tabel hanya di laporan.
-- Halaman: kalimat "Menampilkan 1 sampai 20 dari 57" dan dua tombol besar "Halaman Sebelumnya" dan "Halaman Berikutnya".
-- Dialog: di ponsel naik dari bawah selebar layar, di layar lebar di tengah. Tombol "Tutup" bertulisan, "Batal" di kiri dan tindakan di kanan. Dialog hanya dipasang saat dibuka.
+- Tombol dan isian 40px di layar lebar, 44px di layar sentuh (target ketuk). Tombol kecil 32px hanya di layar lebar.
+- Radius 6px (penanda), 8px (kontrol), 12px (kartu), 14px (dialog). Tidak ada bentuk kapsul.
+- Kartu berbingkai tipis tanpa bayangan. Bayangan hanya untuk yang benar-benar melayang: dialog, menu, bilah aksi massal, dan pesan.
+- Daftar: tabel di layar lebar (banyak surat sekaligus terpindai), daftar ringkas di ponsel. Tidak ada gulir ke samping.
 
-## Gerak
+## Navigasi
 
-Hampir tidak ada. Hanya perubahan warna saat disentuh dan pudar singkat saat dialog muncul. Tidak ada pegas, geser, atau animasi angka: gerakan membuat pengguna lanjut usia ragu apakah layar sudah selesai berubah. `prefers-reduced-motion` mematikan semuanya.
+- Layar lebar: menu samping berkelompok. Kelompok pertama tanpa judul (Beranda, Surat Masuk, Pekerjaan Saya, Surat Keluar), lalu Telusuri (Cari, Arsip, Laporan), lalu Pengelolaan sesuai peran. Butir yang perlu perhatian memberi angka merah.
+- Ponsel: bilah bawah empat tujuan (Beranda, Surat Masuk, Pekerjaan atau Surat Keluar, Lainnya). "Lainnya" memuat sisanya.
+- Kepala halaman: pemberitahuan (dengan angka), tampilan, dan menu akun (Akun dan kata sandi, Keluar). Akun ditandai inisial, bukan foto, karena aplikasi tidak menyimpan foto pegawai.
+
+## Aksi massal
+
+Centang baris (atau "pilih semua di halaman ini"), lalu bilah muncul di bawah dengan jumlah terpilih dan tindakan yang berlaku untuk peran itu. Setiap tindakan meminta konfirmasi yang menyebut jumlah dan akibatnya. Server memproses satu per satu; pesan hasil merangkum, dan bila ada yang gagal, dialog menyebut alasannya per surat. Pilihan dikosongkan saat tampilan, pencarian, atau halaman berganti, agar tidak ada data tersembunyi yang ikut terproses.
+
+## Gerak (emil-design-eng)
+
+- Kurva `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`. Tidak ada `ease-in`, tidak ada `transition: all`.
+- Tekan: `scale(0.97)` 160ms pada tombol dan pilihan (kelas `pressable`), mati bila perangkat meminta gerak dikurangi.
+- Menu: 150ms dari skala 0.97, `transform-origin` dari pemicu (Radix). Keluar 100ms.
+- Dialog: 200ms masuk, 150ms keluar. Di layar lebar membesar dari 0.97 di tengah (tidak terikat pemicu); di ponsel naik dari bawah.
+- Bilah aksi massal: 200ms naik dan memudar. Alasan: menghubungkan centang di daftar dengan tindakan di bawah.
+- Tidak dianimasikan: pindah halaman, pilihan tampilan, sorot baris, tab. Dipakai puluhan kali sehari.
+- `prefers-reduced-motion`: durasi praktis nol.
 
 ## Keadaan data
 
-Setiap data punya empat keadaan yang ditulis: memuat ("Sedang memuat data…" dengan kalimat, bukan kerangka abu saja), galat (kotak merah dengan tombol "Coba Muat Lagi"), kosong (kalimat apa artinya dan apa yang bisa dilakukan), dan isi. Pesan hasil tindakan muncul di atas layar selama 8 detik dengan tombol tutup, dan menyebut apa yang terjadi ("Disposisi sudah dikirim kepada Seksi Data").
+Setiap data punya memuat (kerangka abu, kalimat untuk pembaca layar), galat (kotak merah dengan "Muat ulang"), kosong (apa artinya dan apa yang dapat dilakukan; versi ringkas di dalam halaman detail), dan isi. Pesan hasil tindakan menyebut apa yang terjadi ("2 data berhasil diteruskan").
+
+## Akses
+
+Semua kontrol dapat dipakai dengan keyboard: Tab, Enter, Spasi, panah di menu, Escape menutup menu dan dialog. Cincin fokus 2px berwarna aksen. Tautan "Lewati ke isi halaman" di awal. Kotak centang punya label untuk pembaca layar ("Pilih <perihal>").
 
 ## Nama dan ikon
 
-Nama aplikasi ditulis sebagai teks. Tidak ada logo rekaan; logo instansi dipasang bila sudah diberikan.
+Nama aplikasi ditulis sebagai teks. Tidak ada logo rekaan; logo instansi dipasang bila sudah diberikan. Ikon dari lucide, dipilih per makna (kotak masuk untuk surat masuk, tas untuk pekerjaan, lonceng untuk pemberitahuan) dan selalu disertai tulisan, kecuali tombol ikon di kepala halaman yang berlabel untuk pembaca layar.

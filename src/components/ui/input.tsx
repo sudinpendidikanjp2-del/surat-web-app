@@ -1,25 +1,24 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-/** Isian 52px, huruf 18px (iOS tidak memperbesar halaman), bingkai tebal agar batasnya jelas. */
-const fieldBase = 'w-full min-w-0 rounded-md border-2 border-input bg-card px-4 text-base text-foreground placeholder:text-[#5d584c] outline-none focus-visible:border-ring focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:border-destructive disabled:bg-muted disabled:opacity-80';
+/** Isian 44px di layar sentuh, 40px di layar lebar. Huruf 16px agar iOS tidak memperbesar halaman. */
+const fieldBase = 'w-full min-w-0 rounded-md border border-input bg-card px-3 text-base text-foreground placeholder:text-muted-foreground outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-invalid:border-destructive disabled:bg-muted disabled:opacity-70';
 
 function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
-  return <input type={type} data-slot="input" className={cn(fieldBase, 'min-h-[52px] py-2', className)} {...props} />;
+  return <input type={type} data-slot="input" className={cn(fieldBase, 'h-11 py-2 sm:h-10', className)} {...props} />;
 }
 
 function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
-  return <textarea data-slot="textarea" className={cn(fieldBase, 'min-h-[120px] py-3 leading-relaxed', className)} {...props} />;
+  return <textarea data-slot="textarea" className={cn(fieldBase, 'min-h-[96px] py-2 leading-relaxed', className)} {...props} />;
 }
 
-/** Pilihan bawaan peramban: di ponsel membuka pemilih sistem yang besar dan sudah dikenal pengguna. */
+/** Pilihan bawaan peramban: di ponsel membuka pemilih sistem yang sudah dikenal pengguna. */
 function NativeSelect({ className, children, ...props }: React.ComponentProps<'select'>) {
   return (
-    <select data-slot="select" className={cn(fieldBase, 'min-h-[52px] appearance-none bg-[length:20px] bg-[right_14px_center] bg-no-repeat py-2 pr-11', className)}
-      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141414' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" }}
-      {...props}>
-      {children}
-    </select>
+    <span className={cn('relative block', className)}>
+      <select data-slot="select" className={cn(fieldBase, 'h-11 appearance-none py-2 pr-9 sm:h-10')} {...props}>{children}</select>
+      <svg aria-hidden viewBox="0 0 24 24" className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m6 9 6 6 6-6" /></svg>
+    </span>
   );
 }
 

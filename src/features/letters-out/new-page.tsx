@@ -39,19 +39,19 @@ export function NewLetterOutPage() {
   };
   return (
     <Page>
-      <PageHeader back={{ href: '/surat-keluar', label: 'Kembali ke daftar Surat Keluar' }} title="Buat surat keluar"
+      <PageHeader back={{ href: '/surat-keluar', label: 'Surat Keluar' }} title="Buat surat keluar"
         intro={l ? `Surat balasan untuk ${l.no_agenda}. Perihal, tujuan, dan dasar surat sudah terisi.` : 'Pilih jenis surat, isi formulirnya, lalu simpan sebagai draf.'} />
       <Section title="1. Pilih jenis surat">
-        <Async q={templates} empty={<Empty title="Belum ada jenis surat" text={user.role === 'superadmin' ? 'Unggah template di Menu Lainnya, Contoh Surat (Template).' : 'Minta admin sistem menambahkan template surat.'} />}>
+        <Async q={templates} empty={<Empty title="Belum ada jenis surat" text={user.role === 'superadmin' ? 'Unggah template di menu Template Surat.' : 'Minta admin sistem menambahkan template surat.'} />}>
           {(rows) => (
-            <div role="group" aria-label="Jenis surat" className="grid gap-3 sm:grid-cols-2">
+            <div role="group" aria-label="Jenis surat" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {rows.map((t) => {
                 const on = String(t.id) === tplId;
                 return (
                   <button key={t.id} type="button" aria-pressed={on} onClick={() => setTplId(String(t.id))}
-                    className={`flex min-h-[72px] cursor-pointer flex-col items-start gap-1 rounded-md border-2 px-5 py-3 text-left ${on ? 'border-primary bg-primary-soft' : 'border-input bg-card hover:bg-muted'}`}>
-                    <span className="text-lg font-bold">{on ? 'Dipilih: ' : ''}{t.nama}</span>
-                    {t.deskripsi && <span className="text-muted-foreground">{t.deskripsi}</span>}
+                    className={`pressable flex min-h-16 cursor-pointer flex-col items-start gap-0.5 rounded-lg border px-4 py-3 text-left ${on ? 'border-primary bg-primary-soft ring-1 ring-primary' : 'border-border bg-card hover:bg-muted'}`}>
+                    <span className="font-semibold">{t.nama}{on && <span className="sr-only"> (dipilih)</span>}</span>
+                    {t.deskripsi && <span className="line-clamp-2 text-sm text-muted-foreground">{t.deskripsi}</span>}
                   </button>
                 );
               })}
@@ -63,9 +63,9 @@ export function NewLetterOutPage() {
         <Section title="2. Isi surat">
           {detail.isPending || (dari && src.isPending) || users.isPending ? <Loading /> : !active ? <Empty title="Template ini belum siap dipakai" /> : (
             <LetterForm key={`${tplId}-${l?.id || 0}-${signers.length}`} fields={active.fields} versionId={active.id} initial={initial} signers={signers}
-              pending={create.isPending} submitLabel="Simpan sebagai Draf"
+              pending={create.isPending} submitLabel="Simpan sebagai draf"
               onSubmit={(f) => create.mutate({ ...f, template_version_id: active.id, letter_in_id: dari ? Number(dari) : null })}
-              cancel={<Button asChild size="lg" variant="outline" className="no-underline"><Link href="/surat-keluar">Batal</Link></Button>} />
+              cancel={<Button asChild variant="outline" className="no-underline"><Link href="/surat-keluar">Batal</Link></Button>} />
           )}
         </Section>
       )}

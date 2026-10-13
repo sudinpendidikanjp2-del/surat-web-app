@@ -33,7 +33,7 @@ export function TemplateDetailPage({ id }: { id: string }) {
       <Async q={q} isEmpty={() => false}>
         {({ template: t, versions }) => (
           <>
-            <PageHeader title={t.nama} back={{ href: '/template', label: 'Kembali ke Daftar Template' }}
+            <PageHeader title={t.nama} back={{ href: '/template', label: 'Template Surat' }}
               intro={`${t.jenis}. ${t.aktif ? 'Sedang dapat dipilih saat membuat surat keluar.' : 'Tidak dipakai: tidak muncul saat membuat surat keluar.'}`}>
               <Button onClick={() => setOpen({ kind: 'upload' })}>Unggah Versi Baru</Button>
               <Button variant="outline" onClick={() => setOpen({ kind: 'edit' })}>Ubah Keterangan</Button>
@@ -43,7 +43,7 @@ export function TemplateDetailPage({ id }: { id: string }) {
                 {versions.map((v) => (
                   <li key={v.id}><Card className={v.aktif ? 'border-primary' : ''}><CardContent className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xl font-bold">Versi {v.versi}</span>
+                      <span className="font-semibold">Versi {v.versi}</span>
                       {v.aktif && <Badge tone="ok">Sedang dipakai</Badge>}
                     </div>
                     {v.catatan && <p>{v.catatan}</p>}
@@ -83,7 +83,7 @@ function EditDialog({ t, onClose }: { t: TemplateDetail['template']; onClose: ()
         <Field label="Jenis surat" required>{(p) => <Input {...p} value={v.jenis} onChange={put('jenis')} />}</Field>
         <Field label="Kode klasifikasi">{(p) => <Input {...p} value={v.kode_klasifikasi} onChange={put('kode_klasifikasi')} />}</Field>
         <Field label="Keterangan">{(p) => <Textarea {...p} value={v.deskripsi} onChange={put('deskripsi')} />}</Field>
-        <label className="flex min-h-[52px] cursor-pointer items-center gap-3 rounded-md border-2 border-[#d6d1c4] px-4">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 text-sm">
           <Checkbox checked={v.aktif} onCheckedChange={(c) => setV((s) => ({ ...s, aktif: c === true }))} /> Dapat dipilih saat membuat surat keluar
         </label>
       </div>
@@ -106,7 +106,7 @@ function UploadDialog({ id, onClose }: { id: number; onClose: () => void }) {
       <div className="flex flex-col gap-5">
         <FilePicker files={files} onChange={setFiles} multiple={false} accept=".docx" label="Pilih File DOCX" />
         <Field label="Apa yang berubah?">{(p) => <Input {...p} value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Contoh: alamat kantor diperbarui" />}</Field>
-        <label className="flex min-h-[52px] cursor-pointer items-center gap-3 rounded-md border-2 border-[#d6d1c4] px-4">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 text-sm">
           <Checkbox checked={aktifkan} onCheckedChange={(c) => setAktifkan(c === true)} /> Langsung pakai versi ini untuk surat baru
         </label>
       </div>
@@ -123,7 +123,7 @@ function FieldsDialog({ id, v, onClose }: { id: number; v: Version; onClose: () 
       description="Ubah judul isian yang dilihat pegawai saat mengisi surat. Isian yang diisi otomatis oleh sistem tidak dapat diubah." onConfirm={() => save.mutate()}>
       <ol className="flex flex-col gap-4">
         {fields.map((f) => (
-          <li key={f.name} className="flex flex-col gap-3 rounded-md border-2 border-[#d6d1c4] p-4">
+          <li key={f.name} className="flex flex-col gap-3 rounded-md border border-border p-4">
             <p className="flex flex-wrap items-center gap-2"><Stamp>{`{{${f.name}}}`}</Stamp>{(f.sistem || f.bawaan) && <Badge>Diisi otomatis</Badge>}</p>
             {f.sistem ? <p className="text-muted-foreground">{f.label}</p> : (
               <>
@@ -131,7 +131,7 @@ function FieldsDialog({ id, v, onClose }: { id: number; v: Version; onClose: () 
                 <Field label="Bentuk isian" required>
                   {(p) => <NativeSelect {...p} value={f.type} onChange={(e) => set(f.name, { type: e.target.value as TemplateField['type'] })}>{Object.entries(TYPE_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</NativeSelect>}
                 </Field>
-                <label className="flex min-h-[48px] cursor-pointer items-center gap-3"><Checkbox checked={f.required} onCheckedChange={(c) => set(f.name, { required: c === true })} /> Wajib diisi</label>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"><Checkbox checked={f.required} onCheckedChange={(c) => set(f.name, { required: c === true })} /> Wajib diisi</label>
               </>
             )}
           </li>
@@ -152,7 +152,7 @@ function PreviewDialog({ id, v, onClose }: { id: number; v: Version; onClose: ()
         </DialogHeader>
         <DialogBody>
           {q.isPending ? <Loading label="Sedang menyiapkan contoh…" /> : q.isError ? <ErrorState error={q.error} retry={() => q.refetch()} />
-            : <div className="preview-doc rounded-md border-2 border-[#d6d1c4] p-6 sm:p-10" dangerouslySetInnerHTML={{ __html: q.data.html }} />}
+            : <div className="preview-doc rounded-md border border-border p-6 sm:p-10" dangerouslySetInnerHTML={{ __html: q.data.html }} />}
         </DialogBody>
       </DialogContent>
     </Dialog>
