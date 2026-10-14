@@ -143,7 +143,7 @@ test('pelacakan publik: kode acak, isi terbatas, rate limit, nonaktif, buat ulan
   assert.ok(limited > 0, 'rate limit tidak aktif');
 });
 
-test('OCR: hanya TU, hanya gambar, dan hasil hanyalah usulan', async () => {
+test('OCR: hanya TU, hanya gambar atau PDF, dan hasil hanyalah usulan', async () => {
   const f = new FormData();
   f.append('foto', new Blob(['bukan gambar'], { type: 'image/jpeg' }), 'x.jpg');
   await expectStatus(tu.call('POST', '/api/ocr/surat-masuk', f), 400);
@@ -204,4 +204,130 @@ test('OCR mesin jarak jauh: keluaran Markdown model diubah menjadi isian, lalu j
   Object.assign(config.ocr, { url: 'http://localhost:1', fallback: false });
   await assert.rejects(recognize(png));
   Object.assign(config.ocr, { engine: 'tesseract', fallback: true });
+});
+
+/** PDF surat kecil buatan pdfkit. options diteruskan ke PDFDocument (mis. userPassword untuk PDF terkunci). */
+async function letterPdf(options: Record<string, unknown> = {}) {
+  const { default: PDFDocument } = await import('pdfkit');
+  const doc = new PDFDocument({ size: 'A4', margin: 72, ...options });
+  const chunks: Buffer[] = [];
+  doc.on('data', (c: Buffer) => chunks.push(c));
+  const done = new Promise((r) => doc.on('end', r));
+  doc.font('Helvetica-Bold').fontSize(16).text('SDN UJI COBA 01', { align: 'center' });
+  doc.font('Helvetica').fontSize(11).text('Jl. Merdeka No. 1, Jakarta Pusat', { align: 'center' }).moveDown(2);
+  doc.fontSize(13).text('Jakarta, 8 Oktober 2026').moveDown();
+  doc.text('Nomor : 005/UJI/X/2026').text('Sifat : Penting').text('Lampiran : -').text('Perihal : Undangan Rapat').moveDown();
+  doc.text('Yth. Kepala Suku Dinas Pendidikan').text('di Tempat').moveDown();
+  doc.text('Dengan hormat, kami mengundang Bapak dan Ibu untuk hadir dalam rapat koordinasi.').moveDown(3);
+  doc.text('Kepala Sekolah,').moveDown(3).text('Budi Santoso');
+  doc.end();
+  await done;
+  return Buffer.concat(chunks);
+}
+
+/** Server tiruan Gemini. reply menentukan status dan isi jawaban. */
+async function fakeGemini(reply: (body: any) => { status?: number; json: unknown }) {
+  const http = await import('node:http');
+  const seen: { url?: string; headers?: any; body?: any } = {};
+  const server = http.createServer((req, res) => {
+    let b = ''; req.on('data', (c) => { b += c; });
+    req.on('end', () => {
+      Object.assign(seen, { url: req.url, headers: req.headers, body: JSON.parse(b) });
+      const r = reply(seen.body);
+      res.statusCode = r.status ?? 200; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(r.json));
+    });
+  });
+  await new Promise<void>((r) => server.listen(0, () => r()));
+  return { seen, url: `http://localhost:${(server.address() as any).port}`, close: () => server.close() };
+}
+
+test('OCR Gemini: bentuk permintaan REST dan pemetaan jawaban menjadi isian', async () => {
+  const { config } = await import('@/server/config');
+  const { recognizeLetter } = await import('@/server/infrastructure/ocr/engine');
+  const answer = {
+    no_surat: { value: '421 / 123 / SDN-01 / X / 2026', confidence: 97 }, tgl_surat: { value: '8 Oktober 2026', confidence: 95 },
+    perihal: { value: 'Permohonan data peserta didik', confidence: 93 }, sifat: { value: 'penting', confidence: 90 },
+    lampiran: { value: '-', confidence: 88 }, instansi: { value: 'SDN MENTENG 01', confidence: 96 },
+    alamat: { value: 'Jl. Besuki No. 4, Menteng', confidence: 80 }, asal: { value: '', confidence: 0 }, text: 'SDN MENTENG 01\nNomor : 421/123/SDN-01/X/2026',
+  };
+  const g = await fakeGemini(() => ({ json: { candidates: [{ content: { parts: [{ text: JSON.stringify(answer) }] }, finishReason: 'STOP' }] } }));
+  Object.assign(config.ocr, { engine: 'auto', geminiKey: 'kunci-uji-rahasia', geminiUrl: g.url, geminiModel: 'gemini-2.5-flash' });
+  try {
+    const png = Buffer.from('89504e470d0a1a0a', 'hex');
+    const r = await recognizeLetter(png);
+    assert.equal(g.seen.url, '/v1beta/models/gemini-2.5-flash:generateContent');
+    assert.equal(g.seen.headers['x-goog-api-key'], 'kunci-uji-rahasia');
+    assert.ok(!g.seen.url!.includes('kunci'), 'kunci tidak boleh ada di URL');
+    const parts = g.seen.body.contents[0].parts;
+    assert.match(parts[0].text, /surat dinas/);
+    assert.equal(parts[1].inline_data.mime_type, 'image/png');
+    assert.equal(parts[1].inline_data.data, png.toString('base64'));
+    assert.equal(g.seen.body.generationConfig.temperature, 0);
+    assert.equal(g.seen.body.generationConfig.responseMimeType, 'application/json');
+    assert.ok(g.seen.body.generationConfig.responseSchema.properties.no_surat);
+    assert.equal(r.quality.engine, 'gemini');
+    assert.equal(r.fields.no_surat.value, '421/123/SDN-01/X/2026');
+    assert.equal(r.fields.no_surat.review, false);
+    assert.equal(r.fields.tgl_surat.value, '2026-10-08'); // tanggal ditulis bebas tetap diubah ke YYYY-MM-DD
+    assert.equal(r.fields.sifat.value, 'Penting');
+    assert.equal(r.fields.lampiran.value, '');
+    assert.equal(r.fields.alamat.review, true); // keyakinan 80 ditandai untuk diperiksa
+    assert.equal(r.fields.asal, undefined);
+    assert.deepEqual(r.missing, ['asal']);
+    assert.match(r.text, /SDN MENTENG 01/);
+    assert.equal(r.preview, undefined);
+    // tanpa kunci pada mode auto, Gemini tidak dipanggil
+    const { geminiEnabled } = await import('@/server/infrastructure/ocr/engine');
+    config.ocr.geminiKey = '';
+    assert.equal(geminiEnabled(), false);
+  } finally {
+    g.close();
+    Object.assign(config.ocr, { engine: 'tesseract', geminiKey: '', fallback: true });
+  }
+});
+
+test('OCR PDF: halaman pertama diubah menjadi PNG; PDF terkunci ditolak; Gemini gagal jatuh ke Tesseract', async () => {
+  const { config } = await import('@/server/config');
+  const { renderFirstPage, isPdf } = await import('@/server/infrastructure/ocr/pdf-raster');
+  const { recognizeLetter } = await import('@/server/infrastructure/ocr/engine');
+  const pdf = await letterPdf();
+  assert.ok(isPdf(pdf));
+  const png = await renderFirstPage(pdf);
+  assert.equal(png.subarray(1, 4).toString(), 'PNG');
+  const sharp = (await import('sharp')).default;
+  const meta = await sharp(png).metadata();
+  assert.ok(meta.width! >= 2000 && meta.width! <= 2400, `lebar ${meta.width}`);
+  await assert.rejects(renderFirstPage(await letterPdf({ userPassword: 'rahasia' })), (e: any) => { assert.match(e.message, /kata sandi/); assert.equal(e.kind, 'invalid'); return true; });
+  await assert.rejects(renderFirstPage(Buffer.from('%PDF-1.4\nrusak sama sekali')), (e: any) => { assert.equal(e.kind, 'invalid'); return true; });
+  // Gemini menjawab 500: cadangan Tesseract membaca gambar PDF dan memberi peringatan
+  const g = await fakeGemini(() => ({ status: 500, json: { error: { message: 'internal' } } }));
+  Object.assign(config.ocr, { engine: 'gemini', geminiKey: 'kunci-uji', geminiUrl: g.url, fallback: true });
+  try {
+    const r = await recognizeLetter(pdf);
+    assert.ok(g.seen.body, 'Gemini tidak dipanggil');
+    assert.equal(r.quality.engine, 'tesseract');
+    assert.match(r.quality.warnings[0], /Gemini tidak dapat dipakai/);
+    assert.match(r.preview!, /^data:image\/png;base64,/);
+    assert.ok(r.text.length > 20);
+    assert.match(r.fields.perihal?.value || '', /Undangan Rapat/i);
+    // Helvetica: huruf I kapital dan angka 1 hampir sama bentuknya, jadi keduanya diterima
+    assert.match(r.fields.no_surat?.value || '', /^005\/UJ[I1]\/X\/2026$/);
+    // cadangan dimatikan: kegagalan Gemini diteruskan
+    config.ocr.fallback = false;
+    await assert.rejects(recognizeLetter(pdf), /Gemini menjawab 500/);
+  } finally {
+    g.close();
+    Object.assign(config.ocr, { engine: 'tesseract', geminiKey: '', fallback: true });
+  }
+});
+
+test('OCR API: PDF diterima dan pratinjau halaman pertama dikembalikan', async () => {
+  const f = new FormData();
+  f.append('foto', new Blob([await letterPdf()], { type: 'application/pdf' }), 'surat.pdf');
+  const r = await tu.call('POST', '/api/ocr/surat-masuk', f);
+  assert.match(r.preview, /^data:image\/png;base64,/);
+  assert.ok(r.fields && r.quality && Array.isArray(r.missing) && typeof r.text === 'string');
+  const locked = new FormData();
+  locked.append('foto', new Blob([await letterPdf({ userPassword: 'rahasia' })], { type: 'application/pdf' }), 'kunci.pdf');
+  await expectStatus(tu.call('POST', '/api/ocr/surat-masuk', locked), 400);
 });

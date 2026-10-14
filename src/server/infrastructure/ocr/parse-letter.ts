@@ -67,6 +67,15 @@ export function parseDate(text: string): string | null {
 
 /** Ambang keyakinan di bawah mana isian diminta diperiksa. Angka dan tanggal lebih ketat karena salah satu digit mengubah artinya. */
 const REVIEW_BELOW: Record<string, number> = { no_surat: 92, tgl_surat: 90, lampiran: 88 };
+export const needsReview = (field: string, conf: number) => conf < (REVIEW_BELOW[field] ?? 85);
+
+/** Cocokkan kata ke sifat surat baku (Biasa, Segera, Penting, Rahasia). Mengembalikan null bila terlalu jauh. */
+export function normalizeSifat(word: string): string | null {
+  const w = String(word || '').split(' ')[0].replace(/[^A-Za-z]/g, '').toLowerCase();
+  if (!w) return null;
+  const best = SIFAT.map((x) => ({ x, d: lev(w, x.toLowerCase()) })).sort((a, b) => a.d - b.d)[0];
+  return best.d <= 2 ? best.x : null;
+}
 
 const KEY = {
   nomor: /^\s*(nomor|nomer|no)\s*[:;.,]?\s*(.*)$/i,
@@ -91,7 +100,7 @@ function fixRoman(token: string) {
   }).join('/');
 }
 
-function cleanNomor(v: string) {
+export function cleanNomor(v: string) {
   const t = squash(v)
     .replace(/\s*\/\s*/g, '/')
     .replace(/\s*-\s*/g, '-')

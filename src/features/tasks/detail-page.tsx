@@ -113,7 +113,7 @@ function Detail({ d }: { d: TaskDetail }) {
             ? { title: 'Laporkan kemajuan pekerjaan Anda', desc: 'Pemberi tugas mendapat kabar setiap kali Anda melapor.', primary: { label: 'Laporkan kemajuan', onClick: () => setDlg('progress') } }
             : { quiet: true, title: 'Anda dapat melihat tugas ini', desc: 'Hanya penanggung jawab dan pemberi tugas yang dapat melaporkan kemajuan.' }} />
 
-          {t.deskripsi && <Section title="Penjelasan"><p className="whitespace-pre-wrap rounded-lg border border-border bg-card px-4 py-3">{t.deskripsi}</p></Section>}
+          {t.deskripsi && <Section title="Penjelasan"><p className="whitespace-pre-wrap rounded-2xl border border-border bg-card shadow-(--shadow-card) px-4 py-3">{t.deskripsi}</p></Section>}
 
           {list.length > 0 && (
             <Section title="Daftar langkah" intro={d.can.update ? 'Centang langkah yang selesai. Tersimpan otomatis.' : undefined}
@@ -130,7 +130,7 @@ function Detail({ d }: { d: TaskDetail }) {
 
           <Section title="Riwayat laporan">
             {d.updates.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada laporan kemajuan.</p> : (
-              <ol className="flex flex-col rounded-lg border border-border bg-card px-4 py-1">
+              <ol className="flex flex-col rounded-2xl border border-border bg-card shadow-(--shadow-card) px-4 py-1">
                 {d.updates.map((u) => (
                   <li key={u.id} className="flex flex-col gap-0.5 border-t border-line py-3 text-sm first:border-t-0">
                     <span className="font-semibold">{TASK_STATUS[u.status as keyof typeof TASK_STATUS] || u.status}, {u.progress}%</span>

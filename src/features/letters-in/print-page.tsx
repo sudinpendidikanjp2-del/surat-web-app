@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Page, PageHeader } from '@/components/app/page';
 import { Async } from '@/components/app/states';
 import { TINDAKAN } from '@/domain/letter-in';
+import { useRefValues } from '@/features/reference/api';
 import { api } from '@/lib/api-client';
 import { fmtDate } from '@/lib/format';
 
@@ -20,6 +21,7 @@ const cell = 'border border-black px-2 py-1.5 align-top text-left';
 /** Lembar disposisi kertas, mengikuti bentuk yang lazim di kantor. */
 export function DispositionSheetPage({ id }: { id: string }) {
   const q = useQuery({ queryKey: ['lembar', id], queryFn: () => api.get<Sheet>(`/letters-in/${id}/lembar-disposisi`) });
+  const tindakanList = useRefValues('tindakan', TINDAKAN);
   return (
     <Page>
       <div className="no-print">
@@ -45,7 +47,7 @@ export function DispositionSheetPage({ id }: { id: string }) {
                   <tr><th className={`${cell} font-normal`}>Perihal</th><td colSpan={2} className={cell}>{l.perihal}</td></tr>
                   <tr><th className={`${cell} font-normal`}>Sifat dan prioritas</th><td colSpan={2} className={cell}>{l.sifat}, {l.prioritas}</td></tr>
                   <tr><th className={`${cell} font-normal`}>Diteruskan kepada</th><td colSpan={2} className={cell}>{d.dispositions.length === 0 ? '...........................' : d.dispositions.map((x) => <div key={x.id}>{x.status === 'DIKEMBALIKAN' ? '☐' : '☑'} {x.kepada}{x.kepada_jabatan ? `, ${x.kepada_jabatan}` : ''}</div>)}</td></tr>
-                  <tr><th className={`${cell} font-normal`}>Tindakan</th><td colSpan={2} className={cell}>{TINDAKAN.map((t) => <div key={t}>{used.has(t) ? '☑' : '☐'} {t}</div>)}</td></tr>
+                  <tr><th className={`${cell} font-normal`}>Tindakan</th><td colSpan={2} className={cell}>{tindakanList.map((t) => <div key={t}>{used.has(t) ? '☑' : '☐'} {t}</div>)}</td></tr>
                   <tr><th className={`${cell} font-normal`}>Instruksi</th><td colSpan={2} className={cell}>{d.dispositions.length === 0 ? <div className="min-h-[60px]" /> : d.dispositions.map((x) => <div key={x.id}>{x.instruksi} <em>({x.dari})</em></div>)}</td></tr>
                   <tr><th className={`${cell} font-normal`}>Batas waktu</th><td colSpan={2} className={cell}>{d.dispositions.length ? [...new Set(d.dispositions.map((x) => fmtDate(x.deadline)))].join(', ') : '...........................'}</td></tr>
                 </tbody>

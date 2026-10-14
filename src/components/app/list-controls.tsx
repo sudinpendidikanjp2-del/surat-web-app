@@ -8,15 +8,15 @@ import { cn } from '@/lib/utils';
 /** Tampilan daftar sebagai tab tersegmen. aria-pressed memberi tahu pembaca layar mana yang aktif. Bergulir ke samping di ponsel. */
 export function FilterButtons<T extends string>({ label, options, value, onChange }: { label: string; options: { value: T; label: string; count?: number }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div role="group" aria-label={label} className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+    <div role="group" aria-label={label} className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:w-fit sm:rounded-full sm:bg-muted sm:p-1">
       {options.map((o) => {
         const on = o.value === value;
         return (
           <button key={o.value} type="button" aria-pressed={on} onClick={() => onChange(o.value)}
-            className={cn('pressable inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm font-medium sm:h-9',
-              on ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+            className={cn('pressable inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-semibold sm:h-8',
+              on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-card hover:text-foreground')}>
             {o.label}
-            {o.count != null && <span className={cn('rounded-sm px-1 text-xs tabular-nums', on ? 'bg-background/20' : 'bg-muted')}>{o.count}</span>}
+            {o.count != null && <span className={cn('rounded-full px-1.5 text-xs tabular-nums', on ? 'bg-accent text-accent-foreground' : 'bg-card')}>{o.count}</span>}
           </button>
         );
       })}
@@ -35,16 +35,16 @@ export function SearchForm({ value, onSearch, label = 'Cari', placeholder, class
     <form role="search" className={cn('flex w-full gap-2 sm:max-w-md', className)} onSubmit={(e) => { e.preventDefault(); onSearch(v.trim()); }}>
       <label htmlFor={id} className="sr-only">{label}</label>
       <div className="relative flex-1">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input id={id} type="search" value={v} placeholder={placeholder || label} onChange={(e) => setV(e.target.value)} className="pl-9 pr-9" />
+        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Input id={id} type="search" value={v} placeholder={placeholder || label} onChange={(e) => setV(e.target.value)} className="rounded-full pl-10 pr-10" />
         {value && (
           <button type="button" aria-label="Hapus pencarian" onClick={() => { setV(''); onSearch(''); }}
-            className="absolute right-0 top-1/2 inline-flex size-11 -translate-y-1/2 sm:right-1 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:size-8">
+            className="absolute right-0 top-1/2 inline-flex size-11 -translate-y-1/2 sm:right-1 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:size-8">
             <XIcon className="size-4" aria-hidden />
           </button>
         )}
       </div>
-      <Button type="submit" variant="outline">Cari</Button>
+      <Button type="submit" variant="dark">Cari</Button>
     </form>
   );
 }

@@ -9,7 +9,7 @@ function List({ title, items }: { title: string; items: NavItem[] }) {
   return (
     <section className="flex flex-col gap-2" aria-label={title}>
       <h2 className="px-1 text-sm font-semibold text-muted-foreground">{title}</h2>
-      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card)">
         {items.map(({ href, label, desc, icon: Icon }) => (
           <li key={href}>
             <Link href={href} className="flex min-h-14 items-center gap-3 px-4 py-2.5 text-foreground no-underline hover:bg-muted">

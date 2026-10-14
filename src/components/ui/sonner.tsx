@@ -8,7 +8,7 @@ function Toaster(props: ToasterProps) {
   return (
     <Sonner theme={resolved} position="bottom-right" mobileOffset={{ bottom: 84 }} duration={5000} closeButton
       toastOptions={{ classNames: {
-        toast: '!rounded-lg !border !border-border !bg-card !text-card-foreground !text-sm !font-medium !shadow-lg',
+        toast: '!rounded-2xl !border !border-border !bg-card !text-card-foreground !text-sm !font-medium !shadow-lg',
         success: '!border-ok/40 [&_[data-icon]]:!text-ok',
         error: '!border-late/50 !bg-late-soft !text-late',
         closeButton: '!border-border !bg-card !text-foreground',

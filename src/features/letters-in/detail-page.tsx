@@ -14,7 +14,7 @@ import { Deadline, Stamp, StatusDisp, StatusIn, StatusOut, StatusTask } from '@/
 import { Steps } from '@/components/app/steps';
 import { useAction } from '@/components/app/use-action';
 import { useUser } from '@/components/app/user-context';
-import type { PublicUser } from '@/domain/roles';
+import { can as roleCan, type PublicUser } from '@/domain/roles';
 import { api } from '@/lib/api-client';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 import { KEYS, useLetterIn, type DispositionView, type LetterInDetail } from './api';
@@ -85,6 +85,7 @@ function Detail({ d }: { d: LetterInDetail }) {
     can.arsipkan && { label: 'Simpan ke Arsip', desc: 'Surat selesai disimpan menurut tahun dan bulan.', onClick: () => archive.mutate() },
     can.edit && { label: 'Ubah Data Surat', desc: 'Perbaiki nomor, tanggal, pengirim, atau perihal.', onClick: () => open('edit') },
     can.cetak && { label: 'Cetak Lembar Disposisi', desc: 'Lembar disposisi kertas untuk map surat.', href: `/surat-masuk/${l.id}/cetak` },
+    roleCan.manageIn(user) && { label: 'Tanda Terima dan Kode Lacak', desc: 'Bukti terima untuk pengirim beserta QR pelacakan.', href: `/surat-masuk/${l.id}/tanda-terima` },
     { label: 'Lihat Kode QR', desc: 'Kode untuk ditempel di map surat.', onClick: () => open('qr') },
     can.lacak && { label: 'Pelacakan oleh Pengirim', desc: 'Kode agar pengirim bisa melihat tahapan surat.', onClick: () => open('track') },
   ].filter((x): x is NonNullable<typeof x> & { label: string; desc: string } => Boolean(x)).filter((x) => x.label !== title);
@@ -107,7 +108,7 @@ function Detail({ d }: { d: LetterInDetail }) {
 
           <Section title={`Disposisi (${d.dispositions.length})`} intro="Arahan pimpinan: siapa mengerjakan dan apa yang harus dilakukan." id="disposisi">
             {d.dispositions.length === 0 ? <Empty compact title="Belum ada disposisi" text="Disposisi dari pimpinan akan tampil di sini." /> : (
-              <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+              <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card)">
                 {d.dispositions.map((x) => (
                   <li key={x.id} className="flex flex-col gap-2 px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -133,7 +134,7 @@ function Detail({ d }: { d: LetterInDetail }) {
           <Section title={`Tugas (${d.tasks.length})`} id="tugas"
             action={can.tugaskan ? <Button size="sm" variant="outline" onClick={() => open('task')}>Tugaskan pegawai</Button> : undefined}>
             {d.tasks.length === 0 ? <Empty compact title="Belum ada tugas" text="Penerima disposisi dapat membagi pekerjaan ke pegawai." /> : (
-              <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+              <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card)">
                 {d.tasks.map((t) => (
                   <li key={t.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <div className="flex min-w-0 flex-col">
@@ -153,7 +154,7 @@ function Detail({ d }: { d: LetterInDetail }) {
           </Section>
 
           <Section title="Balasan dan kabar ke pengirim" id="balasan">
-            <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+            <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card shadow-(--shadow-card) px-4 py-3 text-sm">
               {d.outs.length === 0 ? <p className="text-muted-foreground">Belum ada surat balasan.</p> : d.outs.map((o) => (
                 <div key={o.id} className="flex flex-wrap items-center gap-2"><Link href={`/surat-keluar/${o.id}`} className="font-semibold">{o.perihal}</Link><StatusOut status={o.status} /><span className="text-muted-foreground">{o.nomor_surat || 'Belum bernomor'}</span></div>
               ))}

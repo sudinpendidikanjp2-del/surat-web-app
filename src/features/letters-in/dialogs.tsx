@@ -18,6 +18,7 @@ import { useUser } from '@/components/app/user-context';
 import { METODE, PRIORITAS, PRIORITAS_DISPOSISI, SIFAT, TINDAKAN } from '@/domain/letter-in';
 import { api } from '@/lib/api-client';
 import { plusDays, todayIso } from '@/lib/format';
+import { useRefValues } from '@/features/reference/api';
 import { KEYS, useUnits, useUserOptions, type DispositionView, type LetterInDetail } from './api';
 
 interface DialogProps { open: boolean; onOpenChange: (o: boolean) => void }
@@ -37,6 +38,7 @@ export function checkDispose(f: DisposeForm) {
 /** Isian disposisi: kepada siapa, apa yang harus dilakukan, instruksinya, dan kapan harus selesai. */
 export function DisposeFields({ f, setF, onlyStaff = false }: { f: DisposeForm; setF: (f: DisposeForm) => void; onlyStaff?: boolean }) {
   const me = useUser();
+  const tindakanList = useRefValues('tindakan', TINDAKAN);
   const users = useUserOptions();
   const units = useUnits();
   const people = (users.data || []).filter((u) => u.id !== me.id && u.role !== 'viewer' && (!onlyStaff || ['pejabat', 'pelaksana'].includes(u.role)));
@@ -56,7 +58,7 @@ export function DisposeFields({ f, setF, onlyStaff = false }: { f: DisposeForm; 
         ))}
       </Choices>
       <Choices legend="2. Apa yang harus dilakukan">
-        {TINDAKAN.map((t) => <ChoiceRow key={t}><Checkbox checked={f.tindakan.includes(t)} onCheckedChange={() => setF({ ...f, tindakan: toggle(f.tindakan, t) })} /><span>{t}</span></ChoiceRow>)}
+        {tindakanList.map((t) => <ChoiceRow key={t}><Checkbox checked={f.tindakan.includes(t)} onCheckedChange={() => setF({ ...f, tindakan: toggle(f.tindakan, t) })} /><span>{t}</span></ChoiceRow>)}
       </Choices>
       <Field label="3. Instruksi" required hint="Tulis dengan kalimat yang jelas.">
         {(p) => <Textarea {...p} value={f.instruksi} onChange={(e) => setF({ ...f, instruksi: e.target.value })} placeholder="Contoh: Mohon disiapkan data peserta didik dan jawaban surat." />}
@@ -163,6 +165,7 @@ export function UploadDialog({ data, ...o }: DialogProps & { data: LetterInDetai
 /* ---------- Kabari pengirim ---------- */
 
 export function ConfirmDialog({ data, ...o }: DialogProps & { data: LetterInDetail }) {
+  const metodeList = useRefValues('metode_konfirmasi', METODE);
   const [f, setF] = useState({ tanggal: todayIso(), metode: 'Surat resmi', pihak: data.letter.asal, hasil: '', catatan: '' });
   const [bukti, setBukti] = useState<File[]>([]);
   const [err, setErr] = useState('');
@@ -172,7 +175,7 @@ export function ConfirmDialog({ data, ...o }: DialogProps & { data: LetterInDeta
       error={err} confirmLabel="Simpan Catatan" pending={act.isPending}
       onConfirm={() => { if (!f.pihak.trim() || !f.hasil.trim()) { setErr('Isi siapa yang dikabari dan apa hasilnya.'); return; } setErr(''); act.mutate(); }}>
       <Field label="Siapa yang dikabari" required>{(p) => <Input {...p} value={f.pihak} onChange={(e) => setF({ ...f, pihak: e.target.value })} />}</Field>
-      <Field label="Dikabari lewat" required>{(p) => <NativeSelect {...p} value={f.metode} onChange={(e) => setF({ ...f, metode: e.target.value })}>{METODE.map((m) => <option key={m}>{m}</option>)}</NativeSelect>}</Field>
+      <Field label="Dikabari lewat" required>{(p) => <NativeSelect {...p} value={f.metode} onChange={(e) => setF({ ...f, metode: e.target.value })}>{metodeList.map((m) => <option key={m}>{m}</option>)}</NativeSelect>}</Field>
       <Field label="Tanggal" required>{(p) => <Input {...p} type="date" value={f.tanggal} onChange={(e) => setF({ ...f, tanggal: e.target.value })} />}</Field>
       <Field label="Hasilnya" required>{(p) => <Textarea {...p} value={f.hasil} onChange={(e) => setF({ ...f, hasil: e.target.value })} placeholder="Contoh: Pengirim sudah menerima surat balasan." />}</Field>
       <div className="flex flex-col gap-2"><span className="font-bold">Bukti <span className="font-normal text-muted-foreground">(boleh dikosongkan)</span></span><FilePicker files={bukti} onChange={setBukti} multiple={false} label="Pilih File Bukti" /></div>
@@ -204,6 +207,7 @@ export function FinishDialog({ data, ...o }: DialogProps & { data: LetterInDetai
 
 export function EditDialog({ data, ...o }: DialogProps & { data: LetterInDetail }) {
   const l = data.letter;
+  const sifatList = useRefValues('sifat', SIFAT);
   const [f, setF] = useState({ no_surat: l.no_surat, tgl_surat: l.tgl_surat, asal: l.asal, instansi: l.instansi || '', alamat: l.alamat || '', perihal: l.perihal, sifat: l.sifat, prioritas: l.prioritas, lampiran: l.lampiran || '', catatan: l.catatan || '' });
   const act = useAction(() => api.put(`/letters-in/${l.id}`, f), { success: 'Data surat sudah diperbarui.', keys: KEYS, onDone: () => o.onOpenChange(false) });
   const s = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
@@ -215,7 +219,7 @@ export function EditDialog({ data, ...o }: DialogProps & { data: LetterInDetail 
       <Field label="Pengirim (nama atau jabatan)" required>{(p) => <Input {...p} value={f.asal} onChange={s('asal')} />}</Field>
       <Field label="Instansi pengirim">{(p) => <Input {...p} value={f.instansi} onChange={s('instansi')} />}</Field>
       <Field label="Alamat pengirim">{(p) => <Input {...p} value={f.alamat} onChange={s('alamat')} />}</Field>
-      <Field label="Sifat surat" required>{(p) => <NativeSelect {...p} value={f.sifat} onChange={s('sifat')}>{SIFAT.map((x) => <option key={x}>{x}</option>)}</NativeSelect>}</Field>
+      <Field label="Sifat surat" required>{(p) => <NativeSelect {...p} value={f.sifat} onChange={s('sifat')}>{sifatList.map((x) => <option key={x}>{x}</option>)}</NativeSelect>}</Field>
       <Field label="Seberapa mendesak" required>{(p) => <NativeSelect {...p} value={f.prioritas} onChange={s('prioritas')}>{PRIORITAS.map((x) => <option key={x}>{x}</option>)}</NativeSelect>}</Field>
       <Field label="Lampiran">{(p) => <Input {...p} value={f.lampiran} onChange={s('lampiran')} />}</Field>
       <Field label="Catatan">{(p) => <Input {...p} value={f.catatan} onChange={s('catatan')} />}</Field>

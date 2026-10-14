@@ -9,11 +9,12 @@ import { ActionDialog } from '@/components/app/action-dialog';
 import { BulkBar, SelectAll, SelectRow, useBulkAction, useSelection, type Selection } from '@/components/app/bulk';
 import { Field } from '@/components/app/form-field';
 import { FilterButtons } from '@/components/app/list-controls';
+import { ExportMenu, SortHead } from '@/components/app/data-table';
 import { Page, PageHeader } from '@/components/app/page';
 import { Async, Empty } from '@/components/app/states';
 import { Deadline, Stamp, StatusDisp, StatusTask } from '@/components/app/status';
 import { useAction } from '@/components/app/use-action';
-import { useListState } from '@/components/app/use-list-state';
+import { useListState, type ListState } from '@/components/app/use-list-state';
 import { useUser } from '@/components/app/user-context';
 import { slaIndicator } from '@/domain/sla';
 import { api } from '@/lib/api-client';
@@ -35,7 +36,7 @@ function Progress({ value }: { value: number }) {
 
 function DispTable({ rows, sel, onAccept, busy }: { rows: DispRow[]; sel: Selection; onAccept: (id: number) => void; busy: boolean }) {
   return (
-    <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+    <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card)">
       <li className="hidden items-center gap-3 bg-muted/60 px-4 py-2 text-sm font-semibold text-muted-foreground md:flex"><SelectAll sel={sel} label="Pilih semua disposisi baru" /> Pilih semua</li>
       {rows.map((x) => (
         <li key={x.id} className="flex gap-3 px-4 py-3">
@@ -55,25 +56,25 @@ function DispTable({ rows, sel, onAccept, busy }: { rows: DispRow[]; sel: Select
   );
 }
 
-function TaskTable({ rows, sel, showPic }: { rows: TaskRow[]; sel: Selection; showPic?: boolean }) {
+function TaskTable({ rows, sel, showPic, ls }: { rows: TaskRow[]; sel: Selection; showPic?: boolean; ls: ListState }) {
   return (
     <>
-      <div className="hidden overflow-hidden rounded-lg border border-border bg-card md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card) md:block">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10"><SelectAll sel={sel} /></TableHead>
-              <TableHead>Tugas</TableHead>
+              <TableHead className="w-12 pl-5"><SelectAll sel={sel} /></TableHead>
+              <SortHead col="judul" ls={ls}>Tugas</SortHead>
               <TableHead>{showPic ? 'Dikerjakan' : 'Dari'}</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Kemajuan</TableHead>
-              <TableHead>Batas waktu</TableHead>
+              <SortHead col="status" ls={ls}>Status</SortHead>
+              <SortHead col="progres" ls={ls}>Kemajuan</SortHead>
+              <SortHead col="tenggat" ls={ls}>Batas waktu</SortHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((t) => (
               <TableRow key={t.id} data-state={sel.has(t.id) ? 'selected' : undefined} className="hover:bg-muted/50">
-                <TableCell><SelectRow sel={sel} id={t.id} label={t.judul} /></TableCell>
+                <TableCell className="pl-5"><SelectRow sel={sel} id={t.id} label={t.judul} /></TableCell>
                 <TableCell className="max-w-md">
                   <Link href={`/tugas/${t.id}`} className="line-clamp-2 font-semibold text-foreground no-underline hover:underline">{t.judul}</Link>
                   <span className="block truncate text-muted-foreground">{t.no_agenda} · {t.perihal}</span>
@@ -87,7 +88,7 @@ function TaskTable({ rows, sel, showPic }: { rows: TaskRow[]; sel: Selection; sh
           </TableBody>
         </Table>
       </div>
-      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card md:hidden">
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card) md:hidden">
         {rows.map((t) => (
           <li key={t.id} className="flex gap-3 px-4 py-3">
             <div className="-ml-3 -mr-1 flex size-11 shrink-0 items-start justify-center pt-0.5"><SelectRow sel={sel} id={t.id} label={t.judul} /></div>
@@ -109,12 +110,15 @@ type Bulk = 'proses' | 'selesai' | 'tenggat' | 'batal' | 'terima' | null;
 /** Disposisi dan tugas dalam satu tempat. Satu tampilan aktif sekaligus, jadi pilihan untuk aksi massal tidak tercampur. */
 export function WorkPage() {
   const user = useUser();
-  const { view, set } = useListState<View>('disposisi');
+  const ls = useListState<View>('disposisi', { sort: 'tenggat', dir: 'asc' });
+  const { view, set, sort, dir } = ls;
   const [done, setDone] = useState(false);
   const gives = ['superadmin', 'pimpinan', 'pejabat'].includes(user.role);
   const disp = useDispositions(done ? { scope: 'saya', status: 'DITERUSKAN,SELESAI,DIKEMBALIKAN' } : { scope: 'saya', status: 'BARU,DITERIMA' });
-  const mine = useTasks(done ? { scope: 'saya', status: 'SELESAI,DIBATALKAN' } : { scope: 'saya', antrian: 'terbuka' });
-  const given = useTasks(done ? { scope: 'diberikan', status: 'SELESAI,DIBATALKAN' } : { scope: 'diberikan', antrian: 'terbuka' });
+  const mineParams = { ...(done ? { scope: 'saya', status: 'SELESAI,DIBATALKAN' } : { scope: 'saya', antrian: 'terbuka' }), sort, dir };
+  const mine = useTasks(mineParams);
+  const givenParams = { ...(done ? { scope: 'diberikan', status: 'SELESAI,DIBATALKAN' } : { scope: 'diberikan', antrian: 'terbuka' }), sort, dir };
+  const given = useTasks(givenParams);
   const active = view === 'disposisi' ? disp : view === 'tugas' ? mine : given;
   const items = (active.data?.items || []) as (DispRow | TaskRow)[];
   const selectable = view === 'disposisi' ? (items as DispRow[]).filter((x) => x.status === 'BARU').map((x) => x.id) : items.map((x) => x.id);
@@ -131,7 +135,9 @@ export function WorkPage() {
   ];
   return (
     <Page wide>
-      <PageHeader title="Pekerjaan Saya" intro="Disposisi dan tugas untuk Anda. Yang paling dekat batas waktunya ada di atas." />
+      <PageHeader title="Pekerjaan Saya" intro="Disposisi dan tugas untuk Anda. Yang paling dekat batas waktunya ada di atas.">
+        {view !== 'disposisi' && <ExportMenu path="/tasks" params={view === 'tugas' ? mineParams : givenParams} label="Ekspor tugas" />}
+      </PageHeader>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterButtons label="Jenis pekerjaan" value={view} onChange={(v) => set({ tampil: v })} options={views} />
         <FilterButtons label="Keadaan" value={done ? 'selesai' : 'belum'} onChange={(v) => setDone(v === 'selesai')} options={[{ value: 'belum', label: 'Belum selesai' }, { value: 'selesai', label: 'Sudah selesai' }]} />
@@ -144,12 +150,12 @@ export function WorkPage() {
       )}
       {view === 'tugas' && (
         <Async q={mine} isEmpty={(d) => d.items.length === 0} empty={<Empty title={done ? 'Belum ada tugas yang selesai' : 'Tidak ada tugas yang belum selesai'} />}>
-          {(d) => <TaskTable rows={d.items} sel={sel} />}
+          {(d) => <TaskTable rows={d.items} sel={sel} ls={ls} />}
         </Async>
       )}
       {view === 'diberikan' && (
         <Async q={given} isEmpty={(d) => d.items.length === 0} empty={<Empty title="Belum ada tugas" text="Tugas yang Anda bagikan dari halaman surat akan tampil di sini." />}>
-          {(d) => <TaskTable rows={d.items} sel={sel} showPic />}
+          {(d) => <TaskTable rows={d.items} sel={sel} showPic ls={ls} />}
         </Async>
       )}
 

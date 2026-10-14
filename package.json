@@ -22,16 +22,19 @@
     "bench:ocr": "OCR_BENCH=1 vitest run"
   },
   "dependencies": {
-    "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
     "@tanstack/react-query": "5.104.2",
     "@tesseract.js-data/eng": "1.0.0",
     "@tesseract.js-data/ind": "1.0.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "docxtemplater": "3.71.0",
+    "exceljs": "4.4.0",
     "lucide-react": "1.55.0",
     "mammoth": "1.9.0",
+    "mupdf": "1.28.1",
     "next": "16.4.0",
+    "pdfkit": "0.20.2",
     "pg": "8.13.1",
     "pizzip": "3.1.8",
     "qrcode": "1.5.4",
@@ -47,6 +50,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.5",
+    "@types/pdfkit": "0.17.6",
     "@types/pg": "8.23.1",
     "@types/qrcode": "1.5.6",
     "@types/react": "19.3.0",

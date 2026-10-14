@@ -1,11 +1,11 @@
 import { route } from '@/server/http/handler';
 import * as tasks from '@/server/application/tasks';
-import { csv, today } from '@/server/http/responses';
+import { exportTable, isExport } from '@/server/http/responses';
 
 export const GET = route(async ({ deps, ctx, query }) => {
-  if (query.format === 'csv') {
+  if (isExport(query.format)) {
     const t = await tasks.exportRows(deps, ctx, query);
-    return csv(`tugas-${today()}.csv`, t.columns, t.rows);
+    return exportTable(query.format, 'tugas', 'Daftar Tugas', t.columns, t.rows);
   }
   return tasks.list(deps, ctx, query);
 });

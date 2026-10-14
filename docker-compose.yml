@@ -26,7 +26,9 @@ services:
       SEED_PASSWORD: ${SEED_PASSWORD:-}
       SESSION_HOURS: ${SESSION_HOURS:-12}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-15}
-      OCR_ENGINE: ${OCR_ENGINE:-tesseract}
+      OCR_ENGINE: ${OCR_ENGINE:-auto}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       OCR_URL: ${OCR_URL:-}
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"   # hanya lokal; publikasikan lewat reverse proxy

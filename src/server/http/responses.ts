@@ -29,3 +29,22 @@ export function file(body: Buffer, { mime, filename, inline = false }: { mime: s
 }
 
 export const today = () => new Date().toISOString().slice(0, 10);
+
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** Ekspor tabel dalam format yang diminta: csv (bawaan), xlsx, atau pdf. */
+export async function exportTable(format: string | undefined, name: string, title: string, columns: string[], rows: unknown[][]) {
+  const stamp = today();
+  if (format === 'xlsx') {
+    const { toXlsx } = await import('@/server/infrastructure/spreadsheet/tables');
+    return file(await toXlsx(title, columns, rows as never), { mime: XLSX, filename: `${name}-${stamp}.xlsx` });
+  }
+  if (format === 'pdf') {
+    const { toPdf } = await import('@/server/infrastructure/spreadsheet/tables');
+    const when = new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' });
+    return file(await toPdf(title, `Dicetak ${when}. ${rows.length} baris.`, columns, rows as never), { mime: 'application/pdf', filename: `${name}-${stamp}.pdf` });
+  }
+  return csv(`${name}-${stamp}.csv`, columns, rows);
+}
+
+export const isExport = (format: string | undefined) => format === 'csv' || format === 'xlsx' || format === 'pdf';

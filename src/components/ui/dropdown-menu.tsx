@@ -18,7 +18,7 @@ function DropdownMenuContent({ className, sideOffset = 6, align = 'end', ...prop
     <M.Portal>
       <M.Content sideOffset={sideOffset} align={align}
         className={cn(
-          'z-50 min-w-[12rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-lg border border-border bg-card p-1 text-card-foreground shadow-lg',
+          'z-50 min-w-[12rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-2xl border border-border bg-card p-1.5 text-card-foreground shadow-lg',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97] data-[state=open]:duration-150',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.97] data-[state=closed]:duration-100',
           className,
@@ -28,7 +28,7 @@ function DropdownMenuContent({ className, sideOffset = 6, align = 'end', ...prop
   );
 }
 
-const item = 'relative flex min-h-11 cursor-pointer select-none items-center gap-2 rounded-md px-3 text-base outline-none data-[highlighted]:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50 sm:min-h-9 sm:text-sm [&_svg]:size-4 [&_svg]:shrink-0';
+const item = 'relative flex min-h-11 cursor-pointer select-none items-center gap-2 rounded-xl px-3 text-base outline-none data-[highlighted]:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50 sm:min-h-9 sm:text-sm [&_svg]:size-4 [&_svg]:shrink-0';
 
 function DropdownMenuItem({ className, danger, ...props }: React.ComponentProps<typeof M.Item> & { danger?: boolean }) {
   return <M.Item className={cn(item, danger && 'text-destructive', className)} {...props} />;
@@ -45,7 +45,7 @@ function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof 
   return <M.Label className={cn('px-3 py-1.5 text-sm text-muted-foreground', className)} {...props} />;
 }
 function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typeof M.Separator>) {
-  return <M.Separator className={cn('-mx-1 my-1 h-px bg-line', className)} {...props} />;
+  return <M.Separator className={cn('-mx-1.5 my-1 h-px bg-line', className)} {...props} />;
 }
 
 export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuGroup };

@@ -1,4 +1,4 @@
-import { forbidden, invalid, notFound } from '@/domain/errors';
+import { forbidden, invalid, isAppError, notFound } from '@/domain/errors';
 import { is } from '@/domain/roles';
 import { normalizeTrackCode, publicSteps, TRACK_EXPIRY_DAYS } from '@/domain/tracking';
 import { auditFor, type AnonCtx, type Ctx, type Deps } from './context';
@@ -24,23 +24,27 @@ const isImage = (b: Buffer) =>
   (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) ||
   (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) ||
   (b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP');
+const isPdf = (b: Buffer) => b.subarray(0, 5).toString('latin1') === '%PDF-';
 
-/** Baca foto surat. Hasilnya hanya usulan: pengguna tetap memeriksa dan menyimpan sendiri. */
+/** Baca foto atau PDF surat. Hasilnya hanya usulan: pengguna tetap memeriksa dan menyimpan sendiri. */
 export async function readLetterPhoto(d: Deps, ctx: Ctx, file: IncomingFile | null) {
   if (!is(ctx.actor, 'superadmin', 'tu')) throw forbidden();
   d.limiter.hit(`ocr:${ctx.actor.id}`, 10 * 60 * 1000, 20);
-  if (!file) throw invalid('Pilih foto surat');
-  if (file.buffer.length > 12 * 1024 * 1024) throw invalid('Foto terlalu besar (maks 12 MB)');
-  if (!isImage(file.buffer)) throw invalid('Format foto tidak didukung. Gunakan JPG, PNG, atau WebP (foto HEIC dari iPhone: ubah ke JPG, atau atur kamera ke "Paling Kompatibel")');
+  if (!file) throw invalid('Pilih foto atau PDF surat');
+  if (file.buffer.length > 12 * 1024 * 1024) throw invalid('File terlalu besar (maks 12 MB)');
+  const pdf = isPdf(file.buffer);
+  if (!pdf && !isImage(file.buffer)) throw invalid('Format file tidak didukung. Gunakan JPG, PNG, WebP, atau PDF (foto HEIC dari iPhone: ubah ke JPG, atau atur kamera ke "Paling Kompatibel")');
   let out;
   try {
     out = await d.ocr.recognize(file.buffer);
   } catch (e) {
+    // PDF terkunci atau kosong: pesan dari pembaca PDF sudah jelas untuk pengguna
+    if (isAppError(e)) throw e;
     console.error('OCR gagal', e);
-    throw invalid('Foto tidak dapat dibaca. Coba foto ulang dengan pencahayaan merata');
+    throw invalid(pdf ? 'PDF tidak dapat dibaca. Coba unggah foto atau pindaian suratnya' : 'Foto tidak dapat dibaca. Coba foto ulang dengan pencahayaan merata');
   }
-  await d.uow.run((r) => auditFor(r, ctx, 'OCR_SURAT', 'ocr', null, { ukuran: file.buffer.length, keyakinan: out.quality.meanConf, terbaca: Object.keys(out.fields) }));
-  return { fields: out.fields, missing: out.missing, quality: out.quality, text: out.text };
+  await d.uow.run((r) => auditFor(r, ctx, 'OCR_SURAT', 'ocr', null, { ukuran: file.buffer.length, pdf, mesin: out.quality.engine ?? null, keyakinan: out.quality.meanConf, terbaca: Object.keys(out.fields) }));
+  return { fields: out.fields, missing: out.missing, quality: out.quality, text: out.text, ...(out.preview ? { preview: out.preview } : {}) };
 }
 
 const NOT_FOUND = 'Kode tidak ditemukan atau sudah tidak berlaku';

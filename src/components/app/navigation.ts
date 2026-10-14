@@ -1,4 +1,4 @@
-import { ArchiveIcon, BarChart3Icon, BriefcaseIcon, Building2Icon, FileOutputIcon, FileTextIcon, HomeIcon, InboxIcon, LayoutGridIcon, ScrollTextIcon, SearchIcon, SettingsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
+import { ArchiveIcon, BarChart3Icon, BookOpenIcon, BriefcaseIcon, Building2Icon, LandmarkIcon, FileOutputIcon, FileTextIcon, HomeIcon, InboxIcon, LayoutGridIcon, ScrollTextIcon, SearchIcon, SettingsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
 import { can } from '@/domain/roles';
 import type { PublicUser } from '@/domain/roles';
 
@@ -31,7 +31,9 @@ export function navGroups(user: PublicUser, counts: Counts): NavGroup[] {
     {
       label: 'Pengelolaan',
       items: [
+        ...(can.manageIn(user) ? [{ href: '/instansi', label: 'Instansi', icon: LandmarkIcon, desc: 'Instansi pengirim dan tujuan surat' }] : []),
         ...(can.admin(user) ? [
+          { href: '/referensi', label: 'Data Referensi', icon: BookOpenIcon, desc: 'Jenis surat, sifat, tindakan, cara kirim' },
           { href: '/template', label: 'Template Surat', icon: FileTextIcon, desc: 'Bentuk surat keluar dalam DOCX' },
           { href: '/pengguna', label: 'Pengguna', icon: UsersIcon, desc: 'Akun, peran, dan kata sandi' },
           { href: '/unit', label: 'Unit Kerja', icon: Building2Icon, desc: 'Bagian dan bidang di kantor' },

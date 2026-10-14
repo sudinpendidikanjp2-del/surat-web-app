@@ -1,7 +1,9 @@
 import { forbidden, invalid, notFound } from '@/domain/errors';
-import { can, ROLES } from '@/domain/roles';
+import { can, ROLE_LABEL, ROLES } from '@/domain/roles';
 import { csvList, int, oneOf, str } from '@/domain/validation';
-import { auditFor, runBulk, type Ctx, type Deps } from './context';
+import { withBrandingDefaults, type Branding } from '@/domain/branding';
+import { auditFor, runBulk, runRows, type Ctx, type Deps } from './context';
+import type { IncomingFile } from './ports';
 
 type Body = Record<string, unknown>;
 const requireAdmin = (ctx: Ctx) => { if (!can.admin(ctx.actor)) throw forbidden(); };
@@ -85,6 +87,32 @@ export function setUsersActive(d: Deps, ctx: Ctx, b: Body) {
   }));
 }
 
+/** Impor pengguna. Kolom: nama_pengguna, nama, peran (kode peran atau labelnya), kode_unit, jabatan, nip, email, kata_sandi_awal. */
+export function importUsers(d: Deps, ctx: Ctx, rows: Record<string, string>[]) {
+  requireAdmin(ctx);
+  const byLabel = Object.fromEntries(ROLES.map((r) => [ROLE_LABEL[r].toLowerCase(), r]));
+  return runRows(rows, async (x) => {
+    const roleRaw = (x.peran || x.role || '').trim().toLowerCase();
+    const role = (ROLES as readonly string[]).includes(roleRaw) ? roleRaw : byLabel[roleRaw];
+    if (!role) throw invalid(`Peran "${x.peran || ''}" tidak dikenal. Pakai salah satu: ${ROLES.join(', ')}`);
+    const unitId = x.kode_unit ? await d.uow.read.units.idByCode(x.kode_unit.toUpperCase()) : null;
+    if (x.kode_unit && !unitId) throw invalid(`Kode unit "${x.kode_unit}" tidak ditemukan`);
+    return createUser(d, ctx, { username: x.nama_pengguna || x.username, nama: x.nama, role, unit_id: unitId, jabatan: x.jabatan, nip: x.nip, email: x.email, password: x.kata_sandi_awal || x.kata_sandi || x.password });
+  });
+}
+
+export async function exportUsers(d: Deps, ctx: Ctx, q: Record<string, string | undefined>) {
+  requireAdmin(ctx);
+  // Daftar pengguna dibaca per 100 (batas halaman) sampai habis.
+  const items: Record<string, unknown>[] = [];
+  for (let page = 1; page <= 100; page++) {
+    const p = await d.uow.read.users.list(userFilter(q), { ...q, page: String(page), pageSize: '100' });
+    items.push(...(p.items as Record<string, unknown>[]));
+    if (items.length >= p.total || p.items.length === 0) break;
+  }
+  return { columns: ['Nama pengguna', 'Nama', 'Peran', 'Unit kerja', 'Jabatan', 'NIP', 'Email', 'Aktif'], rows: items.map((u: Record<string, unknown>) => [u.username, u.nama, ROLE_LABEL[u.role as keyof typeof ROLE_LABEL], u.unit_nama, u.jabatan, u.nip, u.email, u.aktif ? 'Ya' : 'Tidak']) };
+}
+
 /* ---------- Unit kerja ---------- */
 
 export const listUnits = (d: Deps) => d.uow.read.units.list();
@@ -111,9 +139,20 @@ export async function updateUnit(d: Deps, ctx: Ctx, id: number, b: Body) {
   });
 }
 
+export function importUnits(d: Deps, ctx: Ctx, rows: Record<string, string>[]) {
+  requireAdmin(ctx);
+  return runRows(rows, (x) => createUnit(d, ctx, { kode: x.kode || x.kode_unit, nama: x.nama || x.nama_unit }));
+}
+
+export async function exportUnits(d: Deps, ctx: Ctx) {
+  requireAdmin(ctx);
+  const rows = await d.uow.read.units.list() as Record<string, unknown>[];
+  return { columns: ['Kode', 'Nama', 'Pengguna aktif', 'Aktif'], rows: rows.map((u) => [u.kode, u.nama, u.jumlah_pengguna, u.aktif ? 'Ya' : 'Tidak']) };
+}
+
 /* ---------- Pengaturan ---------- */
 
-const SETTING_KEYS = ['instansi', 'penomoran', 'sla'] as const;
+const SETTING_KEYS = ['instansi', 'penomoran', 'sla', 'tampilan'] as const;
 
 export const settings = (d: Deps) => d.uow.read.settings.all();
 
@@ -132,6 +171,15 @@ export async function saveSetting(d: Deps, ctx: Ctx, keyRaw: string, b: Body) {
     const format = str(b.format, 'Pola nomor', { max: 120 });
     if (!format.includes('{urut}')) throw invalid('Pola nomor harus memuat {urut}');
     value = { format, kode_default: str(b.kode_default, 'Kode klasifikasi bawaan', { max: 20 }), digits: int(b.digits, 'Jumlah digit', { min: 1, max: 8 }) };
+  } else if (key === 'tampilan') {
+    const cur = withBrandingDefaults(await d.uow.read.settings.get<Branding>('tampilan'));
+    value = {
+      ...cur,
+      nama: str(b.nama, 'Nama aplikasi', { max: 60 }),
+      tagline: str(b.tagline, 'Keterangan singkat', { max: 80, required: false }) || '',
+      judul_tab: str(b.judul_tab, 'Judul di tab peramban', { max: 70 }),
+      deskripsi: str(b.deskripsi, 'Deskripsi', { max: 200, required: false }) || '',
+    };
   } else {
     value = Object.fromEntries(['Rendah', 'Normal', 'Tinggi', 'Mendesak'].map((k) => [k, int(b[k], `Batas hari ${k}`, { min: 1, max: 60 })]));
   }
@@ -139,6 +187,44 @@ export async function saveSetting(d: Deps, ctx: Ctx, keyRaw: string, b: Body) {
     await r.settings.set(key, value);
     await auditFor(r, ctx, 'PENGATURAN_DIUBAH', 'setting', key, value);
   });
+}
+
+/* ---------- Ikon aplikasi ---------- */
+
+const ICON_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+
+export const branding = async (d: Deps) => withBrandingDefaults(await d.uow.read.settings.get<Branding>('tampilan'));
+
+/** Ikon PNG atau JPG, persegi, maks 512 KB. Dipakai sebagai favicon dan tanda di menu samping. */
+export async function saveBrandIcon(d: Deps, ctx: Ctx, file: IncomingFile | null) {
+  requireAdmin(ctx);
+  if (!file) throw invalid('Pilih file ikon');
+  const ext = d.files.validate(file);
+  if (!ICON_TYPES[ext]) throw invalid('Ikon harus berformat PNG atau JPG');
+  if (file.buffer.length > 512 * 1024) throw invalid('Ikon maksimal 512 KB');
+  const path = await d.files.save(file.buffer, ext);
+  const cur = await branding(d);
+  const value = { ...cur, ikon: path, ikon_versi: (cur.ikon_versi || 0) + 1 };
+  await d.uow.run(async (r) => {
+    await r.settings.set('tampilan', value);
+    await auditFor(r, ctx, 'PENGATURAN_DIUBAH', 'setting', 'tampilan', { ikon: 'diganti' });
+  });
+}
+
+export async function removeBrandIcon(d: Deps, ctx: Ctx) {
+  requireAdmin(ctx);
+  const cur = await branding(d);
+  await d.uow.run(async (r) => {
+    await r.settings.set('tampilan', { ...cur, ikon: null, ikon_versi: (cur.ikon_versi || 0) + 1 });
+    await auditFor(r, ctx, 'PENGATURAN_DIUBAH', 'setting', 'tampilan', { ikon: 'dihapus' });
+  });
+}
+
+export async function brandIcon(d: Deps) {
+  const b = await branding(d);
+  if (!b.ikon) throw notFound('Ikon belum diatur');
+  const ext = b.ikon.split('.').pop()!.toLowerCase();
+  return { body: await d.files.read(b.ikon), mime: ICON_TYPES[ext] || 'application/octet-stream' };
 }
 
 /* ---------- Audit log (baca saja) ---------- */

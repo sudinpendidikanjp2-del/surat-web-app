@@ -35,6 +35,7 @@ export const api = {
   get: <T,>(path: string) => request<T>(path),
   post: <T,>(path: string, body: unknown = {}) => request<T>(path, { method: 'POST', body }),
   put: <T,>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body }),
+  del: <T,>(path: string) => request<T>(path, { method: 'DELETE' }),
   /** Kirim formulir dengan file. Nilai objek atau array dikirim sebagai teks JSON. */
   upload: <T,>(path: string, fields: Record<string, unknown> = {}, files: Record<string, File | File[] | null | undefined> = {}) => {
     const f = new FormData();
@@ -46,6 +47,21 @@ export const api = {
     return request<T>(path, { method: 'POST', form: f });
   },
 };
+
+/** POST yang hasilnya file: diunduh lewat tautan sementara. Galat server dibaca sebagai pesan. */
+async function download(path: string, body: unknown) {
+  const res = await fetch(`/api${path}`, { method: 'POST', headers: { 'X-Requested-With': 'surat-app', 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' });
+  if (!res.ok) {
+    const data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+    throw new ApiError(res.status, data?.error || 'File tidak dapat dibuat. Coba lagi.');
+  }
+  const name = decodeURIComponent((res.headers.get('content-disposition') || '').match(/filename\*=UTF-8''([^;]+)/)?.[1] || 'unduhan');
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+export const downloadPost = download;
 
 export const qs = (obj: Record<string, unknown>) => {
   const p = new URLSearchParams();

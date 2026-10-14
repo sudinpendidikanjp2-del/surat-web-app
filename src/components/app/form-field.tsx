@@ -34,5 +34,5 @@ export function Choices({ legend, hint, children, className }: { legend: React.R
 
 /** Baris pilihan: seluruh baris dapat diketuk (44px di layar sentuh), terpilih ditandai latar hijau muda. */
 export function ChoiceRow({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={cn('flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm transition-colors duration-150 hover:bg-muted sm:min-h-10 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary-soft', className)}>{children}</label>;
+  return <label className={cn('flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-2 text-sm transition-colors duration-150 hover:bg-muted sm:min-h-10 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary-soft', className)}>{children}</label>;
 }

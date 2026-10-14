@@ -13,10 +13,10 @@ export interface NextStepInfo { title: string; desc?: string; quiet?: boolean; p
 export function NextStep({ step, busy, children }: { step: NextStepInfo; busy?: boolean; children?: React.ReactNode }) {
   const p = step.primary;
   return (
-    <section aria-labelledby="langkah" className={cn('flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5', step.quiet ? 'border-border bg-card' : 'border-primary/40 bg-primary-soft')}>
+    <section aria-labelledby="langkah" className={cn('flex flex-col gap-3 rounded-2xl border p-5 sm:flex-row sm:items-center sm:justify-between', step.quiet ? 'border-border bg-card' : 'border-accent bg-accent-soft')}>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <p className="text-sm font-semibold text-primary">Langkah berikutnya</p>
-        <h2 id="langkah" className="text-base">{step.title}</h2>
+        <p className="text-xs font-semibold text-accent-ink">Langkah berikutnya</p>
+        <h2 id="langkah" className="text-base font-bold">{step.title}</h2>
         {step.desc && <p className="text-sm text-muted-foreground">{step.desc}</p>}
       </div>
       {(p || children) && (

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /** Isian 44px di layar sentuh, 40px di layar lebar. Huruf 16px agar iOS tidak memperbesar halaman. */
-const fieldBase = 'w-full min-w-0 rounded-md border border-input bg-card px-3 text-base text-foreground placeholder:text-muted-foreground outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-invalid:border-destructive disabled:bg-muted disabled:opacity-70';
+const fieldBase = 'w-full min-w-0 rounded-xl border border-input/60 bg-card px-3.5 text-base text-foreground placeholder:text-muted-foreground outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/15 focus-visible:outline-none aria-invalid:border-destructive disabled:bg-muted disabled:opacity-70';
 
 function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
   return <input type={type} data-slot="input" className={cn(fieldBase, 'h-11 py-2 sm:h-10', className)} {...props} />;

@@ -264,6 +264,28 @@ CREATE TRIGGER events_immutable BEFORE UPDATE ON events
 const MIGRATIONS = `
 ALTER TABLE letters_in ADD COLUMN IF NOT EXISTS track_code TEXT UNIQUE;
 ALTER TABLE letters_in ADD COLUMN IF NOT EXISTS track_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+
+CREATE TABLE IF NOT EXISTS instansi (
+  id SERIAL PRIMARY KEY,
+  nama TEXT NOT NULL,
+  singkatan TEXT,
+  alamat TEXT,
+  telepon TEXT,
+  email TEXT,
+  aktif BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS instansi_nama_uq ON instansi (lower(nama));
+
+CREATE TABLE IF NOT EXISTS ref_items (
+  id SERIAL PRIMARY KEY,
+  kategori TEXT NOT NULL,
+  nilai TEXT NOT NULL,
+  keterangan TEXT,
+  urutan INT NOT NULL DEFAULT 0,
+  aktif BOOLEAN NOT NULL DEFAULT TRUE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ref_items_uq ON ref_items (kategori, lower(nilai));
 `;
 
 /** Buat tabel, terapkan migrasi kecil, dan beri kode pelacakan untuk surat lama yang belum punya. */

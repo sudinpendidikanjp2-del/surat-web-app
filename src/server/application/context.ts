@@ -50,3 +50,19 @@ export async function runBulk(ids: unknown, fn: (id: number) => Promise<unknown>
   }
   return { results, ok: results.filter((r) => r.ok).length, gagal: results.filter((r) => !r.ok).length };
 }
+
+/** Impor baris demi baris: baris yang gagal dilaporkan dengan nomor barisnya (baris 1 adalah judul kolom). */
+export async function runRows(rows: Record<string, string>[], fn: (row: Record<string, string>) => Promise<unknown>) {
+  if (rows.length === 0) throw invalid('File tidak berisi data. Isi mulai baris kedua, di bawah judul kolom');
+  const results: { baris: number; ok: boolean; error?: string }[] = [];
+  for (const [i, row] of rows.entries()) {
+    try {
+      await fn(row);
+      results.push({ baris: i + 2, ok: true });
+    } catch (e) {
+      if (!isAppError(e)) console.error('impor', i + 2, e);
+      results.push({ baris: i + 2, ok: false, error: isAppError(e) ? e.message : 'Terjadi kesalahan pada server' });
+    }
+  }
+  return { results, ok: results.filter((r) => r.ok).length, gagal: results.filter((r) => !r.ok).length };
+}

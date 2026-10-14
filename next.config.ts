@@ -25,11 +25,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Jangan membuat AGENTS.md otomatis saat `next dev`.
   agentRules: false,
-  // Data bahasa Tesseract dibaca dari disk saat berjalan, jadi ikut disalin ke build mandiri.
+  // Data bahasa Tesseract dan WASM MuPDF (PDF ke gambar) dibaca dari disk saat berjalan, jadi ikut disalin ke build mandiri.
   outputFileTracingIncludes: {
-    '/api/ocr/**': ['./node_modules/@tesseract.js-data/ind/4.0.0_best_int/**', './node_modules/tesseract.js/**', './node_modules/tesseract.js-core/**'],
+    // pdfkit membaca file metrik huruf (.afm) dari foldernya sendiri saat membuat PDF ekspor.
+    '/api/**': ['./node_modules/pdfkit/js/data/**'],
+    '/api/ocr/**': ['./node_modules/@tesseract.js-data/ind/4.0.0_best_int/**', './node_modules/tesseract.js/**', './node_modules/tesseract.js-core/**', './node_modules/mupdf/dist/**'],
   },
-  serverExternalPackages: ['sharp', 'tesseract.js', '@tesseract.js-data/ind', '@tesseract.js-data/eng', 'pg', 'mammoth', 'docxtemplater', 'pizzip', 'qrcode'],
+  serverExternalPackages: ['sharp', 'tesseract.js', '@tesseract.js-data/ind', '@tesseract.js-data/eng', 'pg', 'mammoth', 'docxtemplater', 'pizzip', 'qrcode', 'mupdf', 'pdfkit', 'exceljs'],
   async headers() {
     return [
       {

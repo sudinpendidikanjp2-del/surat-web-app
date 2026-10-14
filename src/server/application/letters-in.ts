@@ -1,13 +1,14 @@
 import { conflict, forbidden, invalid, notFound } from '@/domain/errors';
 import {
   agendaNumbers, completionChecks, effectiveDeadline, holdsDisposition, indicatorFor, isFinished, KATEGORI_IN, letterInAbilities,
-  METODE, PRIORITAS, PRIORITAS_DISPOSISI, SIFAT, STATUS_IN, stagesFor, TINDAKAN,
+  PRIORITAS, PRIORITAS_DISPOSISI, STATUS_IN, stagesFor,
 } from '@/domain/letter-in';
 import { can, is } from '@/domain/roles';
 import { DEFAULT_SLA, slaDue, type SlaConfig } from '@/domain/sla';
 import { formatTrackCode, newTrackCode } from '@/domain/tracking';
 import { dateStr, int, oneOf, str, today } from '@/domain/validation';
-import { auditFor, runBulk, type Ctx, type Deps } from './context';
+import { auditFor, runBulk, runRows, type Ctx, type Deps } from './context';
+import { refValue } from './reference';
 import type { IncomingFile, LetterInFilter, Repos } from './ports';
 import { loadLetterIn, mentionedUsernames, recomputeStatus, saveAttachment } from './shared';
 
@@ -59,7 +60,6 @@ function letterBody(b: Body, { creating }: { creating: boolean }) {
     instansi: str(b.instansi, 'Instansi', { max: 200, required: false }),
     alamat: str(b.alamat, 'Alamat pengirim', { max: 400, required: false }),
     perihal: str(b.perihal, 'Perihal', { max: 500 }),
-    sifat: oneOf(b.sifat || (creating ? 'Biasa' : ''), SIFAT, 'Sifat surat'),
     prioritas: oneOf(b.prioritas || (creating ? 'Normal' : ''), PRIORITAS, 'Prioritas'),
     lampiran: str(b.lampiran, 'Lampiran', { max: 200, required: false }),
     catatan: str(b.catatan, creating ? 'Catatan penerimaan' : 'Catatan', { max: 1000, required: false }),
@@ -70,8 +70,9 @@ export async function create(d: Deps, ctx: Ctx, b: Body, files: IncomingFile[]) 
   if (!can.manageIn(ctx.actor)) throw forbidden();
   const data = {
     ...letterBody(b, { creating: true }),
+    sifat: await refValue(d.uow.read, 'sifat', b.sifat, 'Sifat surat', 'Biasa'),
     tgl_diterima: dateStr(b.tgl_diterima, 'Tanggal diterima'),
-    jenis: str(b.jenis, 'Jenis surat', { max: 60, required: false }) || 'Surat Dinas',
+    jenis: await refValue(d.uow.read, 'jenis_surat', str(b.jenis, 'Jenis surat', { max: 60, required: false }), 'Jenis surat', 'Surat Dinas'),
   };
   if (data.tgl_diterima < data.tgl_surat) throw invalid('Tanggal diterima tidak boleh sebelum tanggal surat');
   for (const f of files) d.files.validate(f);
@@ -93,12 +94,25 @@ export async function create(d: Deps, ctx: Ctx, b: Body, files: IncomingFile[]) 
   });
 }
 
+/**
+ * Impor surat masuk dari Excel. Setiap baris dicatat seperti input biasa (nomor agenda, batas waktu, kode lacak),
+ * baris yang gagal dilaporkan tanpa membatalkan yang lain.
+ */
+export function importRows(d: Deps, ctx: Ctx, rows: Record<string, string>[]) {
+  if (!can.manageIn(ctx.actor)) throw forbidden();
+  return runRows(rows, (x) => create(d, ctx, {
+    no_surat: x.nomor_surat || x.no_surat, tgl_surat: x.tanggal_surat, tgl_diterima: x.tanggal_diterima || today(),
+    asal: x.pengirim || x.asal, instansi: x.instansi, alamat: x.alamat, perihal: x.perihal, jenis: x.jenis_surat || x.jenis,
+    sifat: x.sifat, prioritas: x.prioritas, lampiran: x.lampiran, catatan: x.catatan,
+  }, []));
+}
+
 export async function update(d: Deps, ctx: Ctx, id: number, b: Body) {
   if (!can.manageIn(ctx.actor)) throw forbidden();
   await d.uow.run(async (r) => {
     const li = await loadLetterIn(r, ctx.actor, id);
     if (!['DITERIMA', 'MENUNGGU_DISPOSISI'].includes(li.status)) throw conflict('Data surat tidak dapat diubah setelah didisposisikan');
-    const data = letterBody(b, { creating: false });
+    const data = { ...letterBody(b, { creating: false }), sifat: await refValue(r, 'sifat', b.sifat, 'Sifat surat') };
     await r.lettersIn.updateMeta(id, { ...data, sla_due: slaDue(await slaConfig(r), data.prioritas, li.tgl_diterima) });
     await r.journal.event({ letterInId: id, userId: ctx.actor.id, tipe: 'ubah', teks: 'Data surat diperbarui' });
     await auditFor(r, ctx, 'SURAT_MASUK_DIUBAH', 'letter_in', id, data);
@@ -177,7 +191,8 @@ async function disposeOne(d: Deps, ctx: Ctx, id: number, b: Body) {
   const toUsers = (Array.isArray(b.to_user_ids) ? b.to_user_ids : []).map((x) => int(x, 'Penerima'));
   const toUnits = (Array.isArray(b.to_unit_ids) ? b.to_unit_ids : []).map((x) => int(x, 'Unit'));
   if (toUsers.length + toUnits.length === 0) throw invalid('Pilih minimal satu penerima disposisi');
-  const tindakan = (Array.isArray(b.tindakan) ? b.tindakan : []).filter((t): t is string => (TINDAKAN as readonly string[]).includes(t));
+  const allowedTindakan = new Set((await d.uow.read.refs.list('tindakan', true)).map((x) => x.nilai));
+  const tindakan = (Array.isArray(b.tindakan) ? b.tindakan : []).filter((t): t is string => allowedTindakan.has(String(t)));
   if (tindakan.length === 0) throw invalid('Pilih minimal satu tindakan');
   const instruksi = str(b.instruksi, 'Instruksi', { max: 1500 });
   const deadline = dateStr(b.deadline, 'Batas waktu');
@@ -293,7 +308,7 @@ export async function comment(d: Deps, ctx: Ctx, id: number, b: Body) {
 export async function confirm(d: Deps, ctx: Ctx, id: number, b: Body, bukti: IncomingFile | null) {
   const data = {
     tanggal: dateStr(b.tanggal, 'Tanggal konfirmasi'),
-    metode: oneOf(b.metode, METODE, 'Metode'),
+    metode: await refValue(d.uow.read, 'metode_konfirmasi', b.metode, 'Cara mengabari'),
     pihak: str(b.pihak, 'Pihak yang dikonfirmasi', { max: 200 }),
     hasil: str(b.hasil, 'Hasil konfirmasi', { max: 1500 }),
     catatan: str(b.catatan, 'Catatan', { max: 1000, required: false }),
@@ -355,7 +370,26 @@ const trackingView = (ctx: Ctx, li: { track_code: string; track_enabled: boolean
 export async function trackingInfo(d: Deps, ctx: Ctx, id: number) {
   const li = await loadLetterIn(d.uow.read, ctx.actor, id);
   if (!(can.manageIn(ctx.actor) || can.dispose(ctx.actor))) throw forbidden();
-  return trackingView(ctx, li);
+  const v = trackingView(ctx, li);
+  return { ...v, qr: v.aktif ? await d.qr.toDataUrl(v.url, 240) : null };
+}
+
+/**
+ * Tanda terima untuk pengirim: bukti surat sudah diterima, beserta kode unik dan QR menuju halaman lacak.
+ * Dibuat otomatis untuk setiap surat masuk; surat Rahasia tidak mendapat kode kecuali TU mengaktifkannya.
+ */
+export async function receipt(d: Deps, ctx: Ctx, id: number) {
+  if (!can.manageIn(ctx.actor)) throw forbidden('Tanda terima dicetak oleh Tata Usaha');
+  const r = d.uow.read;
+  const li = await loadLetterIn(r, ctx.actor, id);
+  const kantor = (await r.settings.get<Record<string, string>>('instansi')) || {};
+  const v = trackingView(ctx, li);
+  return {
+    letter: { id: li.id, no_agenda: li.no_agenda, no_surat: li.no_surat, tgl_surat: li.tgl_surat, tgl_diterima: li.tgl_diterima, asal: li.asal, instansi: li.instansi, perihal: li.perihal, sifat: li.sifat, lampiran: li.lampiran },
+    kantor,
+    tracking: { ...v, qr: v.aktif ? await d.qr.toDataUrl(v.url, 280) : null },
+    penerima: ctx.actor.nama,
+  };
 }
 
 export async function setTracking(d: Deps, ctx: Ctx, id: number, b: Body) {

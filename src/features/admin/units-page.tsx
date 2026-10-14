@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ActionDialog } from '@/components/app/action-dialog';
 import { Field } from '@/components/app/form-field';
 import { Page, PageHeader } from '@/components/app/page';
+import { ExportMenu, ImportButton } from '@/components/app/data-table';
 import { Async, Empty } from '@/components/app/states';
 import { Stamp } from '@/components/app/status';
 import { useAction } from '@/components/app/use-action';
@@ -21,6 +22,8 @@ export function UnitsPage() {
   return (
     <Page>
       <PageHeader title="Unit Kerja" intro="Bagian atau bidang di kantor. Disposisi dapat ditujukan ke unit, lalu diterima kepala unitnya.">
+        <ImportButton path="/units/impor" title="Impor unit kerja dari Excel" desc="Kolom: Kode, Nama. Kode yang sudah ada dilewati." keys={['units', 'user-options']} />
+        <ExportMenu path="/units" params={{}} />
         <Button onClick={() => setEdit('baru')}><PlusIcon aria-hidden /> Tambah Unit</Button>
       </PageHeader>
       <Async q={units} empty={<Empty title="Belum ada unit kerja" />}>

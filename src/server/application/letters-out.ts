@@ -1,11 +1,12 @@
 import { conflict, forbidden, invalid, notFound } from '@/domain/errors';
 import {
-  canEditOut, cleanFields, DEFAULT_NUMBERING, formatNomor, isOwnerOut, letterOutAbilities, METODE_KIRIM, missingRequired, outAgenda,
+  canEditOut, cleanFields, DEFAULT_NUMBERING, formatNomor, isOwnerOut, letterOutAbilities, missingRequired, outAgenda,
   PLACEHOLDER_NOMOR, STATUS_OUT, withBawaan, type LetterOut, type NumberingConfig, type StatusOut, type TemplateField,
 } from '@/domain/letter-out';
 import { can, is } from '@/domain/roles';
 import { dateStr, int, oneOf, str, today } from '@/domain/validation';
 import { auditFor, runBulk, type Ctx, type Deps } from './context';
+import { refValue } from './reference';
 import type { IncomingFile, LetterOutFilter, Repos } from './ports';
 import { loadLetterIn, loadLetterOut, mentionedUsernames, recomputeStatus, saveAttachment } from './shared';
 
@@ -72,7 +73,8 @@ function validateDateFields(fields: TemplateField[], values: Record<string, stri
 }
 
 /** Pratinjau tanpa menyimpan. */
-export async function previewDraft(d: Deps, ctx: Ctx, b: Body) {
+/** Isi template dengan isian formulir yang belum disimpan. Nomor surat tampil sebagai tanda tempat sampai disetujui. */
+async function renderUnsaved(d: Deps, ctx: Ctx, b: Body) {
   if (!can.writeOut(ctx.actor)) throw forbidden();
   const r = d.uow.read;
   const tv = await r.templates.version(int(b.template_version_id, 'Template'));
@@ -81,7 +83,23 @@ export async function previewDraft(d: Deps, ctx: Ctx, b: Body) {
     fields: cleanFields(tv.fields, b.fields as Record<string, unknown>), perihal: String(b.perihal || '').slice(0, 500), tujuan: String(b.tujuan || '').slice(0, 500),
     tgl_surat: (b.tgl_surat as string) || today(), nomor_surat: null, penandatangan_id: int(b.penandatangan_id, 'Penandatangan', { required: false }),
   };
-  return { html: await d.documents.toHtml(d.documents.render(await d.files.read(tv.file_path), await buildValues(d, r, lo, tv.fields))) };
+  return d.documents.render(await d.files.read(tv.file_path), await buildValues(d, r, lo, tv.fields));
+}
+
+export async function previewDraft(d: Deps, ctx: Ctx, b: Body) {
+  return { html: await d.documents.toHtml(await renderUnsaved(d, ctx, b)) };
+}
+
+/** Unduh hasil template sebelum surat dibuat (DOCX, atau PDF bila LibreOffice terpasang). */
+export async function downloadDraft(d: Deps, ctx: Ctx, b: Body, format: unknown) {
+  const fmt = oneOf(format || 'docx', ['docx', 'pdf'] as const, 'Format');
+  let buf = await renderUnsaved(d, ctx, b);
+  if (fmt === 'pdf') buf = await d.documents.toPdf(buf);
+  const name = String(b.perihal || 'draf-surat').slice(0, 60).replace(/[^A-Za-z0-9._-]+/g, '_') || 'draf-surat';
+  return {
+    body: buf, filename: `${name}.${fmt}`,
+    mime: fmt === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  };
 }
 
 /* ---------- Buat dan ubah ---------- */
@@ -279,7 +297,7 @@ export async function uploadSigned(d: Deps, ctx: Ctx, id: number, file: Incoming
 }
 
 export async function send(d: Deps, ctx: Ctx, id: number, b: Body) {
-  const metode = oneOf(b.metode, METODE_KIRIM, 'Cara pengiriman');
+  const metode = await refValue(d.uow.read, 'metode_kirim', b.metode, 'Cara pengiriman');
   const catatan = str(b.catatan, 'Catatan', { max: 500, required: false });
   await d.uow.run(async (r) => {
     const lo = await lockOut(r, ctx, id);

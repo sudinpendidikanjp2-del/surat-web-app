@@ -1,11 +1,11 @@
 import { created, route } from '@/server/http/handler';
 import * as lettersIn from '@/server/application/letters-in';
-import { csv, today } from '@/server/http/responses';
+import { exportTable, isExport } from '@/server/http/responses';
 
 export const GET = route(async ({ deps, ctx, query }) => {
-  if (query.format === 'csv') {
+  if (isExport(query.format)) {
     const t = await lettersIn.exportRows(deps, ctx, query);
-    return csv(`surat-masuk-${today()}.csv`, t.columns, t.rows);
+    return exportTable(query.format, 'surat-masuk', 'Daftar Surat Masuk', t.columns, t.rows);
   }
   return lettersIn.list(deps, ctx, query);
 });

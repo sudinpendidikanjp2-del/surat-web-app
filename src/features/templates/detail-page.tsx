@@ -16,6 +16,8 @@ import { Stamp } from '@/components/app/status';
 import { useAction } from '@/components/app/use-action';
 import type { TemplateField } from '@/domain/letter-out';
 import { useTemplate, type TemplateDetail } from '@/features/letters-out/api';
+import { useRefValues } from '@/features/reference/api';
+import { REF_KATEGORI } from '@/domain/reference';
 import { api } from '@/lib/api-client';
 import { fmtDateTime } from '@/lib/format';
 
@@ -73,6 +75,7 @@ export function TemplateDetailPage({ id }: { id: string }) {
 const KEYS = ['template', 'templates'];
 
 function EditDialog({ t, onClose }: { t: TemplateDetail['template']; onClose: () => void }) {
+  const jenisList = useRefValues('jenis_surat', REF_KATEGORI.jenis_surat.defaults);
   const [v, setV] = useState({ nama: t.nama, jenis: t.jenis, deskripsi: t.deskripsi || '', kode_klasifikasi: t.kode_klasifikasi || '', aktif: t.aktif });
   const save = useAction(() => api.put(`/templates/${t.id}`, v), { success: 'Keterangan template sudah disimpan.', keys: KEYS, onDone: onClose });
   const put = (k: 'nama' | 'jenis' | 'deskripsi' | 'kode_klasifikasi') => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
@@ -80,7 +83,7 @@ function EditDialog({ t, onClose }: { t: TemplateDetail['template']; onClose: ()
     <ActionDialog open onOpenChange={(o) => !o && onClose()} title="Ubah keterangan template" error={save.error?.message} confirmLabel="Simpan Perubahan" pending={save.isPending} onConfirm={() => save.mutate()}>
       <div className="flex flex-col gap-5">
         <Field label="Nama template" required>{(p) => <Input {...p} value={v.nama} onChange={put('nama')} />}</Field>
-        <Field label="Jenis surat" required>{(p) => <Input {...p} value={v.jenis} onChange={put('jenis')} />}</Field>
+        <Field label="Jenis surat" required hint="Pilih dari daftar jenis surat di Data Referensi, atau ketik yang lain.">{(p) => <><Input {...p} list="jenis-surat" value={v.jenis} onChange={put('jenis')} autoComplete="off" /><datalist id="jenis-surat">{jenisList.map((x) => <option key={x} value={x} />)}</datalist></>}</Field>
         <Field label="Kode klasifikasi">{(p) => <Input {...p} value={v.kode_klasifikasi} onChange={put('kode_klasifikasi')} />}</Field>
         <Field label="Keterangan">{(p) => <Textarea {...p} value={v.deskripsi} onChange={put('deskripsi')} />}</Field>
         <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 text-sm">

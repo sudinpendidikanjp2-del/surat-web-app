@@ -16,7 +16,7 @@ export function Loading({ label = 'Memuat data…', rows = 3 }: { label?: string
 
 export function ErrorState({ error, retry }: { error: Error | null; retry?: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-2 rounded-lg bg-late-soft p-4 text-late" role="alert">
+    <div className="flex flex-col items-start gap-2 rounded-2xl bg-late-soft p-4 text-late" role="alert">
       <p className="flex items-center gap-2 font-semibold"><AlertTriangleIcon className="size-4" aria-hidden /> Data tidak dapat dimuat</p>
       <p className="text-sm">{error?.message || 'Terjadi kesalahan.'}</p>
       {retry && <Button variant="outline" size="sm" onClick={retry}>Muat ulang</Button>}
@@ -27,15 +27,15 @@ export function ErrorState({ error, retry }: { error: Error | null; retry?: () =
 /** Kosong: apa artinya dan apa yang dapat dilakukan. `compact` untuk bagian di dalam halaman detail. */
 export function Empty({ title, text, action, compact }: { title: string; text?: React.ReactNode; action?: React.ReactNode; compact?: boolean }) {
   if (compact) return (
-    <div className="rounded-lg border border-dashed border-strong px-4 py-3 text-sm">
+    <div className="rounded-2xl border border-dashed border-strong px-4 py-3 text-sm">
       <p className="font-medium">{title}</p>
       {text && <p className="text-muted-foreground">{text}</p>}
       {action && <div className="pt-2">{action}</div>}
     </div>
   );
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-strong bg-card px-6 py-10 text-center">
-      <InboxIcon className="size-6 text-muted-foreground" aria-hidden />
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-strong bg-card px-6 py-12 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent-ink"><InboxIcon className="size-5" aria-hidden /></span>
       <p className="font-semibold">{title}</p>
       {text && <p className="max-w-md text-sm text-muted-foreground">{text}</p>}
       {action && <div className="pt-1">{action}</div>}

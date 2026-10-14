@@ -38,7 +38,7 @@ export function NotificationsPage() {
         empty={<Empty title={view === 'belum' ? 'Tidak ada yang belum dibaca' : 'Belum ada pemberitahuan'} text="Pemberitahuan muncul saat ada surat atau pekerjaan baru untuk Anda." />}>
         {(d) => (
           <div className="flex flex-col gap-3">
-            <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+            <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card)">
               {sel.count > 0 || d.items.some((n) => !n.dibaca) ? (
                 <li className="flex items-center gap-3 bg-muted/60 px-4 py-2 text-sm font-semibold text-muted-foreground"><SelectAll sel={sel} label="Pilih semua yang belum dibaca" /> Pilih yang belum dibaca</li>
               ) : null}

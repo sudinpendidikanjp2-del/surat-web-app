@@ -22,6 +22,7 @@ import { Steps } from '@/components/app/steps';
 import { useAction } from '@/components/app/use-action';
 import { useUser } from '@/components/app/user-context';
 import { METODE_KIRIM } from '@/domain/letter-out';
+import { useRefValues } from '@/features/reference/api';
 import { api } from '@/lib/api-client';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 import { useUserOptions } from '@/features/letters-in/api';
@@ -87,12 +88,13 @@ function SignDialog({ id, onClose }: { id: number; onClose: () => void }) {
 }
 
 function SendDialog({ id, onClose }: { id: number; onClose: () => void }) {
+  const metodeKirim = useRefValues('metode_kirim', METODE_KIRIM);
   const [metode, setMetode] = useState('Surat resmi');
   const [catatan, setCatatan] = useState('');
   const act = useAction(() => api.post(`/letters-out/${id}/kirim`, { metode, catatan }), { success: 'Pengiriman sudah dicatat.', keys: KEYS, onDone: onClose });
   return (
     <ActionDialog open onOpenChange={(o) => !o && onClose()} title="Catat pengiriman surat" confirmLabel="Simpan Catatan Pengiriman" pending={act.isPending} onConfirm={() => act.mutate()}>
-      <Field label="Dikirim lewat" required>{(p) => <NativeSelect {...p} value={metode} onChange={(e) => setMetode(e.target.value)}>{METODE_KIRIM.map((m) => <option key={m}>{m}</option>)}</NativeSelect>}</Field>
+      <Field label="Dikirim lewat" required>{(p) => <NativeSelect {...p} value={metode} onChange={(e) => setMetode(e.target.value)}>{metodeKirim.map((m) => <option key={m}>{m}</option>)}</NativeSelect>}</Field>
       <Field label="Catatan">{(p) => <Textarea {...p} value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Contoh: Dikirim lewat email ke tata usaha sekolah." />}</Field>
     </ActionDialog>
   );
@@ -117,7 +119,7 @@ function EditDialog({ d, onClose }: { d: LetterOutDetail; onClose: () => void })
   const signers = (users.data || []).filter((u) => ['pimpinan', 'pejabat', 'superadmin'].includes(u.role));
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:w-[min(820px,calc(100vw-32px))]">
+      <DialogContent className="sm:w-[min(1280px,calc(100vw-32px))]">
         <DialogHeader><DialogTitle>Ubah isi surat</DialogTitle><DialogDescription>Simpan untuk membuat versi dokumen yang baru.</DialogDescription></DialogHeader>
         <DialogBody>
           {users.isPending ? <Loading /> : (
@@ -165,7 +167,7 @@ function Detail({ d }: { d: LetterOutDetail }) {
               <Button asChild size="sm" variant="outline"><a href={`/api/letters-out/${l.id}/unduh?format=docx`}><DownloadIcon aria-hidden /> Word</a></Button>
             </div>}>
             <Async q={preview} isEmpty={() => false} loadingLabel="Menyusun tampilan surat…">
-              {(v) => <div className="preview-doc rounded-lg border border-border p-5 sm:p-8" dangerouslySetInnerHTML={{ __html: v.html }} />}
+              {(v) => <div className="preview-doc rounded-2xl border border-border p-5 sm:p-8" dangerouslySetInnerHTML={{ __html: v.html }} />}
             </Async>
           </Section>
 
@@ -190,7 +192,7 @@ function Detail({ d }: { d: LetterOutDetail }) {
           </Section>
           <Section title="Riwayat persetujuan">
             {d.approvals.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada keputusan.</p> : (
-              <ol className="flex flex-col rounded-lg border border-border bg-card px-4 py-1">
+              <ol className="flex flex-col rounded-2xl border border-border bg-card shadow-(--shadow-card) px-4 py-1">
                 {[...d.approvals].reverse().map((a) => (
                   <li key={a.id} className="flex flex-col gap-0.5 border-t border-line py-3 text-sm first:border-t-0">
                     <span className="font-semibold">{AKSI[a.aksi] || a.aksi}</span>

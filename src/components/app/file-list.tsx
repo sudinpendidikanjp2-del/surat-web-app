@@ -9,7 +9,7 @@ const KATEGORI: Record<string, string> = { SURAT: 'Surat masuk', PENDUKUNG: 'Pen
 export function FileList({ files, empty = 'Belum ada dokumen.' }: { files: FileItem[]; empty?: string }) {
   if (!files.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
-    <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+    <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card">
       {files.map((f) => (
         <li key={f.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 gap-3">

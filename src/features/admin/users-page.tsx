@@ -10,8 +10,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input, NativeSelect } from '@/components/ui/input';
 import { ActionDialog } from '@/components/app/action-dialog';
 import { Field } from '@/components/app/form-field';
-import { FilterButtons, Pager, SearchForm } from '@/components/app/list-controls';
-import { Page, PageHeader } from '@/components/app/page';
+import { FilterButtons, SearchForm } from '@/components/app/list-controls';
+import { ExportMenu, ImportButton, PagerFull, SortHead } from '@/components/app/data-table';
+import { Page, PageHeader, Panel } from '@/components/app/page';
 import { Async, Empty } from '@/components/app/states';
 import { useAction } from '@/components/app/use-action';
 import { useListState } from '@/components/app/use-list-state';
@@ -37,12 +38,14 @@ const KEYS = ['users', 'user-options'];
 
 export function UsersPage() {
   const me = useUser();
-  const { view, q, page, set } = useListState<View>('aktif');
+  const ls = useListState<View>('aktif', { sort: 'nama', dir: 'asc' });
+  const { view, q, page, size, sort, dir, set } = ls;
+  const params = { q, page, pageSize: size, sort, dir, aktif: view === 'aktif' ? '1' : view === 'nonaktif' ? '0' : '' };
   const [edit, setEdit] = useState<UserRow | 'baru' | null>(null);
   const [confirm, setConfirm] = useState<boolean | null>(null);
   const list = useQuery({
-    queryKey: ['users', view, q, page],
-    queryFn: () => api.get<UserPage>(`/users${qs({ q, page, pageSize: 20, aktif: view === 'aktif' ? '1' : view === 'nonaktif' ? '0' : '' })}`),
+    queryKey: ['users', params],
+    queryFn: () => api.get<UserPage>(`/users${qs(params)}`),
     placeholderData: (p) => p,
   });
   const rows = list.data?.items || [];
@@ -51,23 +54,26 @@ export function UsersPage() {
   return (
     <Page wide>
       <PageHeader title="Pengguna" intro="Orang yang dapat masuk ke aplikasi ini, beserta perannya.">
+        <ImportButton path="/users/impor" title="Impor pengguna dari Excel" desc="Peran ditulis dengan kodenya (superadmin, tu, pimpinan, pejabat, pelaksana, viewer) atau namanya. Kode unit harus sudah ada." keys={KEYS} />
+        <ExportMenu path="/users" params={params} />
         <Button onClick={() => setEdit('baru')}><PlusIcon aria-hidden /> Tambah Pengguna</Button>
       </PageHeader>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <Panel>
+      <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center lg:justify-between">
         <FilterButtons label="Tampilkan" value={view} onChange={(v) => set({ tampil: v })} options={[{ value: 'aktif', label: 'Aktif' }, { value: 'nonaktif', label: 'Dinonaktifkan' }, { value: 'semua', label: 'Semua' }]} />
-        <SearchForm value={q} onSearch={(v) => set({ q: v })} label="Cari pengguna" placeholder="Nama, NIP, atau nama pengguna" />
+        <SearchForm value={q} onSearch={(v) => set({ q: v })} label="Cari pengguna" placeholder="Nama, NIP, atau nama pengguna" className="sm:w-80" />
       </div>
-      <Async q={list} isEmpty={(d) => d.items.length === 0} empty={<Empty title="Tidak ada pengguna yang cocok" />}>
+      <Async q={list} isEmpty={(d) => d.items.length === 0} empty={<div className="p-4"><Empty title="Tidak ada pengguna yang cocok" /></div>}>
         {(d) => (
-          <div className="flex flex-col gap-3">
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex flex-col">
+            <div>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10"><SelectAll sel={sel} /></TableHead>
-                    <TableHead>Nama</TableHead>
-                    <TableHead className="hidden md:table-cell">Peran</TableHead>
-                    <TableHead className="hidden lg:table-cell">Unit kerja</TableHead>
+                    <TableHead className="w-12 pl-5"><SelectAll sel={sel} /></TableHead>
+                    <SortHead col="nama" ls={ls}>Nama</SortHead>
+                    <SortHead col="role" ls={ls} className="hidden md:table-cell">Peran</SortHead>
+                    <SortHead col="unit" ls={ls} className="hidden lg:table-cell">Unit kerja</SortHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="text-right"><span className="sr-only">Tindakan</span></TableHead>
                   </TableRow>
@@ -75,7 +81,7 @@ export function UsersPage() {
                 <TableBody>
                   {d.items.map((u) => (
                     <TableRow key={u.id} data-state={sel.has(u.id) ? 'selected' : undefined}>
-                      <TableCell>{u.id !== me.id ? <SelectRow sel={sel} id={u.id} label={u.nama} /> : null}</TableCell>
+                      <TableCell className="pl-5">{u.id !== me.id ? <SelectRow sel={sel} id={u.id} label={u.nama} /> : null}</TableCell>
                       <TableCell>
                         <span className="block font-semibold">{u.nama}{u.id === me.id && <span className="font-normal text-muted-foreground"> (Anda)</span>}</span>
                         <span className="block text-muted-foreground">{u.username}{u.jabatan ? ` · ${u.jabatan}` : ''}</span>
@@ -90,10 +96,11 @@ export function UsersPage() {
                 </TableBody>
               </Table>
             </div>
-            <Pager page={d.page} pageSize={d.pageSize} total={d.total} onPage={(p) => set({ halaman: p })} />
+            <div className="border-t border-line p-4"><PagerFull page={d.page} pageSize={d.pageSize} total={d.total} onPage={(p) => set({ halaman: p })} onSize={(n) => set({ baris: n })} /></div>
           </div>
         )}
       </Async>
+      </Panel>
       <BulkBar sel={sel}>
         <Button size="sm" variant="outline" onClick={() => setConfirm(true)}>Aktifkan</Button>
         <Button size="sm" variant="destructive" onClick={() => setConfirm(false)}>Nonaktifkan</Button>

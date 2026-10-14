@@ -16,11 +16,15 @@ export const config = {
   jobsEnabled: env.JOBS !== 'off',
   seedPassword: env.SEED_PASSWORD,
   /**
-   * Mesin OCR. Bawaan: Tesseract di dalam proses. Opsional: model VLM (misalnya baidu/Unlimited-OCR)
-   * di server GPU lewat vLLM atau SGLang (API kompatibel OpenAI).
+   * Mesin OCR. Bawaan: Tesseract di dalam proses. Opsional: Gemini (Google) bila GEMINI_API_KEY diisi,
+   * atau model VLM (misalnya baidu/Unlimited-OCR) di server GPU lewat vLLM atau SGLang (API kompatibel OpenAI).
+   * OCR_ENGINE: auto (bawaan: Gemini bila ada kunci, selain itu Tesseract), gemini, remote, atau tesseract.
    */
   ocr: {
-    engine: env.OCR_ENGINE || 'tesseract',
+    engine: env.OCR_ENGINE || 'auto',
+    geminiKey: env.GEMINI_API_KEY || '',
+    geminiModel: env.GEMINI_MODEL || 'gemini-2.5-flash',
+    geminiUrl: env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com',
     url: env.OCR_URL || '',
     model: env.OCR_MODEL || 'Unlimited-OCR',
     prompt: env.OCR_PROMPT || 'document parsing.',

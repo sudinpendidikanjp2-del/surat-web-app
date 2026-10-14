@@ -14,6 +14,8 @@ export interface DashboardData {
   nomor_terakhir?: { id: number; nomor_surat: string; no_agenda: string } | null;
   tugas_saya?: Record<string, number>;
   disposisi_baru?: { id: number; letter_in_id: number; instruksi: string; deadline: string; prioritas: string; no_agenda: string; perihal: string; dari: string }[];
+  per_bulan?: { bulan: string; masuk: number; selesai: number }[];
+  rata_hari_selesai?: number | null;
   tugas_terdekat?: { id: number; judul: string; deadline: string; status: string; progress: number; no_agenda: string; perihal: string; sla: SlaIndicator }[];
 }
 

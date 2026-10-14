@@ -7,9 +7,9 @@ Konsep utama: satu surat masuk adalah satu **urusan (case)**. Disposisi, tugas, 
 ## Teknologi
 
 - Satu aplikasi Next.js 16 (App Router, React 19, TypeScript): halaman dan API (`src/app/api/**/route.ts`) dalam satu proses.
-- Tampilan: Tailwind CSS 4, komponen gaya shadcn/ui (Radix), TanStack Query untuk data, ikon lucide, huruf Atkinson Hyperlegible Next (disajikan sendiri, tanpa layanan luar).
+- Tampilan: Tailwind CSS 4, komponen gaya shadcn/ui (Radix), TanStack Query untuk data, ikon lucide, huruf Plus Jakarta Sans (disajikan sendiri, tanpa layanan luar). Ekspor Excel dengan exceljs, PDF tabel dengan pdfkit.
 - Database: PostgreSQL 16, SQL langsung lewat `pg` (skema di `src/server/infrastructure/db/schema.ts`).
-- OCR: tesseract.js (model bahasa Indonesia, `best_int`) dengan prapengolahan sharp. Opsional: server model OCR jarak jauh (lihat bagian OCR).
+- OCR: Gemini AI bila `GEMINI_API_KEY` diatur, dengan cadangan tesseract.js (model bahasa Indonesia, `best_int`) dan prapengolahan sharp. PDF diubah menjadi gambar halaman pertama dengan mupdf. Opsional: server model OCR jarak jauh (lihat bagian OCR).
 - DOCX: docxtemplater dan PizZip (placeholder `{{nama_field}}`), pratinjau dengan mammoth, PDF lewat LibreOffice (`soffice`) bila terpasang.
 
 ## Susunan kode (clean architecture)
@@ -72,29 +72,54 @@ Unit awal (Pimpinan, Tata Usaha, Seksi Data) dan nama instansi (`Sudin Pendidika
 Sesuai MVP dan sebagian P1 PRD:
 
 - Login, sesi, peran dan izin per aksi, audit log tak terhapus.
-- Surat masuk: catat dari **foto surat (OCR)** atau manual, nomor agenda otomatis (`SM-2026-000125`), SLA dan indikator sisa waktu, kode QR, lembar disposisi cetak.
+- Surat masuk: catat dari **foto atau PDF (OCR, Gemini AI bila diaktifkan)**, manual, atau **impor Excel**; nomor agenda otomatis (`SM-2026-000125`), SLA dan indikator sisa waktu, kode QR, lembar disposisi cetak.
+- **Tanda terima untuk pengirim** langsung setelah surat dicatat: kode lacak unik dan QR menuju halaman `/lacak`, siap dicetak atau dibagikan.
 - **Pelacakan oleh pengirim** tanpa login (lihat bagian khusus).
 - Disposisi: ke unit atau pegawai, tindakan, batas waktu, prioritas, terima, teruskan berjenjang, kembalikan dengan alasan.
 - Tugas: beberapa tugas per surat, penanggung jawab, daftar periksa, progres, status delapan tahap, minta data, lampiran hasil.
 - Konfirmasi ke pemberi surat dan syarat penyelesaian (tugas selesai, balasan terkirim, konfirmasi dicatat).
-- Surat keluar: generator dari template DOCX, pratinjau, versi dokumen, review, persetujuan, penomoran atomik tanpa nomor ganda, unggah dokumen bertanda tangan, catat pengiriman, relasi dua arah dengan surat masuk.
+- Surat keluar: generator dari template DOCX dengan **pratinjau berdampingan yang diperbarui saat mengetik** dan **unduh Word/PDF sebelum disimpan**, versi dokumen, review, persetujuan, penomoran atomik tanpa nomor ganda, unggah dokumen bertanda tangan, catat pengiriman, relasi dua arah dengan surat masuk.
 - Template: unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field, pratinjau.
 - Beranda per peran dengan daftar "Perlu tindakan Anda", notifikasi, pengingat H-3, H-1, hari H, terlambat dengan eskalasi, komentar dan `@mention`.
-- **Daftar data** (surat masuk, surat keluar, pekerjaan, pengguna, pemberitahuan): tabel di layar lebar dan daftar ringkas di ponsel, tampilan cepat, pencarian, halaman di server, dan keadaan daftar di alamat (tombol Kembali tetap bekerja).
+- **Daftar data** (surat masuk, surat keluar, pekerjaan, pengguna, unit, instansi, data referensi, pemberitahuan): tabel di layar lebar dan daftar ringkas di ponsel, tab tampilan, pencarian, **filter** (rentang tanggal, sifat, prioritas, jenis), **urutan lewat kepala kolom**, **halaman bernomor dan jumlah baris**, keadaan daftar di alamat (tombol Kembali tetap bekerja).
+- **Ekspor** hasil filter yang sedang dipakai ke **CSV, Excel (.xlsx), dan PDF**: surat masuk, surat keluar, tugas, pengguna, unit, instansi, data referensi, dan setiap tabel laporan.
+- **Impor Excel** dengan contoh file yang dapat diunduh: surat masuk, pengguna, unit kerja, instansi, data referensi. Setiap baris diproses sendiri; baris yang gagal dilaporkan dengan nomor baris dan alasannya.
+- **Data induk yang diatur admin**: instansi pengirim dan tujuan (saran saat mencatat surat), jenis surat, sifat surat, tindakan disposisi, cara mengabari pengirim, cara pengiriman surat keluar. Nilai yang dipakai sistem (sifat Biasa dan Rahasia) dikunci.
+- **Identitas aplikasi** dapat diubah admin di Pengaturan > Tampilan aplikasi: nama, keterangan, judul tab peramban, deskripsi halaman, dan ikon (favicon).
 - **Aksi massal**: centang beberapa baris, lalu pilih tindakan di bilah yang muncul di bawah. Server memproses satu per satu (maks 200 data); yang gagal tidak membatalkan yang lain dan alasannya ditampilkan per data.
   - Surat masuk: teruskan ke pimpinan, arsipkan (TU); beri disposisi yang sama untuk banyak surat (pimpinan).
   - Surat keluar: ajukan persetujuan; setujui dan beri nomor, kembalikan untuk revisi (pimpinan).
   - Pekerjaan: terima banyak disposisi; tandai tugas dikerjakan atau selesai; ubah batas waktu atau batalkan tugas yang Anda berikan.
-  - Pengguna: aktifkan dan nonaktifkan. Pemberitahuan: tandai dibaca.
-- Tampilan terang dan gelap (ikuti perangkat atau pilih sendiri di kepala halaman).
-- Pencarian lintas surat masuk dan keluar, arsip per tahun, jenis, bulan, laporan dengan ekspor CSV.
+  - Pengguna, instansi, data referensi: aktifkan dan nonaktifkan. Pemberitahuan: tandai dibaca.
+- Tampilan terang dan gelap (ikuti perangkat atau pilih sendiri di kepala halaman). Arah desain ada di `DESIGN.md`.
+- Pencarian lintas surat masuk dan keluar, arsip per tahun, jenis, bulan, laporan dengan grafik dan ekspor CSV, Excel, dan PDF.
 - Keamanan: hash scrypt, cookie `HttpOnly` `SameSite=Strict`, header CSRF, pembatas laju, CSP, validasi ekstensi dan isi file, file di `storage/private` yang hanya terbuka lewat endpoint berizin, kueri berparameter, urutan kolom lewat daftar putih, CSV dengan perlindungan injeksi rumus.
 
 ## OCR surat masuk dari foto
 
-Surat Masuk, Catat Surat Masuk, lalu Ambil Foto Surat atau Pilih Foto yang Sudah Ada. Foto halaman pertama surat (kamera ponsel atau galeri). Sistem membaca nomor surat, tanggal, perihal, sifat, lampiran, instansi, alamat, dan pengirim. Di layar lebar foto tampil di samping formulir. Isian yang keyakinannya di bawah 85% atau tidak terbaca diberi latar kuning. **Hasil hanyalah usulan: pengguna wajib memeriksa lalu menyimpan sendiri.**
+Surat Masuk, Catat Surat Masuk, lalu Ambil Foto Surat atau Pilih Foto yang Sudah Ada. Foto halaman pertama surat (kamera ponsel atau galeri), atau unggah PDF surat. Sistem membaca nomor surat, tanggal, perihal, sifat, lampiran, instansi, alamat, dan pengirim. Di layar lebar foto tampil di samping formulir. Isian yang keyakinannya di bawah 85% atau tidak terbaca diberi latar kuning. **Hasil hanyalah usulan: pengguna wajib memeriksa lalu menyimpan sendiri.**
+
+PDF (maks 12 MB, sama dengan foto) diubah dahulu menjadi gambar halaman pertama (sekitar 2200 px, dengan MuPDF), lalu dibaca seperti foto. Gambar itu juga dikirim kembali sebagai pratinjau (`preview`, data URL PNG) agar tampil di samping formulir. Halaman lain tidak dibaca. PDF yang dikunci kata sandi, kosong, atau rusak ditolak dengan pesan yang jelas.
 
 Pipeline: koreksi orientasi EXIF, ubah ke 2400 px, ratakan pencahayaan, pangkas tepi kertas, hilangkan derau, luruskan kemiringan, binarisasi, lalu Tesseract (bahasa Indonesia). Teks diurai dengan aturan khusus surat dinas (perbaikan salah baca angka romawi, 0 dan O, 1 dan l, nama bulan yang salah baca). Bila hasil pertama kurang lengkap, dicoba dua pemetaan lain dan diambil yang terbaik. Satu foto dibatasi 45 detik.
+
+### Gemini (opsional)
+
+Untuk foto yang sulit (miring, berbayang, cap tumpang tindih), Gemini dari Google biasanya jauh lebih akurat daripada Tesseract. Buat kunci API di Google AI Studio, lalu set
+
+```
+GEMINI_API_KEY=kunci-anda
+GEMINI_MODEL=gemini-2.5-flash   # bawaan
+OCR_ENGINE=auto                 # bawaan: Gemini dipakai bila kunci ada. gemini = selalu Gemini
+OCR_FALLBACK=on                 # bila Gemini gagal (jaringan, kuota, batas waktu OCR_TIMEOUT_SEC), jatuh ke Tesseract
+# GEMINI_BASE_URL=...           # hanya untuk proxy atau uji
+```
+
+Aplikasi memanggil REST `generateContent` dengan foto (atau gambar halaman pertama PDF) dan meminta jawaban JSON berisi isian yang sama (nomor, tanggal, perihal, sifat, lampiran, instansi, alamat, pengirim) beserta perkiraan keyakinan per isian. Nilainya dinormalkan dengan aturan yang sama (tanggal ke YYYY-MM-DD, sifat ke Biasa, Segera, Penting, atau Rahasia). Bila Gemini gagal dan cadangan aktif, Tesseract dipakai dan pengguna melihat peringatan "Gemini tidak dapat dipakai, memakai pembaca bawaan".
+
+**Privasi:** dengan Gemini, foto atau PDF surat dikirim ke server Google. Jangan aktifkan untuk instansi yang tidak mengizinkan dokumen keluar dari jaringannya, dan periksa ketentuan data pada paket API yang dipakai. Kunci API tidak pernah dicatat di log.
+
+Keyakinan dari Gemini adalah perkiraan model sendiri, bukan skor yang terukur. **Hasilnya tetap usulan: pengguna wajib memeriksa setiap isian sebelum menyimpan.** Adaptor ini diuji dengan server tiruan; ukur dahulu pada surat Anda sendiri.
 
 ### Akurasi
 
@@ -139,7 +164,7 @@ Halaman publik `/lacak` (tanpa login) agar pengirim dapat memantau suratnya. Dip
 
 ## Belum ada (di luar MVP, sesuai fase PRD)
 
-Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, sinkronisasi Google Drive, pencarian isi dokumen, ekspor Excel dan PDF laporan (CSV tersedia), TTE, fitur AI, backup terkelola di luar server (skrip `scripts/backup.sh` tersedia).
+Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, sinkronisasi Google Drive, pencarian isi dokumen, TTE, fitur AI selain pembacaan surat, backup terkelola di luar server (skrip `scripts/backup.sh` tersedia).
 
 Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint mengembalikan pesan jelas dan DOCX tetap dapat diunduh.
 

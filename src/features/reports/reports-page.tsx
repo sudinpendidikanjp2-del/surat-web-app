@@ -1,12 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DownloadIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Field } from '@/components/app/form-field';
+import { ExportMenu } from '@/components/app/data-table';
 import { FilterButtons } from '@/components/app/list-controls';
 import { Page, PageHeader, Section } from '@/components/app/page';
 import { Async, Empty } from '@/components/app/states';
@@ -36,7 +35,7 @@ export function ReportsPage() {
       <Async q={stat} isEmpty={() => false}>
         {(s) => (
           <Section title={`Tahun ${s.tahun}`}>
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-5">
               {([['Surat masuk', s.masuk], ['Surat keluar', s.keluar], ['Disposisi', s.disposisi], ['Selesai', s.selesai], ['Terlambat', s.terlambat]] as const).map(([k, v]) => (
                 <div key={k} className="flex flex-col gap-0.5 bg-card px-4 py-3"><span className="text-sm text-muted-foreground">{k}</span><span className={`text-2xl font-bold tabular-nums ${k === 'Terlambat' && v ? 'text-late' : ''}`}>{v}</span></div>
               ))}
@@ -46,7 +45,7 @@ export function ReportsPage() {
       </Async>
       <Section title="Pilih laporan">
         <FilterButtons label="Jenis laporan" value={jenis} onChange={setJenis} options={[...KINDS]} />
-        <div className="grid gap-4 sm:grid-cols-2 sm:max-w-xl">
+        <div className="grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-(--shadow-card) sm:max-w-xl sm:grid-cols-2">
           <Field label="Dari tanggal" required>{(p) => <Input {...p} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />}</Field>
           <Field label="Sampai tanggal" required>{(p) => <Input {...p} type="date" value={to} onChange={(e) => setTo(e.target.value)} />}</Field>
         </div>
@@ -56,8 +55,7 @@ export function ReportsPage() {
           <div className="flex flex-col gap-8">
             {d.catatan && <p className="text-muted-foreground">{d.catatan}</p>}
             {d.tables.map((t, i) => (
-              <Section key={t.judul} title={t.judul}>
-                <div><Button asChild variant="outline" className="no-underline"><a href={`/api/laporan/${jenis}${qs({ from, to, format: 'csv', tabel: i })}`}><DownloadIcon aria-hidden /> Unduh CSV</a></Button></div>
+              <Section key={t.judul} title={t.judul} action={<ExportMenu path={`/laporan/${jenis}`} params={{ from, to, tabel: i }} label="Unduh" />}>
                 <Card><Table>
                   <TableHeader><TableRow>{t.columns.map((c) => <TableHead key={c}>{c}</TableHead>)}</TableRow></TableHeader>
                   <TableBody>{t.rows.length === 0 ? <TableRow><TableCell colSpan={t.columns.length}>Tidak ada data</TableCell></TableRow> : t.rows.map((r, ri) => <TableRow key={ri}>{r.map((c, ci) => <TableCell key={ci} className={typeof c === 'number' ? 'tabular-nums' : ''}>{c ?? '-'}</TableCell>)}</TableRow>)}</TableBody>

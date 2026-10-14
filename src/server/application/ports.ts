@@ -3,6 +3,7 @@
  * Implementasinya ada di src/server/infrastructure dan dirangkai di src/server/container.ts.
  * Arah ketergantungan: infrastructure -> application -> domain, tidak pernah sebaliknya.
  */
+import type { Instansi, RefItem, RefKategori } from '@/domain/reference';
 import type { Actor, Role } from '@/domain/roles';
 import type { Disposition, KategoriDokumen, LetterIn, StageCounts, StatusIn } from '@/domain/letter-in';
 import type { LetterOut, StatusOut, TemplateField } from '@/domain/letter-out';
@@ -41,6 +42,8 @@ export interface Repos {
   attachments: AttachmentsRepo;
   lettersOut: LettersOutRepo;
   templates: TemplatesRepo;
+  refs: RefsRepo;
+  instansi: InstansiRepo;
   lettersInQueries: ListQueries<LetterInFilter, LetterInListRow>;
   dispositionQueries: Omit<ListQueries<DispositionFilter>, 'exportRows'>;
   taskQueries: ListQueries<TaskFilter, TaskListRow>;
@@ -50,6 +53,30 @@ export interface Repos {
 }
 
 /* ======================= Repositori tulis ======================= */
+
+export interface RefsRepo {
+  list(kategori: RefKategori, onlyActive: boolean): Promise<RefItem[]>;
+  count(kategori: RefKategori): Promise<number>;
+  find(id: number): Promise<RefItem | null>;
+  exists(kategori: RefKategori, nilai: string, exceptId?: number): Promise<boolean>;
+  /** Nilai aktif yang sama (tanpa membedakan huruf besar), dengan ejaan resmi dari tabel. */
+  canonical(kategori: RefKategori, nilai: string): Promise<string | null>;
+  insert(v: { kategori: RefKategori; nilai: string; keterangan: string | null; urutan: number }): Promise<number>;
+  update(id: number, v: { nilai: string; keterangan: string | null; urutan: number; aktif: boolean }): Promise<boolean>;
+  setActive(id: number, aktif: boolean): Promise<boolean>;
+}
+
+export interface InstansiFilter { q?: string; aktif: boolean | null }
+export interface InstansiRepo {
+  list(f: InstansiFilter, q: Record<string, string | undefined>): Promise<{ items: Instansi[]; total: number; page: number; pageSize: number }>;
+  all(f: InstansiFilter): Promise<Instansi[]>;
+  options(): Promise<Pick<Instansi, 'id' | 'nama' | 'singkatan' | 'alamat'>[]>;
+  find(id: number): Promise<Instansi | null>;
+  idByName(nama: string): Promise<number | null>;
+  insert(v: Omit<Instansi, 'id' | 'aktif' | 'jumlah_surat'>): Promise<number>;
+  update(id: number, v: Omit<Instansi, 'id' | 'jumlah_surat'>): Promise<boolean>;
+  setActive(id: number, aktif: boolean): Promise<boolean>;
+}
 
 export interface LoginUser extends Actor { aktif: boolean; password_hash: string }
 export interface NewUser { username: string; nama: string; nip: string | null; pangkat: string | null; jabatan: string | null; email: string | null; role: Role; unit_id: number | null; password_hash: string }
@@ -309,7 +336,8 @@ export interface DocumentRenderer {
   defaultTemplates(): DefaultTemplate[];
 }
 
-export interface OcrResult { fields: Record<string, { value: string; conf: number; review?: boolean }>; missing: string[]; quality: { meanConf: number; warnings: string[] } & Record<string, unknown>; text: string }
+/** preview: gambar halaman pertama (data URL PNG) bila masukannya PDF. */
+export interface OcrResult { fields: Record<string, { value: string; conf: number; review?: boolean }>; missing: string[]; quality: { meanConf: number; warnings: string[] } & Record<string, unknown>; text: string; preview?: string }
 export interface OcrEngine { recognize(image: Buffer): Promise<OcrResult> }
 export interface QrEncoder { toDataUrl(text: string, width: number): Promise<string> }
 export interface PasswordHasher { hash(pw: string): Promise<string>; verify(pw: string, stored: string): Promise<boolean> }

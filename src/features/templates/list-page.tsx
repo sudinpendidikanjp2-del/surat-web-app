@@ -14,6 +14,8 @@ import { Page, PageHeader } from '@/components/app/page';
 import { Async, Empty } from '@/components/app/states';
 import { useAction } from '@/components/app/use-action';
 import { useTemplates } from '@/features/letters-out/api';
+import { useRefValues } from '@/features/reference/api';
+import { REF_KATEGORI } from '@/domain/reference';
 import { api } from '@/lib/api-client';
 
 export function TemplatesPage() {
@@ -49,6 +51,7 @@ export function TemplatesPage() {
 }
 
 function NewTemplateDialog({ onClose }: { onClose: () => void }) {
+  const jenisList = useRefValues('jenis_surat', REF_KATEGORI.jenis_surat.defaults);
   const router = useRouter();
   const [v, setV] = useState({ nama: '', kode: '', jenis: '', deskripsi: '', kode_klasifikasi: '' });
   const [files, setFiles] = useState<File[]>([]);
@@ -66,7 +69,7 @@ function NewTemplateDialog({ onClose }: { onClose: () => void }) {
       }}>
       <div className="flex flex-col gap-5">
         <Field label="Nama template" required hint="Misalnya: Surat Undangan Rapat">{(p) => <Input {...p} value={v.nama} onChange={put('nama')} />}</Field>
-        <Field label="Jenis surat" required hint="Misalnya: Undangan, Pemberitahuan, Nota Dinas">{(p) => <Input {...p} value={v.jenis} onChange={put('jenis')} />}</Field>
+        <Field label="Jenis surat" required hint="Pilih dari daftar jenis surat di Data Referensi, atau ketik yang lain.">{(p) => <><Input {...p} list="jenis-surat" value={v.jenis} onChange={put('jenis')} autoComplete="off" /><datalist id="jenis-surat">{jenisList.map((x) => <option key={x} value={x} />)}</datalist></>}</Field>
         <Field label="Kode template" required hint="Huruf kecil, angka, dan strip. Misalnya: undangan-rapat">{(p) => <Input {...p} value={v.kode} autoCapitalize="none" onChange={(e) => setV((s) => ({ ...s, kode: e.target.value.toLowerCase() }))} />}</Field>
         <Field label="Kode klasifikasi" hint="Dipakai pada nomor surat. Bila kosong, memakai kode bawaan kantor.">{(p) => <Input {...p} value={v.kode_klasifikasi} onChange={put('kode_klasifikasi')} />}</Field>
         <Field label="Keterangan">{(p) => <Textarea {...p} value={v.deskripsi} onChange={put('deskripsi')} />}</Field>

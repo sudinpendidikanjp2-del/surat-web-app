@@ -31,21 +31,24 @@ export function useSelection(pageIds: number[], scope: string) {
 }
 export type Selection = ReturnType<typeof useSelection>;
 
+/** Area ketuk diperluas ke 44px dengan pseudo-elemen, tanpa membesarkan kotak centangnya. */
+const HIT = "relative after:absolute after:-inset-[13px] after:content-['']";
+
 export const SelectAll = ({ sel, label = 'Pilih semua di halaman ini' }: { sel: Selection; label?: string }) =>
-  <Checkbox checked={sel.headerState} onCheckedChange={sel.toggleAll} aria-label={label} />;
+  <Checkbox className={HIT} checked={sel.headerState} onCheckedChange={sel.toggleAll} aria-label={label} />;
 
 export const SelectRow = ({ sel, id, label }: { sel: Selection; id: number; label: string }) =>
-  <Checkbox checked={sel.has(id)} onCheckedChange={() => sel.toggle(id)} aria-label={`Pilih ${label}`} />;
+  <Checkbox className={HIT} checked={sel.has(id)} onCheckedChange={() => sel.toggle(id)} aria-label={`Pilih ${label}`} />;
 
 /** Bilah aksi massal: muncul dari bawah saat ada baris terpilih (200ms ease-out), di atas bilah menu ponsel. */
 export function BulkBar({ sel, children }: { sel: Selection; children: React.ReactNode }) {
   if (!sel.count) return null;
   return (
     <div role="region" aria-label="Aksi untuk data terpilih"
-      className="no-print fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2 pl-4 shadow-lg animate-in fade-in-0 slide-in-from-bottom-3 duration-200 lg:bottom-5 lg:left-60">
+      className="no-print fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-full bg-primary p-1.5 pl-5 text-primary-foreground shadow-xl animate-in fade-in-0 slide-in-from-bottom-3 duration-200 lg:bottom-6 lg:left-64">
       <p className="mr-auto text-sm font-semibold" aria-live="polite">{sel.count} dipilih</p>
       {children}
-      <Button variant="ghost" size="sm" onClick={sel.clear}>Batal pilih</Button>
+      <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/10" onClick={sel.clear}>Batal pilih</Button>
     </div>
   );
 }

@@ -25,8 +25,9 @@ export async function dashboard(d: Deps, ctx: Ctx) {
     });
   }
   if (is(u, 'tu', 'superadmin')) {
-    const [antrian, nomor] = await Promise.all([q.notForwarded(), q.lastNumber()]);
+    const [antrian, nomor, monthly] = await Promise.all([q.notForwarded(), q.lastNumber(), q.monthly(year)]);
     Object.assign(out, { antrian_tu: antrian, nomor_terakhir: nomor });
+    if (!out.per_bulan) out.per_bulan = BULAN.map((nama, i) => ({ bulan: nama.slice(0, 3), masuk: monthly.masuk[i + 1] || 0, selesai: monthly.selesai[i + 1] || 0 }));
   }
   if (!is(u, 'viewer')) {
     const [tugas, disp, terdekat] = await Promise.all([q.myTaskCounts(u.id), q.newDispositionsFor(u), q.myNearestTasks(u.id)]);

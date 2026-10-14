@@ -1,8 +1,11 @@
 'use client';
 import Link from 'next/link';
-import { AlertCircleIcon, ClockIcon, FilePlus2Icon, InboxIcon } from 'lucide-react';
+import { AlertCircleIcon, ClockIcon, FilePlus2Icon, InboxIcon, SendIcon, type LucideIcon } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { GroupedBars } from '@/components/app/bar-chart';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Page, PageHeader, Section } from '@/components/app/page';
+import { Page, PageHeader, Panel, Section } from '@/components/app/page';
 import { Async, Empty } from '@/components/app/states';
 import { Stamp } from '@/components/app/status';
 import { useAction } from '@/components/app/use-action';
@@ -51,9 +54,9 @@ function TodoList({ d }: { d: DashboardData }) {
       {shown.length === 0 ? (
         <Empty title="Tidak ada yang menunggu Anda" text="Surat atau tugas baru untuk Anda akan muncul di sini dan di Pemberitahuan." />
       ) : (
-        <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
+        <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow-card)">
           {shown.map((it) => (
-            <li key={it.key} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
+            <li key={it.key} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className={`flex items-center gap-1.5 text-sm font-semibold ${KIND_STYLE[it.tone]}`}>
                   {it.tone === 'late' ? <AlertCircleIcon className="size-3.5" aria-hidden /> : <ClockIcon className="size-3.5" aria-hidden />}{it.kind}
@@ -75,12 +78,16 @@ function TodoList({ d }: { d: DashboardData }) {
   );
 }
 
-/** Angka dari data kantor sendiri (bukan klaim), masing-masing menuju daftar yang dihitungnya. */
-function Stat({ href, n, label, late }: { href: string; n?: number; label: string; late?: boolean }) {
+/** Kartu angka seperti referensi: label kecil, angka besar, ikon dalam lingkaran. Angka dari data kantor sendiri. */
+function StatCard({ href, n, label, icon: Icon, tone = 'neutral', note }: { href: string; n?: number; label: string; icon: LucideIcon; tone?: 'neutral' | 'accent' | 'late'; note?: string }) {
   return (
-    <Link href={href} className="pressable flex items-baseline justify-between gap-3 px-4 py-3 text-foreground no-underline hover:bg-muted">
-      <span className="text-sm">{label}</span>
-      <span className={`text-xl font-bold tabular-nums ${late && n ? 'text-late' : ''}`}>{n ?? 0}</span>
+    <Link href={href} className="pressable flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-foreground no-underline shadow-(--shadow-card) hover:border-strong">
+      <span className="flex items-center justify-between">
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <span className={cn('flex size-9 items-center justify-center rounded-full', tone === 'accent' ? 'bg-accent text-accent-foreground' : tone === 'late' && n ? 'bg-late-soft text-late' : 'bg-primary-soft text-primary-ink')}><Icon className="size-[18px]" aria-hidden /></span>
+      </span>
+      <span className={cn('text-3xl font-bold tabular-nums tracking-tight', tone === 'late' && n ? 'text-late' : '')}>{(n ?? 0).toLocaleString('id-ID')}</span>
+      {note && <span className="text-xs text-muted-foreground">{note}</span>}
     </Link>
   );
 }
@@ -92,36 +99,71 @@ export function HomePage() {
     <Page wide>
       <PageHeader title={`${greeting()}, ${user.nama}`} intro={`${fmtDateLong()}. ${user.roleLabel}${user.unitNama && user.unitNama !== user.roleLabel ? `, ${user.unitNama}` : ''}.`}>
         {can.manageIn(user) && <Button asChild><Link href="/surat-masuk/baru"><InboxIcon aria-hidden /> Catat Surat Masuk</Link></Button>}
-        {can.writeOut(user) && <Button asChild variant="outline"><Link href="/surat-keluar/baru"><FilePlus2Icon aria-hidden /> Buat Surat Keluar</Link></Button>}
+        {can.writeOut(user) && <Button asChild variant={can.manageIn(user) ? 'outline' : 'default'}><Link href="/surat-keluar/baru"><FilePlus2Icon aria-hidden /> Buat Surat Keluar</Link></Button>}
       </PageHeader>
 
       <Async q={q} isEmpty={() => false} loadingLabel="Menyiapkan daftar pekerjaan…">
-        {(d) => (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="min-w-0">{can.work(user) ? <TodoList d={d} /> : (
-              <Section title="Surat terbaru"><Empty title="Anda masuk sebagai pemantau" text="Buka Surat Masuk atau Surat Keluar untuk melihat daftar surat." /></Section>
-            )}</div>
-            <aside className="flex flex-col gap-6">
-              <Section title="Surat masuk">
-                <div className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
-                  <Stat href="/surat-masuk" n={d.counts.masuk_tahun_ini} label="Tahun ini" />
-                  <Stat href="/surat-masuk?tampil=proses" n={(d.counts.menunggu_disposisi || 0) + (d.counts.diproses || 0) + (d.counts.menunggu_konfirmasi || 0)} label="Dalam proses" />
-                  <Stat href="/surat-masuk?tampil=terlambat" n={d.counts.terlambat} label="Melewati batas waktu" late />
+        {(d) => {
+          const proses = (d.counts.menunggu_disposisi || 0) + (d.counts.diproses || 0) + (d.counts.menunggu_konfirmasi || 0);
+          return (
+            <>
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard href="/surat-masuk" n={d.counts.masuk_tahun_ini} label="Surat masuk tahun ini" icon={InboxIcon} tone="accent" />
+                <StatCard href="/surat-masuk?tampil=proses" n={proses} label="Dalam proses" icon={ClockIcon} />
+                <StatCard href="/surat-masuk?tampil=terlambat" n={d.counts.terlambat} label="Melewati batas waktu" icon={AlertCircleIcon} tone="late" />
+                <StatCard href="/surat-keluar" n={d.keluar.keluar_tahun_ini} label="Surat keluar tahun ini" icon={SendIcon} />
+              </div>
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="flex min-w-0 flex-col gap-6">
+                  {d.per_bulan && (
+                    <Card>
+                      <CardContent className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-0.5">
+                          <h2 className="text-base font-bold">Surat masuk per bulan</h2>
+                          <p className="text-sm text-muted-foreground">Tahun {new Date().getFullYear()}. Arahkan atau fokus ke bulan untuk melihat angkanya.{d.rata_hari_selesai != null ? ` Rata-rata selesai dalam ${d.rata_hari_selesai} hari.` : ''}</p>
+                        </div>
+                        <GroupedBars label="Grafik surat masuk dan selesai per bulan" data={d.per_bulan.map((m) => ({ name: m.bulan, masuk: m.masuk, selesai: m.selesai }))}
+                          series={[{ key: 'masuk', label: 'Diterima', color: 'var(--color-chart-1)' }, { key: 'selesai', label: 'Selesai', color: 'var(--color-chart-2)' }]} />
+                      </CardContent>
+                    </Card>
+                  )}
+                  {can.work(user) ? <TodoList d={d} /> : <Section title="Pemantauan"><Empty title="Anda masuk sebagai pemantau" text="Buka Surat Masuk atau Surat Keluar untuk melihat daftar surat." /></Section>}
                 </div>
-              </Section>
-              {['tu', 'superadmin'].includes(user.role) && (
-                <Section title="Surat keluar">
-                  <div className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-border bg-card">
-                    <Stat href="/surat-keluar?tampil=kirim" n={d.keluar.menunggu_ttd} label="Menunggu tanda tangan" />
-                    <Stat href="/surat-keluar?tampil=kirim" n={d.keluar.menunggu_kirim} label="Siap dikirim" />
-                    <p className="flex flex-col gap-0.5 px-4 py-3 text-sm"><span>Nomor terakhir</span>{d.nomor_terakhir ? <Link href={`/surat-keluar/${d.nomor_terakhir.id}`} className="font-semibold">{d.nomor_terakhir.nomor_surat}</Link> : <span className="text-muted-foreground">Belum ada</span>}</p>
-                  </div>
-                </Section>
-              )}
-            </aside>
-          </div>
-        )}
+                <aside className="flex flex-col gap-6">
+                  {['tu', 'superadmin'].includes(user.role) && (
+                    <Section title="Surat keluar">
+                      <Panel className="divide-y divide-line">
+                        <MiniStat href="/surat-keluar?tampil=menunggu" n={d.keluar.menunggu_persetujuan} label="Menunggu persetujuan" />
+                        <MiniStat href="/surat-keluar?tampil=kirim" n={d.keluar.menunggu_ttd} label="Menunggu tanda tangan" />
+                        <MiniStat href="/surat-keluar?tampil=kirim" n={d.keluar.menunggu_kirim} label="Siap dikirim" />
+                        <p className="flex flex-col gap-0.5 px-5 py-3 text-sm"><span className="text-muted-foreground">Nomor terakhir</span>{d.nomor_terakhir ? <Link href={`/surat-keluar/${d.nomor_terakhir.id}`} className="font-semibold">{d.nomor_terakhir.nomor_surat}</Link> : <span>Belum ada</span>}</p>
+                      </Panel>
+                    </Section>
+                  )}
+                  {d.tugas_saya && (
+                    <Section title="Tugas saya">
+                      <Panel className="divide-y divide-line">
+                        <MiniStat href="/pekerjaan?tampil=tugas" n={d.tugas_saya.terbuka} label="Belum selesai" />
+                        <MiniStat href="/pekerjaan?tampil=tugas" n={d.tugas_saya.hari_ini} label="Batas waktu hari ini" />
+                        <MiniStat href="/pekerjaan?tampil=tugas" n={d.tugas_saya.terlambat} label="Terlambat" late />
+                      </Panel>
+                    </Section>
+                  )}
+                </aside>
+              </div>
+            </>
+          );
+        }}
       </Async>
     </Page>
+  );
+}
+
+function MiniStat({ href, n, label, late }: { href: string; n?: number; label: string; late?: boolean }) {
+  return (
+    <Link href={href} className="flex items-center justify-between gap-3 px-5 py-3 text-sm text-foreground no-underline hover:bg-muted">
+      <span>{label}</span>
+      <span className={cn('text-lg font-bold tabular-nums', late && n ? 'text-late' : '')}>{n ?? 0}</span>
+    </Link>
   );
 }

@@ -1,4 +1,5 @@
 import type { Deps } from './context';
+import { ensureRefDefaults } from './reference';
 
 const UNITS = [
   { kode: 'PIM', nama: 'Pimpinan' },
@@ -42,6 +43,7 @@ export async function ensureBaseData(d: Deps, opts: { production: boolean; seedP
       console.log(`Akun awal dibuat (${USERS.map((u) => u.username).join(', ')}). Kata sandi awal: ${pw}. Segera ganti.${generated ? ' (dibuat acak, catat sekarang, tidak ditampilkan lagi)' : ''}`);
     }
     for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) await r.settings.ensure(k, v);
+    await ensureRefDefaults(r);
     const adminId = await r.users.idByUsername('admin');
     for (const t of d.documents.defaultTemplates()) {
       if (await r.templates.codeExists(t.kode)) continue;

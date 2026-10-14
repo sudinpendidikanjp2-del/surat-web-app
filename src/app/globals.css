@@ -3,97 +3,110 @@
 
 /*
  * Sistem Surat: token desain. Alasan setiap keputusan ada di DESIGN.md.
- * Arah: alat kerja harian kantor. Kertas hangat dan tinta hijau, padat tetapi tenang.
- * Tema terang dan gelap; bawaan mengikuti sistem, dapat dipilih lewat menu Tampilan.
+ * Arah (dari referensi pemilik): latar abu sangat muda, kartu putih bersudut besar, navy untuk tinta dan
+ * menu aktif, kuning untuk satu tindakan utama per layar. Kuning hanya sebagai isi tombol, tidak pernah teks.
  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-  --font-sans: var(--font-atkinson), system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-sans: var(--font-jakarta), system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
 
-  --color-background: #f6f4ef;
-  --color-foreground: #1a1a18;
+  --color-background: #f4f5f9;
+  --color-foreground: #16173a;
   --color-card: #ffffff;
-  --color-card-foreground: #1a1a18;
-  --color-muted: #efece5;
-  --color-muted-foreground: #57534b;
-  /* Garis: pemisah (line), bingkai kartu (border), bingkai kuat untuk kontrol (strong, input). */
-  --color-line: #e7e3da;
-  --color-border: #d9d4c8;
-  --color-strong: #8e887b;
-  --color-input: #8a8478;
-  --color-ring: #0b6b57;
+  --color-card-foreground: #16173a;
+  --color-muted: #f0f1f6;
+  --color-muted-foreground: #5f6280;
+  --color-line: #eceef4;
+  --color-border: #e3e5ee;
+  --color-strong: #a3a6bc;
+  --color-input: #8f92ab;
+  --color-ring: #1e1f4f;
 
-  --color-primary: #0b6b57;
-  --color-primary-hover: #095a49;
+  /* Navy: tinta, menu aktif, tombol sekunder gelap. */
+  --color-primary: #1e1f4f;
+  --color-primary-hover: #2c2e6b;
   --color-primary-foreground: #ffffff;
-  --color-primary-soft: #e3f1ec;
-  --color-primary-ink: #064a3c;
-  --color-destructive: #b42318;
-  --color-destructive-hover: #961d14;
+  --color-primary-soft: #ecedf7;
+  --color-primary-ink: #1e1f4f;
+  /* Kuning: satu tindakan utama per layar. Teks di atasnya selalu navy (11.9:1). */
+  --color-accent: #ffd233;
+  --color-accent-hover: #ffc700;
+  --color-accent-foreground: #16173a;
+  --color-accent-soft: #fff5d1;
+  --color-accent-ink: #7a5600;
+  --color-destructive: #c4282d;
+  --color-destructive-hover: #a51f24;
   --color-destructive-foreground: #ffffff;
 
-  --color-ok: #1b6b3a;
-  --color-ok-soft: #e6f3ea;
-  --color-warn: #7f4d00;
-  --color-warn-soft: #fcf1d8;
-  --color-late: #b42318;
-  --color-late-soft: #fdecea;
-  --color-overlay: rgb(20 20 18 / 0.5);
+  --color-ok: #0f7a43;
+  --color-ok-soft: #e5f6ec;
+  --color-warn: #8a5a00;
+  --color-warn-soft: #fff3d6;
+  --color-late: #c4282d;
+  --color-late-soft: #fdecec;
+  --color-overlay: rgb(16 17 40 / 0.45);
+  /* Grafik: dua seri dari keluarga merek, lolos uji buta warna (dataviz validate_palette). */
+  --color-chart-1: #4b4fc4;
+  --color-chart-2: #c99400;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-card: 0 1px 2px rgb(22 23 58 / 0.04), 0 1px 1px rgb(22 23 58 / 0.02);
 
-  /* Skala huruf dasar 16px. Teks terkecil 14px, hanya untuk keterangan sekunder. */
   --text-sm: 0.875rem;
   --text-sm--line-height: 1.45;
-  --text-base: 1rem;
+  --text-base: 0.9375rem;
   --text-base--line-height: 1.55;
-  --text-lg: 1.125rem;
+  --text-lg: 1.0625rem;
   --text-lg--line-height: 1.5;
   --text-xl: 1.25rem;
-  --text-xl--line-height: 1.4;
+  --text-xl--line-height: 1.35;
   --text-2xl: 1.5rem;
-  --text-2xl--line-height: 1.3;
-  --text-3xl: 1.875rem;
-  --text-3xl--line-height: 1.2;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 1.15;
 
-  /* Kurva gerak (emil-design-eng): ease-out kuat untuk masuk dan umpan balik. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
-/* Tema gelap: hijau dinaikkan kecerahannya agar tetap 4.5:1, latar abu kehijauan agar tidak hitam pekat. */
+/* Tema gelap: navy pekat sebagai latar; menu aktif memakai lavender terang dengan teks navy. Kuning tetap. */
 @layer theme {
   :root[data-theme='dark'] {
-    --color-background: #121513;
-    --color-foreground: #ecebe6;
-    --color-card: #1b1f1c;
-    --color-card-foreground: #ecebe6;
-    --color-muted: #252a27;
-    --color-muted-foreground: #aeb2ab;
-    --color-line: #2b302d;
-    --color-border: #363c38;
-    --color-strong: #6f7771;
-    --color-input: #7a827c;
-    --color-ring: #5cc9a7;
-    --color-primary: #4fbf9c;
-    --color-primary-hover: #6ccfb0;
-    --color-primary-foreground: #08140f;
-    --color-primary-soft: #173029;
-    --color-primary-ink: #a6e3cf;
-    --color-destructive: #f08074;
-    --color-destructive-hover: #f49b91;
-    --color-destructive-foreground: #1c0805;
-    --color-ok: #74d39a;
-    --color-ok-soft: #16301f;
-    --color-warn: #f0c063;
-    --color-warn-soft: #33280f;
-    --color-late: #f4877b;
-    --color-late-soft: #3a1b18;
+    --color-background: #0f1024;
+    --color-foreground: #ecedf6;
+    --color-card: #181a36;
+    --color-card-foreground: #ecedf6;
+    --color-muted: #22244a;
+    --color-muted-foreground: #a7aac6;
+    --color-line: #25284a;
+    --color-border: #2e3157;
+    --color-strong: #5b5f88;
+    --color-input: #6e72a0;
+    --color-ring: #ffd233;
+    --color-primary: #c9cbff;
+    --color-primary-hover: #dfe0ff;
+    --color-primary-foreground: #16173a;
+    --color-primary-soft: #262a5c;
+    --color-primary-ink: #c9cbff;
+    --color-accent-soft: #3a3215;
+    --color-accent-ink: #ffd966;
+    --color-destructive: #ff8a8a;
+    --color-destructive-hover: #ffa6a6;
+    --color-destructive-foreground: #2a0a0a;
+    --color-ok: #5bd99a;
+    --color-ok-soft: #11301f;
+    --color-warn: #f2c14e;
+    --color-warn-soft: #33290f;
+    --color-late: #ff8a8a;
+    --color-late-soft: #3b1a1d;
     --color-overlay: rgb(0 0 0 / 0.6);
+    --color-chart-1: #7275e6;
+    --color-chart-2: #bb8c12;
+    --shadow-card: none;
     color-scheme: dark;
   }
 }
@@ -127,8 +140,8 @@
 @layer components {
   /* Stempel agenda: motif identitas, nomor agenda dalam bingkai seperti cap penerimaan surat. */
   .stamp {
-    display: inline-block; font-weight: 700; font-size: 0.8125rem; letter-spacing: 0.03em; font-variant-numeric: tabular-nums;
-    padding: 1px 7px; border: 1.5px solid currentColor; border-radius: 4px; color: var(--color-primary); white-space: nowrap;
+    display: inline-block; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.03em; font-variant-numeric: tabular-nums;
+    padding: 1px 7px; border: 1.5px dashed currentColor; border-radius: 6px; color: var(--color-primary); white-space: nowrap;
   }
   /* Umpan balik tekan: mengecil sedikit seketika, kembali dengan ease-out. Tidak pada perangkat yang meminta gerak dikurangi. */
   .pressable { transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease; }

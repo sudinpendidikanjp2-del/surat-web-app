@@ -4,7 +4,7 @@ import { config } from './config';
 import { getPool } from './infrastructure/db/client';
 import { pgUnitOfWork } from './infrastructure/db/unit-of-work';
 import { docxRenderer } from './infrastructure/documents/docx';
-import { tesseractOcr } from './infrastructure/ocr/tesseract';
+import { ocrEngine } from './infrastructure/ocr/engine';
 import { qrCodeEncoder } from './infrastructure/qr/qrcode';
 import { memoryLimiter, randomTokens, scryptPasswords } from './infrastructure/security/crypto';
 import { localFileStorage } from './infrastructure/storage/local-files';
@@ -21,7 +21,7 @@ export function deps(): Deps {
       uow: pgUnitOfWork(getPool(config.databaseUrl)),
       files: localFileStorage(config.storageDir, config.maxUploadBytes),
       documents: docxRenderer,
-      ocr: tesseractOcr,
+      ocr: ocrEngine,
       qr: qrCodeEncoder,
       passwords: scryptPasswords,
       tokens: randomTokens,

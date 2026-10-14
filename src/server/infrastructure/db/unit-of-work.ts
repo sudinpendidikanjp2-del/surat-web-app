@@ -7,6 +7,7 @@ import { journalRepo } from '../repositories/journal';
 import { sessionsRepo, settingsRepo, unitsRepo, usersRepo } from '../repositories/people';
 import { dispositionQueries, letterOutQueries, lettersInQueries, taskQueries } from '../queries/lists';
 import { insightQueries, reportQueries } from '../queries/insight';
+import { instansiRepo, refsRepo } from '../repositories/reference';
 
 /** Semua repositori terikat ke satu pelaksana kueri (pool, atau client dalam transaksi). */
 export function createRepos(db: Db): Repos {
@@ -23,6 +24,8 @@ export function createRepos(db: Db): Repos {
     attachments: attachmentsRepo(db),
     lettersOut: lettersOutRepo(db),
     templates: templatesRepo(db),
+    refs: refsRepo(db),
+    instansi: instansiRepo(db),
     lettersInQueries: lettersInQueries(db),
     dispositionQueries: dispositionQueries(db),
     taskQueries: taskQueries(db),
