@@ -93,7 +93,8 @@ export async function restore(d: Deps, ctx: Ctx, nama: string, b: Body) {
   if (String(b.konfirmasi || '').trim().toUpperCase() !== CONFIRM_WORD) throw invalid(`Ketik ${CONFIRM_WORD} untuk memastikan pemulihan`);
   const target = await d.backups.info(nama);
   if (!target) throw invalid('Cadangan tidak ditemukan');
-  const pengaman = await d.backups.create('sebelum-pemulihan', `Sebelum memulihkan ${target.dibuat.slice(0, 16).replace('T', ' ')}`);
+  const when = new Date(target.dibuat).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: d.timezone });
+  const pengaman = await d.backups.create('sebelum-pemulihan', `Sebelum memulihkan cadangan ${when}`);
   // Sambungan Google dan jadwal cadangan milik server ini, bukan milik data: dipertahankan seperti sebelum pemulihan.
   const keep = Object.fromEntries(await Promise.all(KEEP_SETTINGS.map(async (k) => [k, await d.uow.read.settings.get(k)] as const)));
   const out = await d.backups.restore(nama);

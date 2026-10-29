@@ -170,7 +170,7 @@ test('pulihkan: butuh kata konfirmasi, membuat cadangan pengaman, mengembalikan 
 test('unggah cadangan dari komputer dan ambil dari Google Drive', async () => {
   const raw = await admin.call('GET', `/api/cadangan/${firstBackup}`, undefined, { raw: true });
   const bytes = Buffer.from(await raw.arrayBuffer());
-  const send = (body: Buffer) => fetch(`${url}/api/cadangan/unggah`, { method: 'POST', headers: { 'X-Requested-With': 'surat-app', Cookie: admin.cookie, 'Content-Type': 'application/gzip' }, body });
+  const send = (body: Buffer) => fetch(`${url}/api/cadangan/unggah`, { method: 'POST', headers: { 'X-Requested-With': 'surat-app', Cookie: admin.cookie, 'Content-Type': 'application/gzip' }, body: new Uint8Array(body) });
   const up = await send(bytes);
   assert.equal(up.status, 201);
   assert.equal((await up.json()).jenis, 'unggahan');

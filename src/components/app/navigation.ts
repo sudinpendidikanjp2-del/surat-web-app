@@ -1,4 +1,4 @@
-import { ArchiveIcon, BarChart3Icon, BookOpenIcon, BriefcaseIcon, Building2Icon, LandmarkIcon, FileOutputIcon, FileTextIcon, HomeIcon, InboxIcon, LayoutGridIcon, ScrollTextIcon, SearchIcon, SettingsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
+import { CloudUploadIcon, DatabaseBackupIcon, ArchiveIcon, BarChart3Icon, BookOpenIcon, BriefcaseIcon, Building2Icon, LandmarkIcon, FileOutputIcon, FileTextIcon, HomeIcon, InboxIcon, LayoutGridIcon, ScrollTextIcon, SearchIcon, SettingsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
 import { can } from '@/domain/roles';
 import type { PublicUser } from '@/domain/roles';
 
@@ -38,6 +38,8 @@ export function navGroups(user: PublicUser, counts: Counts): NavGroup[] {
           { href: '/pengguna', label: 'Pengguna', icon: UsersIcon, desc: 'Akun, peran, dan kata sandi' },
           { href: '/unit', label: 'Unit Kerja', icon: Building2Icon, desc: 'Bagian dan bidang di kantor' },
           { href: '/pengaturan', label: 'Pengaturan', icon: SettingsIcon, desc: 'Identitas kantor, nomor surat, batas waktu' },
+          { href: '/google', label: 'Google Drive & Sheets', icon: CloudUploadIcon, desc: 'Salinan lampiran dan rekap ke Google' },
+          { href: '/cadangan', label: 'Cadangan Data', icon: DatabaseBackupIcon, desc: 'Cadangkan dan pulihkan seluruh data' },
         ] : []),
         ...(can.audit(user) ? [{ href: '/catatan', label: 'Catatan Kegiatan', icon: ScrollTextIcon, desc: 'Siapa melakukan apa dan kapan' }] : []),
       ],

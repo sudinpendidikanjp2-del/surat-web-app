@@ -30,10 +30,12 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       OCR_URL: ${OCR_URL:-}
+      APP_TZ: ${APP_TZ:-Asia/Jakarta}
+      BACKUP_MAX_MB: ${BACKUP_MAX_MB:-4096}
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"   # hanya lokal; publikasikan lewat reverse proxy
     volumes:
-      - storage:/data
+      - storage:/data   # lampiran di /data/private, cadangan di /data/backups
 volumes:
   pgdata:
   storage:

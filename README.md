@@ -79,7 +79,10 @@ Sesuai MVP dan sebagian P1 PRD:
 - Tugas: beberapa tugas per surat, penanggung jawab, daftar periksa, progres, status delapan tahap, minta data, lampiran hasil.
 - Konfirmasi ke pemberi surat dan syarat penyelesaian (tugas selesai, balasan terkirim, konfirmasi dicatat).
 - Surat keluar: generator dari template DOCX dengan **pratinjau berdampingan yang diperbarui saat mengetik** dan **unduh Word/PDF sebelum disimpan**, versi dokumen, review, persetujuan, penomoran atomik tanpa nomor ganda, unggah dokumen bertanda tangan, catat pengiriman, relasi dua arah dengan surat masuk.
-- Template: unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field, pratinjau.
+- **Isi surat kaya**: isian isi surat memakai editor (Tiptap) dengan **tabel** (tambah/hapus baris dan kolom, gabung sel, baris judul, lebar kolom digeser), daftar berpoin dan bernomor, tebal, miring, garis bawah, coret, dan perataan. Hasilnya masuk ke DOCX dan PDF sebagai tabel dan paragraf Word asli yang mengikuti huruf dan indentasi template.
+- Template: unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field (satu baris, beberapa baris, **teks kaya**, tanggal), pratinjau.
+- **Google Drive dan Spreadsheet**: lampiran tersalin ke folder tersusun, rekap surat ke spreadsheet (lihat bagian khusus).
+- **Cadangan dan pemulihan** dari aplikasi: unduh, unggah, salin ke Drive, jadwal harian, pemulihan dengan cadangan pengaman (lihat bagian khusus).
 - Beranda per peran dengan daftar "Perlu tindakan Anda", notifikasi, pengingat H-3, H-1, hari H, terlambat dengan eskalasi, komentar dan `@mention`.
 - **Daftar data** (surat masuk, surat keluar, pekerjaan, pengguna, unit, instansi, data referensi, pemberitahuan): tabel di layar lebar dan daftar ringkas di ponsel, tab tampilan, pencarian, **filter** (rentang tanggal, sifat, prioritas, jenis), **urutan lewat kepala kolom**, **halaman bernomor dan jumlah baris**, keadaan daftar di alamat (tombol Kembali tetap bekerja).
 - **Ekspor** hasil filter yang sedang dipakai ke **CSV, Excel (.xlsx), dan PDF**: surat masuk, surat keluar, tugas, pengguna, unit, instansi, data referensi, dan setiap tabel laporan.
@@ -162,9 +165,37 @@ Halaman publik `/lacak` (tanpa login) agar pengirim dapat memantau suratnya. Dip
 - Kedaluwarsa otomatis 30 hari setelah surat selesai. Kode dapat dibuat ulang kapan saja (kode lama langsung mati).
 - Respons `no-store`, `noindex`, tanpa referrer.
 
+## Isi surat dengan tabel
+
+Template bawaan memakai isian `isi_surat`/`isi` bertipe **Teks kaya**. Untuk template unggahan sendiri, setiap placeholder yang namanya diawali `isi` atau `uraian` otomatis menjadi teks kaya; tipe isian lain dapat diubah admin di halaman template (Atur Isian). Letakkan placeholder sendirian di paragrafnya (misalnya `{{isi_surat}}`) agar isinya menjadi paragraf, daftar, dan tabel Word yang mewarisi huruf, ukuran, indentasi, dan jarak paragraf itu. Bila placeholder berada di tengah kalimat, isinya disisipkan sebagai baris teks (tabel menjadi kolom dipisah tab). Isian lama berupa teks biasa tetap tampil seperti sebelumnya.
+
+## Google Drive dan Spreadsheet
+
+Admin > **Google Drive & Sheets**. Dua cara terhubung:
+
+- **Akun Google kantor (Gmail biasa)**, paling mudah. Di Google Cloud Console aktifkan Google Drive API dan Google Sheets API, buat *OAuth client ID* jenis *Web application*, tambahkan alamat pengalihan yang tertera di halaman (`https://alamat-anda/api/google/callback`), lalu tempel Client ID dan Secret dan tekan **Hubungkan Akun Google**. Aplikasi hanya meminta izin `drive.file` (hanya file yang dibuatnya sendiri) dan `spreadsheets`.
+- **Akun layanan** (Google Workspace). Unggah kunci JSON akun layanan dan tempel tautan folder di **Shared Drive** yang anggotanya memuat email akun layanan. Akun layanan tidak punya ruang Drive sendiri, jadi folder biasa di My Drive ditolak Google.
+
+Susunan di Drive: `Sistem Surat/Surat Masuk/2026/10 Oktober/SM-2026-000123 Perihal/…`, `Surat Keluar/…`, dan `Cadangan/`. File yang sudah tersalin dicatat (`attachments.drive_file_id`) sehingga tidak diunggah ulang; mengganti folder tujuan membuat semua file disalin lagi ke folder baru. Spreadsheet `Rekap Sistem Surat` berisi lembar Ringkasan, Surat Masuk, Surat Keluar, Tugas, dan Instansi dengan baris judul berwarna, dibekukan, dan bersaring. Lembar-lembar itu ditulis ulang setiap sinkronisasi, jadi catatan tambahan sebaiknya di lembar lain.
+
+Sinkronisasi berjalan saat ditekan atau otomatis (setiap 1, 3, 6, 12, atau 24 jam), maksimal 300 file per putaran. Rahasia (Client Secret, refresh token, kunci privat) disimpan di database dan tidak pernah dikirim ke peramban.
+
+Diuji dengan server Google tiruan (`test/support/fake-google.ts`): token JWT dan OAuth, folder, unggah biasa dan bersambung, unduh, lembar, dan format. **Belum diuji melawan akun Google sungguhan di lingkungan pengembangan ini.** Coba dulu dengan folder dan spreadsheet uji.
+
+## Cadangan dan pemulihan
+
+Admin > **Cadangan Data**.
+
+- **Isi cadangan**: satu file `.tar.gz` berisi seluruh tabel (diambil dalam satu transaksi agar saling cocok), semua file lampiran dan template, dan `manifest.json`. Sesi login tidak ikut. Karena memuat seluruh data, termasuk kata sandi ter-hash dan kredensial Google yang tersimpan, perlakukan file cadangan sebagai rahasia. Cadangan berada di `BACKUP_DIR` (bawaan `storage/backups`, di Docker `/data/backups`).
+- **Buat cadangan**: tekan Buat Cadangan Sekarang, atau atur **cadangan otomatis harian** (jam, jumlah yang disimpan, salinan ke Google Drive).
+- **Unduh** untuk disimpan di luar server, atau **Salin ke Google Drive**.
+- **Pulihkan**: dari daftar, dari file yang diunggah (diperiksa dulu), atau dari folder Cadangan di Drive. Admin harus mengetik `PULIHKAN`. Sebelum mengganti data, sistem membuat **cadangan pengaman** dari keadaan sekarang. Database diganti dalam satu transaksi (gagal di tengah berarti tidak ada yang berubah), lalu folder file ditukar. Semua pengguna perlu masuk lagi. Sambungan Google dan jadwal cadangan dipertahankan. Cadangan dari versi aplikasi lama dapat dipulihkan karena kolom baru memakai nilai bawaan dan migrasi dijalankan ulang.
+- `STORAGE_DIR` dan folder sementara pemulihan harus berada di disk yang sama (folder ditukar dengan rename). Jangan memasang `STORAGE_DIR` sebagai titik mount tersendiri; pasang folder induknya (Docker: volume `/data`).
+- Skrip `scripts/backup.sh` dan `scripts/restore.sh` tetap ada untuk cadangan dari luar aplikasi (cron, `pg_dump`).
+
 ## Belum ada (di luar MVP, sesuai fase PRD)
 
-Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, sinkronisasi Google Drive, pencarian isi dokumen, TTE, fitur AI selain pembacaan surat, backup terkelola di luar server (skrip `scripts/backup.sh` tersedia).
+Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, pencarian isi dokumen, TTE, fitur AI selain pembacaan surat.
 
 Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint mengembalikan pesan jelas dan DOCX tetap dapat diunduh.
 
@@ -178,7 +209,7 @@ docker compose logs app | grep "Akun awal"   # bila SEED_PASSWORD kosong, kata s
 
 1. Taruh HTTPS di depan aplikasi. Contoh Caddy (sertifikat otomatis) ada di `deploy/Caddyfile`. Cookie sesi bertanda `Secure`, jadi login hanya jalan lewat HTTPS (localhost dikecualikan oleh peramban).
 2. Masuk sebagai `admin`, ganti kata sandi semua akun bawaan, lalu ubah nama instansi, unit, dan pengaturan penomoran.
-3. Cadangan harian: `./scripts/backup.sh` (database dan file privat, simpan 14 hari). Jadwalkan dengan cron. Pulihkan dengan `./scripts/restore.sh`. Coba pulihkan di mesin lain sebelum mengandalkannya.
+3. Cadangan harian: aktifkan di Admin > Cadangan Data (sebaiknya dengan salinan ke Google Drive), atau jadwalkan `./scripts/backup.sh` dengan cron. Coba pulihkan di mesin lain sebelum mengandalkannya.
 4. Pemantauan: `GET /healthz` (proses hidup) dan `GET /readyz` (database terjangkau). Image punya HEALTHCHECK bawaan.
 5. Pembaruan: `git pull && docker compose up -d --build`. Migrasi skema berjalan otomatis saat start.
 6. Image memasang LibreOffice (untuk PDF), sehingga cukup besar. Hapus baris `apt-get` di `Dockerfile` bila PDF tidak dibutuhkan.

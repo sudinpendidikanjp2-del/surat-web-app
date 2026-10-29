@@ -76,3 +76,12 @@ Terbagi dua seperti referensi, tetapi **tanpa foto orang**: panel navy berisi na
 ## Identitas yang dapat diubah admin
 
 Pengaturan > Tampilan aplikasi: nama aplikasi, keterangan singkat, judul tab peramban, deskripsi halaman, dan ikon (PNG/JPG). Tanpa ikon, nama ditulis sebagai teks: tidak ada logo rekaan.
+
+## Editor isi surat
+
+Bilah alat di atas isian, tombol 44px di layar sentuh dan 36px di layar lebar, ikon dengan nama lengkap untuk pembaca layar ("Sisipkan tabel", bukan hanya "Tabel"). Bilah kedua "Tabel:" hanya muncul saat kursor ada di tabel, berisi kata yang jelas (+ Baris, − Kolom, Gabung sel, Baris judul, Hapus tabel), bukan ikon kecil yang sulit ditebak. Isi editor mirip hasil Word: tabel bergaris tipis, baris judul berlatar abu. Pratinjau di samping tetap satu-satunya gambaran akhir.
+
+## Cadangan dan Google
+
+- Halaman Cadangan Data: satu tombol kuning (Buat Cadangan Sekarang). Pulihkan dan Hapus ada di menu "Aksi lain" per cadangan agar tidak tertekan tanpa sengaja. Dialog pemulihan menyebut empat akibatnya dan meminta kata PULIHKAN diketik.
+- Halaman Google Drive & Sheets: kiri keadaan sekarang (chip Terhubung, tautan folder dan spreadsheet, kemajuan lampiran) dan gambaran susunan folder; kanan cara terhubung dengan langkah bernomor. Tombol kuning hanya Sinkronkan Sekarang, dan hanya setelah terhubung. Tidak memakai logo Google: nama layanan ditulis sebagai teks.

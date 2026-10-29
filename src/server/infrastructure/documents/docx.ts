@@ -160,7 +160,9 @@ export function formatValues(fields: TemplateField[], raw: Record<string, unknow
 
 export async function docxToHtml(buffer: Buffer) {
   const r = await mammoth.convertToHtml({ buffer });
-  return r.value;
+  // Butir daftar dari isi kaya berbentuk "1.<tab>teks". Di Word tab berhenti di indentasi; di pratinjau HTML
+  // tab selebar kolom isian (12ch), jadi cukup diganti spasi agar nomor dan teks tidak berjauhan.
+  return r.value.replace(/(<p[^>]*>(?:<(?:strong|em|u|s)>)*)(\d+\.|•|–)\t/g, '$1$2&nbsp;&nbsp;');
 }
 
 export async function docxToPdf(buffer: Buffer) {

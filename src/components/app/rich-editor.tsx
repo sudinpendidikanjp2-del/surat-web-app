@@ -20,7 +20,7 @@ function Tool({ label, active, disabled, onClick, children, text }: {
 }) {
   return (
     <button
-      type="button" title={label} aria-label={text ? undefined : label} aria-pressed={active} disabled={disabled}
+      type="button" title={label} aria-label={label} aria-pressed={active} disabled={disabled}
       // Tekan tanpa memindahkan fokus dari isi, agar pilihan teks tidak hilang.
       onMouseDown={(e) => e.preventDefault()} onClick={onClick}
       className={cn(
@@ -66,7 +66,7 @@ function Toolbar({ editor }: { editor: Editor }) {
         <Tool text label="Sisipkan tabel" disabled={s.table} onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
           <TableIcon aria-hidden /> Tabel
         </Tool>
-        <span className="ml-auto flex">
+        <span className="flex sm:ml-auto">
           <Tool label="Urungkan" disabled={!s.undo} onClick={() => c().undo().run()}><Undo2Icon aria-hidden /></Tool>
           <Tool label="Ulangi" disabled={!s.redo} onClick={() => c().redo().run()}><Redo2Icon aria-hidden /></Tool>
         </span>

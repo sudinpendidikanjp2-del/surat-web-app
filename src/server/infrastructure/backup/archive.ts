@@ -19,6 +19,10 @@ import { migrate } from '../db/schema';
  * Di samping setiap arsip ada <nama>.json berisi manifest agar daftar cadangan tidak perlu membuka arsip.
  */
 
+// Path arsip dan lampiran ditentukan saat berjalan; penanda ini mencegah Turbopack menelusuri seluruh proyek.
+const join = (...parts: string[]) => path.join(/* turbopackIgnore: true */ ...parts);
+const resolve = (p: string) => path.resolve(/* turbopackIgnore: true */ p);
+
 const FORMAT = 1;
 const APP = 'surat-web-app';
 const SKIP_TABLES = new Set(['sessions']);
@@ -36,11 +40,11 @@ const stampOf = (d: Date) => {
 
 async function* walk(root: string, rel = ''): AsyncGenerator<{ rel: string; abs: string; size: number }> {
   let entries: fs.Dirent[];
-  try { entries = await fsp.readdir(path.join(root, rel), { withFileTypes: true }); } catch { return; }
+  try { entries = await fsp.readdir(join(root, rel), { withFileTypes: true }); } catch { return; }
   for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) yield* walk(root, r);
-    else if (e.isFile() && ENTRY_FILE.test(`files/${r}`)) yield { rel: r, abs: path.join(root, r), size: (await fsp.stat(path.join(root, r))).size };
+    else if (e.isFile() && ENTRY_FILE.test(`files/${r}`)) yield { rel: r, abs: join(root, r), size: (await fsp.stat(join(root, r))).size };
   }
 }
 
@@ -117,13 +121,13 @@ function checkManifest(m: Partial<Manifest> | null): Manifest {
 }
 
 export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backupDir: string; maxBytes: number }): BackupStore {
-  const dir = path.resolve(opts.backupDir);
-  const storage = path.resolve(opts.storageDir);
+  const dir = resolve(opts.backupDir);
+  const storage = resolve(opts.storageDir);
   let busy: string | null = null;
 
   const abs = (nama: string) => {
     if (!NAME.test(nama)) throw notFound('Cadangan tidak ditemukan');
-    return path.join(dir, nama);
+    return join(dir, nama);
   };
   const exclusive = async <T>(what: string, fn: () => Promise<T>) => {
     if (busy) throw conflict(`Sedang ada proses ${busy}. Tunggu sampai selesai`);
@@ -141,18 +145,18 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
   };
   const toInfo = (nama: string, m: Manifest, ukuran: number): BackupInfo =>
     ({ nama, dibuat: m.dibuat, jenis: m.jenis, label: m.label, tabel: m.tabel, file: m.file, ukuran });
-  const writeSidecar = (nama: string, m: Manifest) => fsp.writeFile(path.join(dir, `${nama}.json`), JSON.stringify(m));
+  const writeSidecar = (nama: string, m: Manifest) => fsp.writeFile(join(dir, `${nama}.json`), JSON.stringify(m));
   const finalName = async (jenis: BackupKind, when = new Date()) => {
     for (let i = 0; ; i++) {
       const nama = `cadangan-${stampOf(new Date(when.getTime() + i * 1000))}-${jenis}.tar.gz`;
-      if (!fs.existsSync(path.join(dir, nama))) return nama;
+      if (!fs.existsSync(join(dir, nama))) return nama;
     }
   };
 
   async function create(jenis: BackupKind, label: string) {
     await fsp.mkdir(dir, { recursive: true });
     const nama = await finalName(jenis);
-    const part = path.join(dir, `.${nama}.part`);
+    const part = join(dir, `.${nama}.part`);
     const pack = tar.pack();
     const written = pipeline(pack, zlib.createGzip({ level: 6 }), fs.createWriteStream(part));
     const client = await pool.connect();
@@ -177,9 +181,9 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
       await writeEntry(pack, 'manifest.json', Buffer.from(JSON.stringify(m, null, 2)));
       pack.finalize();
       await written;
-      await fsp.rename(part, path.join(dir, nama));
+      await fsp.rename(part, join(dir, nama));
       await writeSidecar(nama, m);
-      return toInfo(nama, m, (await fsp.stat(path.join(dir, nama))).size);
+      return toInfo(nama, m, (await fsp.stat(join(dir, nama))).size);
     } catch (e) {
       await client.query('ROLLBACK').catch(() => {});
       pack.destroy();
@@ -204,8 +208,8 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
     const file = abs(nama);
     if (!fs.existsSync(file)) throw notFound('Cadangan tidak ditemukan');
     const work = `${storage}.pulih-${Date.now()}`;
-    await fsp.mkdir(path.join(work, 'files'), { recursive: true });
-    await fsp.mkdir(path.join(work, 'db'), { recursive: true });
+    await fsp.mkdir(join(work, 'files'), { recursive: true });
+    await fsp.mkdir(join(work, 'db'), { recursive: true });
     try {
       // 1. Bongkar ke folder sementara di samping penyimpanan (satu disk, jadi penukaran folder seketika).
       let manifest: Partial<Manifest> | null = null;
@@ -213,10 +217,10 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
         const dbm = ENTRY_DB.exec(name);
         const fm = ENTRY_FILE.exec(name);
         if (name === 'manifest.json') manifest = JSON.parse((await collect(stream)).toString('utf8'));
-        else if (dbm) await pipeline(stream as Readable, fs.createWriteStream(path.join(work, 'db', `${dbm[1]}.json`)));
+        else if (dbm) await pipeline(stream as Readable, fs.createWriteStream(join(work, 'db', `${dbm[1]}.json`)));
         else if (fm) {
-          const target = path.join(work, 'files', fm[1]);
-          if (!target.startsWith(path.join(work, 'files') + path.sep)) return drain(stream);
+          const target = join(work, 'files', fm[1]);
+          if (!target.startsWith(join(work, 'files') + path.sep)) return drain(stream);
           await fsp.mkdir(path.dirname(target), { recursive: true });
           await pipeline(stream as Readable, fs.createWriteStream(target));
         } else await drain(stream);
@@ -231,7 +235,7 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
         const tables = await tablesInOrder(client);
         await client.query(`TRUNCATE ${tables.map(ident).join(', ')} RESTART IDENTITY CASCADE`);
         for (const t of tables) {
-          const src = path.join(work, 'db', `${t}.json`);
+          const src = join(work, 'db', `${t}.json`);
           if (SKIP_TABLES.has(t) || !fs.existsSync(src)) continue;
           const rows = JSON.parse(await fsp.readFile(src, 'utf8')) as Record<string, unknown>[];
           if (!rows.length) { counts[t] = 0; continue; }
@@ -265,7 +269,7 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
       // 3. Tukar folder file. Folder lama dihapus setelah folder baru terpasang.
       const old = `${storage}.lama-${Date.now()}`;
       if (fs.existsSync(storage)) await fsp.rename(storage, old);
-      await fsp.rename(path.join(work, 'files'), storage);
+      await fsp.rename(join(work, 'files'), storage);
       await fsp.rm(old, { recursive: true, force: true });
       return { tabel: counts, file: m.file, dibuat: m.dibuat };
     } finally {
@@ -279,11 +283,11 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
       try { names = (await fsp.readdir(dir)).filter((n) => NAME.test(n)); } catch { return []; }
       const out: BackupInfo[] = [];
       for (const n of names) {
-        const st = await fsp.stat(path.join(dir, n)).catch(() => null);
+        const st = await fsp.stat(join(dir, n)).catch(() => null);
         if (!st) continue;
         let m: Manifest | null = null;
-        try { m = JSON.parse(await fsp.readFile(path.join(dir, `${n}.json`), 'utf8')); } catch {
-          try { m = await readManifest(path.join(dir, n)); await writeSidecar(n, m); } catch { m = null; }
+        try { m = JSON.parse(await fsp.readFile(join(dir, `${n}.json`), 'utf8')); } catch {
+          try { m = await readManifest(join(dir, n)); await writeSidecar(n, m); } catch { m = null; }
         }
         if (m) out.push(toInfo(n, m, st.size));
       }
@@ -311,7 +315,7 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
     /** Terima arsip dari luar (unggahan atau Google Drive): disimpan sementara, diperiksa, lalu diberi nama baku. */
     async receive(source, jenis) {
       await fsp.mkdir(dir, { recursive: true });
-      const part = path.join(dir, `.terima-${Date.now()}.part`);
+      const part = join(dir, `.terima-${Date.now()}.part`);
       let size = 0;
       const limit = opts.maxBytes;
       try {
@@ -329,7 +333,7 @@ export function archiveBackups(pool: pg.Pool, opts: { storageDir: string; backup
         if (!size) throw invalid('File cadangan kosong');
         const m = await readManifest(part);
         const nama = await finalName(jenis);
-        await fsp.rename(part, path.join(dir, nama));
+        await fsp.rename(part, join(dir, nama));
         await writeSidecar(nama, { ...m, jenis, label: m.label || `Dari cadangan ${m.dibuat.slice(0, 10)}` });
         return toInfo(nama, { ...m, jenis }, size);
       } finally {
