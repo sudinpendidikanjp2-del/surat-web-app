@@ -286,6 +286,12 @@ CREATE TABLE IF NOT EXISTS ref_items (
   aktif BOOLEAN NOT NULL DEFAULT TRUE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ref_items_uq ON ref_items (kategori, lower(nilai));
+
+-- Isi utama template bawaan memakai editor kaya (tabel, daftar). Template unggahan admin tidak diubah.
+UPDATE template_versions SET fields = (
+  SELECT jsonb_agg(CASE WHEN f->>'name' ~ '^(isi|uraian)' AND f->>'type' = 'textarea' THEN jsonb_set(f, '{type}', '"rich"') ELSE f END ORDER BY ord)
+  FROM jsonb_array_elements(fields) WITH ORDINALITY AS e(f, ord)
+) WHERE catatan = 'Template bawaan' AND fields @? '$[*] ? (@.type == "textarea" && @.name like_regex "^(isi|uraian)")';
 `;
 
 /** Buat tabel, terapkan migrasi kecil, dan beri kode pelacakan untuk surat lama yang belum punya. */

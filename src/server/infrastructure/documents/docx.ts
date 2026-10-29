@@ -11,6 +11,7 @@ import { invalid, isAppError, unavailable } from '@/domain/errors';
 import { hariTanggalIndo, tanggalIndo } from '@/domain/calendar';
 import type { TemplateField } from '@/domain/letter-out';
 import type { DefaultTemplate, DocumentRenderer } from '@/server/application/ports';
+import { richToBlocks, richToRuns, textWidth } from './rich-ooxml';
 
 const run = promisify(execFile);
 
@@ -43,7 +44,9 @@ const humanize = (name: string) =>
 
 function guessType(name: string): TemplateField['type'] {
   if (/^tanggal/.test(name)) return 'date';
-  if (/(^isi|^dasar|^agenda|^maksud|^penutup|_surat$|^uraian)/.test(name) && name !== 'nomor_surat' && name !== 'tgl_surat') return 'textarea';
+  // Isi utama surat memakai editor kaya (tabel, daftar, tebal). Penggal kalimat pendek tetap beberapa baris biasa.
+  if (/^(isi|uraian)/.test(name)) return 'rich';
+  if (/(^dasar|^agenda|^maksud|^penutup|_surat$)/.test(name) && name !== 'nomor_surat' && name !== 'tgl_surat') return 'textarea';
   return 'text';
 }
 
@@ -73,9 +76,51 @@ export function extractFields(buffer: Buffer): TemplateField[] {
   return fields;
 }
 
-/** Isi template dengan data. values: { nama_field: string }. Field bertipe date diformat tanggal Indonesia. */
-export function renderDocx(buffer: Buffer, values: Record<string, string>): Buffer {
+const RICH_MARK = (i: number) => `RICHFIELDMARK${i}X`;
+const PARAGRAPH = /<w:p(?: [^>]*)?>[\s\S]*?<\/w:p>/g;
+
+/**
+ * Ganti penanda isian kaya dengan XML hasil editor. Bila penanda berdiri sendiri di paragrafnya, seluruh paragraf
+ * diganti blok (paragraf, daftar, tabel) yang mewarisi gaya paragraf itu; bila berada di tengah kalimat, isinya
+ * disisipkan sebagai run dengan baris baru.
+ */
+function injectRich(xml: string, rich: Map<string, string>, width: number) {
+  return xml.replace(PARAGRAPH, (para) => {
+    const marks = [...rich.keys()].filter((m) => para.includes(m));
+    if (!marks.length) return para;
+    const text = [...para.matchAll(/<w:t(?: [^>]*)?>([\s\S]*?)<\/w:t>/g)].map((m) => m[1]).join('');
+    if (marks.length === 1 && !text.replace(marks[0], '').trim()) {
+      const pPr = (/<w:pPr>[\s\S]*?<\/w:pPr>/.exec(para)?.[0] ?? '').replace(/<w:rPr>[\s\S]*?<\/w:rPr>/, '');
+      const at = para.indexOf(marks[0]);
+      const runStart = Math.max(para.lastIndexOf('<w:r>', at), para.lastIndexOf('<w:r ', at));
+      const rPr = runStart >= 0 ? (/^<w:r(?: [^>]*)?>\s*(<w:rPr>[\s\S]*?<\/w:rPr>)?/.exec(para.slice(runStart))?.[1] ?? '') : '';
+      return richToBlocks(rich.get(marks[0])!, { pPr, rPr, width });
+    }
+    return para.replace(/<w:r(?: [^>]*)?>(?:(?!<\/w:r>)[\s\S])*?<\/w:r>/g, (run) => {
+      const m = marks.find((k) => run.includes(k));
+      if (!m) return run;
+      const rPr = /<w:rPr>[\s\S]*?<\/w:rPr>/.exec(run)?.[0] ?? '';
+      const t = /<w:t(?: [^>]*)?>([\s\S]*?)<\/w:t>/.exec(run)?.[1] ?? '';
+      const [before, after] = [t.slice(0, t.indexOf(m)), t.slice(t.indexOf(m) + m.length)];
+      const piece = (s: string) => (s ? `<w:r>${rPr}<w:t xml:space="preserve">${s}</w:t></w:r>` : '');
+      return piece(before) + richToRuns(rich.get(m)!, rPr) + piece(after);
+    });
+  });
+}
+
+/**
+ * Isi template dengan data. values: { nama_field: string }. Field bertipe date diformat tanggal Indonesia.
+ * richFields: nama isian yang nilainya HTML dari editor kaya; diubah menjadi paragraf, daftar, dan tabel Word.
+ */
+export function renderDocx(buffer: Buffer, values: Record<string, string>, richFields: string[] = []): Buffer {
   const zip = new PizZip(buffer);
+  const rich = new Map<string, string>();
+  const data = { ...values };
+  richFields.forEach((name, i) => {
+    if (!data[name]) return;
+    rich.set(RICH_MARK(i), data[name]);
+    data[name] = RICH_MARK(i);
+  });
   const doc = new Docxtemplater(zip, {
     delimiters: { start: '{{', end: '}}' },
     paragraphLoop: true,
@@ -83,12 +128,20 @@ export function renderDocx(buffer: Buffer, values: Record<string, string>): Buff
     nullGetter: () => '',
   });
   try {
-    doc.render(values);
+    doc.render(data);
   } catch (e) {
     const err = e as { properties?: { explanation?: string }; message?: string };
     throw invalid(`Template tidak dapat diproses: ${err.properties?.explanation || err.message}`);
   }
-  return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+  const out = doc.getZip();
+  if (rich.size) {
+    const width = textWidth(out.file('word/document.xml')?.asText() ?? '');
+    for (const f of out.file(/^word\/(document|header\d*|footer\d*)\.xml$/)) {
+      const xml = f.asText();
+      if ([...rich.keys()].some((m) => xml.includes(m))) out.file(f.name, injectRich(xml, rich, width));
+    }
+  }
+  return out.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
 export function formatValues(fields: TemplateField[], raw: Record<string, unknown>) {

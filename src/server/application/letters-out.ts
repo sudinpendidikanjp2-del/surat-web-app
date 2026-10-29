@@ -51,10 +51,12 @@ async function buildValues(d: Deps, r: Repos, lo: Draft, fields: TemplateField[]
   });
 }
 
+const richNames = (fields: TemplateField[]) => fields.filter((f) => f.type === 'rich').map((f) => f.name);
+
 async function renderDraft(d: Deps, r: Repos, lo: Draft, versionId: number) {
   const tv = await r.templates.version(versionId);
   if (!tv) throw notFound('Template tidak ditemukan');
-  return d.documents.render(await d.files.read(tv.file_path), await buildValues(d, r, lo, tv.fields));
+  return d.documents.render(await d.files.read(tv.file_path), await buildValues(d, r, lo, tv.fields), richNames(tv.fields));
 }
 
 /** Hasilkan DOCX terbaru dan simpan sebagai versi dokumen baru. */
@@ -72,7 +74,6 @@ function validateDateFields(fields: TemplateField[], values: Record<string, stri
   for (const f of fields) if (f.type === 'date' && values[f.name]) dateStr(values[f.name], f.label);
 }
 
-/** Pratinjau tanpa menyimpan. */
 /** Isi template dengan isian formulir yang belum disimpan. Nomor surat tampil sebagai tanda tempat sampai disetujui. */
 async function renderUnsaved(d: Deps, ctx: Ctx, b: Body) {
   if (!can.writeOut(ctx.actor)) throw forbidden();
@@ -83,7 +84,7 @@ async function renderUnsaved(d: Deps, ctx: Ctx, b: Body) {
     fields: cleanFields(tv.fields, b.fields as Record<string, unknown>), perihal: String(b.perihal || '').slice(0, 500), tujuan: String(b.tujuan || '').slice(0, 500),
     tgl_surat: (b.tgl_surat as string) || today(), nomor_surat: null, penandatangan_id: int(b.penandatangan_id, 'Penandatangan', { required: false }),
   };
-  return d.documents.render(await d.files.read(tv.file_path), await buildValues(d, r, lo, tv.fields));
+  return d.documents.render(await d.files.read(tv.file_path), await buildValues(d, r, lo, tv.fields), richNames(tv.fields));
 }
 
 export async function previewDraft(d: Deps, ctx: Ctx, b: Body) {

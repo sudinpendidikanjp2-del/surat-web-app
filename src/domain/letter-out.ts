@@ -1,5 +1,6 @@
 import type { Actor } from './roles';
 import { can, is } from './roles';
+import { RICH_MAX, richIsEmpty } from './rich-text';
 
 export const STATUS_OUT = {
   DRAFT: 'Draf',
@@ -21,7 +22,7 @@ export const PLACEHOLDER_NOMOR = '[nomor diberikan setelah disetujui]';
 /** Field yang diisi dari kolom bawaan formulir, bukan dari daftar field template. */
 export const BAWAAN = new Set(['perihal', 'hal', 'nama_penerima', 'kepada', 'tanggal']);
 
-export interface TemplateField { name: string; label: string; type: 'text' | 'textarea' | 'date'; required: boolean; sistem?: boolean; bawaan?: boolean }
+export interface TemplateField { name: string; label: string; type: 'text' | 'textarea' | 'rich' | 'date'; required: boolean; sistem?: boolean; bawaan?: boolean }
 export const withBawaan = (fields: TemplateField[]) => fields.map((f) => ({ ...f, bawaan: BAWAAN.has(f.name) }));
 
 export interface LetterOut {
@@ -71,13 +72,13 @@ export function cleanFields(fields: TemplateField[], input: Record<string, unkno
   for (const f of fields) {
     if (f.sistem || BAWAAN.has(f.name)) continue;
     const v = input?.[f.name];
-    out[f.name] = v == null ? '' : String(v).slice(0, 4000);
+    out[f.name] = v == null ? '' : String(v).slice(0, f.type === 'rich' ? RICH_MAX : 4000);
   }
   return out;
 }
 
 export const missingRequired = (fields: TemplateField[], values: Record<string, string>) =>
-  fields.filter((f) => f.required && !f.sistem && !BAWAAN.has(f.name) && !String(values[f.name] ?? '').trim()).map((f) => f.label);
+  fields.filter((f) => f.required && !f.sistem && !BAWAAN.has(f.name) && richIsEmpty(values[f.name])).map((f) => f.label);
 
 export const ROMAWI = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 

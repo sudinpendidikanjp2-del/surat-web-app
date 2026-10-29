@@ -24,7 +24,7 @@ import { fmtDateTime } from '@/lib/format';
 type Version = TemplateDetail['versions'][number];
 type Open = { kind: 'edit' } | { kind: 'upload' } | { kind: 'fields'; v: Version } | { kind: 'preview'; v: Version } | { kind: 'activate'; v: Version } | null;
 
-const TYPE_LABEL: Record<TemplateField['type'], string> = { text: 'Satu baris', textarea: 'Beberapa baris', date: 'Tanggal' };
+const TYPE_LABEL: Record<TemplateField['type'], string> = { text: 'Satu baris', textarea: 'Beberapa baris', rich: 'Teks kaya (tabel, daftar)', date: 'Tanggal' };
 
 export function TemplateDetailPage({ id }: { id: string }) {
   const q = useTemplate(id);

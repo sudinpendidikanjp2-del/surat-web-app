@@ -329,7 +329,8 @@ export interface DefaultTemplate { nama: string; kode: string; jenis: string; de
 export interface DocumentRenderer {
   extractFields(buffer: Buffer): TemplateField[];
   formatValues(fields: TemplateField[], raw: Record<string, unknown>): Record<string, string>;
-  render(template: Buffer, values: Record<string, string>): Buffer;
+  /** richFields: isian bertipe rich yang nilainya HTML editor dan diubah menjadi paragraf/tabel Word. */
+  render(template: Buffer, values: Record<string, string>, richFields?: string[]): Buffer;
   toHtml(docx: Buffer): Promise<string>;
   toPdf(docx: Buffer): Promise<Buffer>;
   build(paragraphs: unknown[]): Buffer;

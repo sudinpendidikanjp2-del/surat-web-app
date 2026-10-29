@@ -150,6 +150,27 @@
   }
   .preview-doc { background: #fff; color: #111; font-family: 'Times New Roman', Times, serif; line-height: 1.5; overflow-x: auto; }
   .preview-doc p { margin: 0 0 8px; white-space: pre-wrap; tab-size: 12ch; overflow-wrap: anywhere; }
+  .preview-doc table { width: 100%; border-collapse: collapse; margin: 0 0 8px; }
+  .preview-doc th, .preview-doc td { border: 1px solid #111; padding: 2px 6px; vertical-align: top; text-align: left; }
+  .preview-doc th { background: #e7e8ef; }
+  .preview-doc td p, .preview-doc th p { margin: 0; }
+
+  /* Isi editor surat: tampil dekat dengan hasil Word (paragraf rapat, tabel bergaris). */
+  .rich-content { font-size: 16px; line-height: 1.6; }
+  .rich-content > * + * { margin-top: 0.5em; }
+  .rich-content h2 { font-size: 1.2em; }
+  .rich-content h3 { font-size: 1.05em; }
+  .rich-content ul { list-style: disc; padding-left: 1.5em; }
+  .rich-content ol { list-style: decimal; padding-left: 1.5em; }
+  .rich-content li p { margin: 0; }
+  .rich-content .tableWrapper { overflow-x: auto; }
+  .rich-content table { border-collapse: collapse; table-layout: fixed; width: 100%; margin: 0; }
+  .rich-content th, .rich-content td { position: relative; min-width: 48px; border: 1px solid var(--color-strong); padding: 4px 8px; vertical-align: top; text-align: left; }
+  .rich-content th { background: var(--color-muted); font-weight: 700; }
+  .rich-content td p, .rich-content th p { margin: 0; }
+  .rich-content .selectedCell::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--color-primary) 14%, transparent); pointer-events: none; }
+  .rich-content .column-resize-handle { position: absolute; top: 0; right: -2px; bottom: -2px; width: 4px; background: var(--color-primary); pointer-events: none; }
+  .rich-content.resize-cursor { cursor: col-resize; }
 }
 
 @media print {

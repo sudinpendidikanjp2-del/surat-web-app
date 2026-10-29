@@ -8,7 +8,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input, NativeSelect, Textarea } from '@/components/ui/input';
 import { Field } from '@/components/app/form-field';
 import { ErrorState, Loading } from '@/components/app/states';
+import { RichEditor } from '@/components/app/rich-editor';
 import type { TemplateField } from '@/domain/letter-out';
+import { richIsEmpty } from '@/domain/rich-text';
 import { api, downloadPost } from '@/lib/api-client';
 import type { UserOption } from '@/features/letters-in/api';
 
@@ -46,7 +48,7 @@ export function LetterForm({ fields, versionId, initial, signers, onSubmit, pend
     if (!f.perihal.trim()) e.perihal = 'Perihal wajib diisi.';
     if (!f.tujuan.trim()) e.tujuan = 'Tujuan surat wajib diisi.';
     if (!f.tgl_surat) e.tgl_surat = 'Tanggal surat wajib diisi.';
-    for (const x of own) if (x.required && !String(f.fields[x.name] || '').trim()) e[`f_${x.name}`] = `${x.label} wajib diisi.`;
+    for (const x of own) if (x.required && richIsEmpty(f.fields[x.name])) e[`f_${x.name}`] = `${x.label} wajib diisi.`;
     setErrs(e);
     if (Object.keys(e).length) toast.error('Ada isian yang perlu dilengkapi. Lihat tulisan merah.');
     return Object.keys(e).length === 0;
@@ -77,8 +79,12 @@ export function LetterForm({ fields, versionId, initial, signers, onSubmit, pend
           <Card><CardContent className="flex flex-col gap-4">
             <h2 className="text-base font-bold">Isian template</h2>
             {own.map((x) => (
-              <Field key={x.name} label={x.label} required={x.required} error={errs[`f_${x.name}`]}>
-                {(p) => (x.type === 'textarea'
+              <Field key={x.name} label={x.label} required={x.required} error={errs[`f_${x.name}`]}
+                hint={x.type === 'rich' ? 'Bisa diberi tabel, daftar bernomor, dan huruf tebal. Tata letak mengikuti template.' : undefined}>
+                {(p) => (x.type === 'rich'
+                  ? <RichEditor id={p.id} label={x.label} invalid={!!p['aria-invalid']} describedBy={p['aria-describedby']} value={f.fields[x.name] || ''}
+                      onChange={(html) => setF((cur) => ({ ...cur, fields: { ...cur.fields, [x.name]: html } }))} />
+                  : x.type === 'textarea'
                   ? <Textarea {...p} rows={4} value={f.fields[x.name] || ''} onChange={setField(x.name)} />
                   : <Input {...p} type={x.type === 'date' ? 'date' : 'text'} value={f.fields[x.name] || ''} onChange={setField(x.name)} />)}
               </Field>

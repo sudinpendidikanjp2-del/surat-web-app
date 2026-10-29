@@ -94,7 +94,7 @@ export async function updateFields(d: Deps, ctx: Ctx, id: number, vid: number, b
     const fields = v.fields.map((f) => {
       const n = incoming.find((x) => x.name === f.name);
       if (!n || f.sistem) return f;
-      return { ...f, label: str(n.label, `Label ${f.name}`, { max: 80 }), type: oneOf(n.type, ['text', 'textarea', 'date'] as const, 'Jenis isian'), required: Boolean(n.required) };
+      return { ...f, label: str(n.label, `Label ${f.name}`, { max: 80 }), type: oneOf(n.type, ['text', 'textarea', 'rich', 'date'] as const, 'Jenis isian'), required: Boolean(n.required) };
     });
     await r.templates.setFields(vid, fields);
     await auditFor(r, ctx, 'TEMPLATE_FIELD_DIUBAH', 'template', id, { versi_id: vid });
