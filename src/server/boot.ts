@@ -1,6 +1,8 @@
 import 'server-only';
 import { ensureBaseData } from './application/bootstrap';
 import { runReminders } from './application/reminders';
+import { scheduled as scheduledBackup } from './application/backup';
+import { scheduledSync } from './application/google';
 import { config } from './config';
 import { deps } from './container';
 import { getPool } from './infrastructure/db/client';
@@ -16,6 +18,17 @@ export async function boot() {
     const tick = () => runReminders(deps()).catch((e) => console.error('Pengingat gagal:', e.message));
     setTimeout(tick, 5000).unref();
     setInterval(tick, config.reminderEveryMs).unref();
+    // Cadangan harian dan sinkronisasi Google diperiksa tiap menit; masing-masing memutuskan sendiri apakah sudah waktunya.
+    let busy = false;
+    const jobs = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        await scheduledBackup(deps()).catch((e) => console.error('Jadwal cadangan gagal:', e.message));
+        await scheduledSync(deps()).catch((e) => console.error('Jadwal sinkronisasi Google gagal:', e.message));
+      } finally { busy = false; }
+    };
+    setInterval(jobs, 60_000).unref();
   }
   const stop = () => {
     setTimeout(() => process.exit(1), 15_000).unref(); // paksa keluar bila koneksi menggantung

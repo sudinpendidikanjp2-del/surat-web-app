@@ -15,6 +15,20 @@ export const config = {
   reminderEveryMs: Number(env.REMINDER_EVERY_MIN || 10) * 60 * 1000,
   jobsEnabled: env.JOBS !== 'off',
   seedPassword: env.SEED_PASSWORD,
+  /** Zona waktu kantor untuk jadwal cadangan dan sinkronisasi harian. */
+  timezone: env.APP_TZ || 'Asia/Jakarta',
+  /** Cadangan disimpan di luar folder lampiran agar tidak ikut tercadangkan. */
+  backupDir: env.BACKUP_DIR || path.resolve(process.cwd(), 'storage/backups'),
+  backupMaxBytes: Number(env.BACKUP_MAX_MB || 4096) * 1024 * 1024,
+  /** Google Drive dan Spreadsheet. Kredensial diatur admin di aplikasi; alamat dapat diganti untuk pengujian. */
+  google: {
+    urls: {
+      oauth: env.GOOGLE_OAUTH_URL || 'https://oauth2.googleapis.com',
+      accounts: env.GOOGLE_ACCOUNTS_URL || 'https://accounts.google.com',
+      api: env.GOOGLE_API_URL || 'https://www.googleapis.com',
+      sheets: env.GOOGLE_SHEETS_URL || 'https://sheets.googleapis.com',
+    },
+  },
   /**
    * Mesin OCR. Bawaan: Tesseract di dalam proses. Opsional: Gemini (Google) bila GEMINI_API_KEY diisi,
    * atau model VLM (misalnya baidu/Unlimited-OCR) di server GPU lewat vLLM atau SGLang (API kompatibel OpenAI).

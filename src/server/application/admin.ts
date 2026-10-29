@@ -154,7 +154,11 @@ export async function exportUnits(d: Deps, ctx: Ctx) {
 
 const SETTING_KEYS = ['instansi', 'penomoran', 'sla', 'tampilan'] as const;
 
-export const settings = (d: Deps) => d.uow.read.settings.all();
+/** Hanya pengaturan umum. Kredensial (Google) dan status pekerjaan latar tidak pernah dikirim lewat sini. */
+export async function settings(d: Deps) {
+  const all = await d.uow.read.settings.all();
+  return Object.fromEntries(SETTING_KEYS.filter((k) => k in all).map((k) => [k, all[k]]));
+}
 
 export async function saveSetting(d: Deps, ctx: Ctx, keyRaw: string, b: Body) {
   requireAdmin(ctx);

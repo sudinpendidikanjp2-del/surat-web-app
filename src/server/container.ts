@@ -8,6 +8,8 @@ import { ocrEngine } from './infrastructure/ocr/engine';
 import { qrCodeEncoder } from './infrastructure/qr/qrcode';
 import { memoryLimiter, randomTokens, scryptPasswords } from './infrastructure/security/crypto';
 import { localFileStorage } from './infrastructure/storage/local-files';
+import { archiveBackups } from './infrastructure/backup/archive';
+import { googleClient } from './infrastructure/google/client';
 
 /**
  * Composition root: satu-satunya tempat implementasi infrastruktur dipasangkan ke port aplikasi.
@@ -19,6 +21,8 @@ export function deps(): Deps {
   if (!g.__suratDeps) {
     g.__suratDeps = {
       uow: pgUnitOfWork(getPool(config.databaseUrl)),
+      backups: archiveBackups(getPool(config.databaseUrl), { storageDir: config.storageDir, backupDir: config.backupDir, maxBytes: config.backupMaxBytes }),
+      google: googleClient(config.google.urls),
       files: localFileStorage(config.storageDir, config.maxUploadBytes),
       documents: docxRenderer,
       ocr: ocrEngine,
@@ -27,6 +31,7 @@ export function deps(): Deps {
       tokens: randomTokens,
       limiter: memoryLimiter(),
       sessionHours: config.sessionHours,
+      timezone: config.timezone,
     };
   }
   return g.__suratDeps;

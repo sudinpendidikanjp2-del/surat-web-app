@@ -1,4 +1,6 @@
 import 'server-only';
+import fs from 'node:fs';
+import { Readable } from 'node:stream';
 
 const cell = (v: unknown) => {
   let s = v == null ? '' : String(v);
@@ -24,6 +26,20 @@ export function file(body: Buffer, { mime, filename, inline = false }: { mime: s
       'Content-Security-Policy': "default-src 'none'; sandbox",
       'Cache-Control': 'private, no-store',
       'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    },
+  });
+}
+
+/** File besar dari disk (arsip cadangan), dialirkan tanpa dimuat ke memori. */
+export function streamFile(absPath: string, { mime, filename }: { mime: string; filename: string }) {
+  const size = fs.statSync(absPath).size;
+  return new Response(Readable.toWeb(fs.createReadStream(absPath)) as ReadableStream, {
+    headers: {
+      'Content-Type': mime,
+      'Content-Length': String(size),
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
     },
   });
 }

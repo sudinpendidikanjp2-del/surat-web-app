@@ -1,7 +1,7 @@
 import type { Actor } from '@/domain/roles';
 import { invalid, isAppError } from '@/domain/errors';
 import type { Repos } from './ports';
-import type { DocumentRenderer, FileStorage, OcrEngine, PasswordHasher, QrEncoder, RateLimiter, SessionTokens, UnitOfWork } from './ports';
+import type { BackupStore, DocumentRenderer, FileStorage, GoogleApi, OcrEngine, PasswordHasher, QrEncoder, RateLimiter, SessionTokens, UnitOfWork } from './ports';
 
 /**
  * Semua ketergantungan use case, disuntikkan dari composition root (src/server/container.ts).
@@ -16,7 +16,11 @@ export interface Deps {
   passwords: PasswordHasher;
   tokens: SessionTokens;
   limiter: RateLimiter;
+  backups: BackupStore;
+  google: GoogleApi;
   sessionHours: number;
+  /** Zona waktu kantor (IANA), untuk jadwal harian. */
+  timezone: string;
 }
 
 /** Siapa yang bertindak, dari mana, dan alamat dasar aplikasi (untuk tautan QR dan pelacakan). */

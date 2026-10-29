@@ -160,4 +160,15 @@ export const attachmentsRepo = (db: Db): AttachmentsRepo => ({
   forLetterIn: (id) => db.all(`${ATT_SELECT} WHERE a.letter_in_id=$1 ORDER BY a.created_at`, [id]) as never,
   forLetterOut: (id) => db.all(`${ATT_SELECT} WHERE a.letter_out_id=$1 ORDER BY a.created_at`, [id]) as never,
   forTask: (id) => db.all(`${ATT_SELECT} WHERE a.task_id=$1 ORDER BY a.created_at`, [id]) as never,
+  pendingDrive: (limit) => db.all(
+    `SELECT a.id, a.nama, a.mime, a.path, a.versi,
+            CASE WHEN a.letter_in_id IS NOT NULL THEN 'masuk' ELSE 'keluar' END AS arah,
+            COALESCE(li.no_agenda, lo.no_agenda) AS no_agenda, COALESCE(li.perihal, lo.perihal) AS perihal,
+            to_char(COALESCE(li.tgl_diterima, lo.tgl_surat, a.created_at::date), 'YYYY-MM-DD') AS tanggal
+     FROM attachments a LEFT JOIN letters_in li ON li.id = a.letter_in_id LEFT JOIN letters_out lo ON lo.id = a.letter_out_id
+     WHERE a.drive_file_id IS NULL ORDER BY a.id LIMIT $1`, [limit]) as never,
+  setDrive: async (id, driveId) => { await db.q('UPDATE attachments SET drive_file_id=$2 WHERE id=$1', [id, driveId]); },
+  driveCounts: async () => (await db.one<{ total: number; tersinkron: number }>(
+    'SELECT count(*)::int AS total, count(drive_file_id)::int AS tersinkron FROM attachments'))!,
+  resetDrive: async () => { await db.q('UPDATE attachments SET drive_file_id=NULL WHERE drive_file_id IS NOT NULL'); },
 });

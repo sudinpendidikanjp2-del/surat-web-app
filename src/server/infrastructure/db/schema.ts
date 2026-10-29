@@ -287,6 +287,10 @@ CREATE TABLE IF NOT EXISTS ref_items (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ref_items_uq ON ref_items (kategori, lower(nilai));
 
+-- Sinkronisasi Google Drive: file yang sudah diunggah tidak diunggah ulang.
+ALTER TABLE attachments ADD COLUMN IF NOT EXISTS drive_file_id TEXT;
+CREATE INDEX IF NOT EXISTS attachments_drive_pending_idx ON attachments(id) WHERE drive_file_id IS NULL;
+
 -- Isi utama template bawaan memakai editor kaya (tabel, daftar). Template unggahan admin tidak diubah.
 UPDATE template_versions SET fields = (
   SELECT jsonb_agg(CASE WHEN f->>'name' ~ '^(isi|uraian)' AND f->>'type' = 'textarea' THEN jsonb_set(f, '{type}', '"rich"') ELSE f END ORDER BY ord)

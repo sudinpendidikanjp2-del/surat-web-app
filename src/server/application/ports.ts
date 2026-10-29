@@ -231,7 +231,14 @@ export interface AttachmentsRepo {
   forLetterIn(letterId: number): Promise<Row[]>;
   forLetterOut(letterId: number): Promise<Row[]>;
   forTask(taskId: number): Promise<Row[]>;
+  /** Lampiran yang belum diunggah ke Google Drive, dengan surat pemiliknya untuk menyusun folder. */
+  pendingDrive(limit: number): Promise<DrivePending[]>;
+  setDrive(id: number, driveFileId: string): Promise<void>;
+  driveCounts(): Promise<{ total: number; tersinkron: number }>;
+  /** Lupakan status unggahan (folder Drive diganti): semua file diunggah lagi ke folder baru. */
+  resetDrive(): Promise<void>;
 }
+export interface DrivePending { id: number; nama: string; mime: string; path: string; versi: number; arah: 'masuk' | 'keluar'; no_agenda: string; perihal: string; tanggal: string }
 
 export interface NewLetterOut { no_agenda: string; letterInId: number | null; templateVersionId: number; jenis: string; perihal: string; tujuan: string; fields: Record<string, string>; tglSurat: string; signerId: number | null; createdBy: number }
 
@@ -344,3 +351,52 @@ export interface QrEncoder { toDataUrl(text: string, width: number): Promise<str
 export interface PasswordHasher { hash(pw: string): Promise<string>; verify(pw: string, stored: string): Promise<boolean> }
 export interface SessionTokens { create(bytes?: number): string; hash(token: string): string }
 export interface RateLimiter { hit(key: string, windowMs: number, max: number): void }
+
+/* ---------- Cadangan ---------- */
+
+export type BackupKind = 'manual' | 'otomatis' | 'sebelum-pemulihan' | 'unggahan' | 'drive';
+export interface BackupInfo { nama: string; dibuat: string; jenis: BackupKind; label: string; tabel: Record<string, number>; file: number; ukuran: number }
+export interface BackupStore {
+  list(): Promise<BackupInfo[]>;
+  info(nama: string): Promise<BackupInfo | null>;
+  /** Path absolut arsip di disk (untuk diunduh atau diunggah ke Drive). */
+  path(nama: string): string;
+  create(jenis: BackupKind, label?: string): Promise<BackupInfo>;
+  /** Ganti seluruh data dan file dengan isi arsip. Tidak membuat cadangan pengaman sendiri; use case yang melakukannya. */
+  restore(nama: string): Promise<{ tabel: Record<string, number>; file: number; dibuat: string }>;
+  remove(nama: string): Promise<void>;
+  /** Hapus cadangan lama sejenis, sisakan `keep` terbaru. */
+  prune(jenis: BackupKind, keep: number): Promise<void>;
+  receive(source: AsyncIterable<Uint8Array> | NodeJS.ReadableStream, jenis: BackupKind): Promise<BackupInfo>;
+  busy(): string | null;
+}
+
+/* ---------- Google Drive dan Spreadsheet ---------- */
+
+/** Kredensial: akun layanan (JSON dari Google Cloud) atau OAuth akun Google biasa (refresh token). */
+export type GoogleAuth =
+  | { mode: 'service'; client_email: string; private_key: string }
+  | { mode: 'oauth'; client_id: string; client_secret: string; refresh_token: string };
+
+export interface DriveFile { id: string; name: string; mimeType: string; size?: string; modifiedTime?: string; webViewLink?: string }
+export interface SheetTable { title: string; columns: string[]; rows: unknown[][] }
+
+export interface GoogleApi {
+  /** Alamat persetujuan OAuth untuk menghubungkan akun Google. */
+  authUrl(clientId: string, redirectUri: string, state: string): string;
+  /** Tukar kode persetujuan dengan refresh token. */
+  exchangeCode(clientId: string, clientSecret: string, code: string, redirectUri: string): Promise<{ refresh_token: string; email: string | null }>;
+  /** Email akun yang terhubung (memastikan kredensial dapat dipakai). */
+  whoami(auth: GoogleAuth): Promise<string>;
+  folder(auth: GoogleAuth, name: string, parentId: string | null): Promise<string>;
+  /** Unggah file baru, atau ganti isi file `fileId` bila diberikan. */
+  upload(auth: GoogleAuth, o: { name: string; mime: string; parentId: string; body: Buffer | { path: string; size: number }; fileId?: string | null }): Promise<DriveFile>;
+  list(auth: GoogleAuth, parentId: string, nameContains?: string): Promise<DriveFile[]>;
+  download(auth: GoogleAuth, fileId: string): Promise<ReadableStream<Uint8Array>>;
+  remove(auth: GoogleAuth, fileId: string): Promise<void>;
+  /** Buat spreadsheet baru di folder; mengembalikan ID-nya. */
+  createSpreadsheet(auth: GoogleAuth, title: string, parentId: string): Promise<string>;
+  /** Tulis ulang setiap lembar (dibuat bila belum ada) dengan judul kolom berformat. */
+  writeSheets(auth: GoogleAuth, spreadsheetId: string, tables: SheetTable[]): Promise<void>;
+  spreadsheetUrl(id: string): string;
+}

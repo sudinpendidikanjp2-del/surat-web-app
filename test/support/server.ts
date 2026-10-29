@@ -23,7 +23,7 @@ export async function recreateDatabase(url: string) {
 
 export interface TestServer { url: string; pool: pg.Pool; stop: () => Promise<void> }
 
-export async function startServer(dbName: string): Promise<TestServer> {
+export async function startServer(dbName: string, extraEnv: Record<string, string> = {}): Promise<TestServer> {
   const base = process.env.TEST_DATABASE_URL || 'postgres://surat:surat_dev@localhost:5432/surat_test';
   const databaseUrl = base.replace(/\/[^/]+$/, `/${dbName}`);
   await recreateDatabase(databaseUrl);
@@ -32,7 +32,7 @@ export async function startServer(dbName: string): Promise<TestServer> {
   // Proses uji juga memakai composition root (misalnya untuk menjalankan pengingat), jadi env-nya disamakan.
   Object.assign(process.env, { DATABASE_URL: databaseUrl, STORAGE_DIR: storage, JOBS: 'off' });
   const child: ChildProcess = spawn(process.execPath, [path.resolve('node_modules/next/dist/bin/next'), 'start', '-p', String(port)], {
-    env: { ...process.env, DATABASE_URL: databaseUrl, STORAGE_DIR: storage, JOBS: 'off', NODE_ENV: 'production', SEED_PASSWORD: 'surat12345' },
+    env: { ...process.env, DATABASE_URL: databaseUrl, STORAGE_DIR: storage, JOBS: 'off', NODE_ENV: 'production', SEED_PASSWORD: 'surat12345', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let log = '';
