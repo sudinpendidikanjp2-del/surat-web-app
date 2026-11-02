@@ -8,21 +8,28 @@ const TEN_MIN = 10 * 60 * 1000;
 /** Masuk. Mengembalikan pengguna publik dan token sesi mentah (disimpan sebagai cookie oleh lapisan HTTP). */
 export async function login(d: Deps, ctx: AnonCtx, body: { username?: unknown; password?: unknown }) {
   const username = str(body.username, 'Nama pengguna', { max: 80 }).toLowerCase();
-  d.limiter.hit(`login:${ctx.ip}|${username}`, TEN_MIN, 10);
+  // Tiga lapis seperti sudindikjp2: per alamat+akun, per akun (alamat berganti-ganti), dan per alamat (menebak banyak akun).
+  // Bila alamat tidak diketahui (tanpa proxy tepercaya), lapis per akun yang menahan.
+  d.limiter.hit(`login:${ctx.ip ?? '-'}|${username}`, TEN_MIN, 10);
+  d.limiter.hit(`login-akun:${username}`, TEN_MIN, 30);
+  if (ctx.ip) d.limiter.hit(`login-ip:${ctx.ip}`, TEN_MIN, 50);
   const password = str(body.password, 'Kata sandi', { max: 200 });
-  return d.uow.run(async (r) => {
+  const result = await d.uow.run(async (r) => {
     const u = await r.users.findForLogin(username);
     // Verifikasi tetap dijalankan walau pengguna tidak ada agar waktu respons seragam.
     const ok = u ? await d.passwords.verify(password, u.password_hash) : await d.passwords.verify(password, 'scrypt$00$00');
     if (!u || !u.aktif || !ok) {
+      // Dicatat lalu dikembalikan (bukan dilempar) agar transaksi tersimpan; galat dilempar sesudahnya.
       await r.journal.audit({ userId: u?.id ?? null, ip: ctx.ip, aksi: 'LOGIN_GAGAL', entitas: 'user', entitasId: username, detail: {} });
-      throw unauthenticated('Nama pengguna atau kata sandi salah');
+      return null;
     }
     const token = d.tokens.create();
     await r.sessions.create(d.tokens.hash(token), u.id, d.sessionHours);
     await r.journal.audit({ userId: u.id, ip: ctx.ip, aksi: 'LOGIN', entitas: 'user', entitasId: u.id, detail: {} });
     return { user: toPublicUser(u), token };
   });
+  if (!result) throw unauthenticated('Nama pengguna atau kata sandi salah');
+  return result;
 }
 
 /** Pengguna aktif dari token cookie, atau null. */

@@ -5,9 +5,18 @@ on:
     branches-ignore: [main, breaking-change]
   pull_request:
   workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -23,16 +32,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer-nogui
-      - run: PGPASSWORD=surat_dev psql -h localhost -U surat -d surat -c "ALTER ROLE surat CREATEDB"
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test
+        with: { node-version-file: .nvmrc, cache: npm }
+      - name: LibreOffice (PDF surat keluar)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer-nogui
+      - name: Izinkan uji membuat database
+        run: PGPASSWORD=surat_dev psql -h localhost -U surat -d surat -c "ALTER ROLE surat CREATEDB"
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Audit dependensi produksi
+        run: npm audit --omit=dev --audit-level=high
+      - name: Unit test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Integration test
+        run: npm run test:integration
+
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t surat-web-app .
+      - name: Shellcheck skrip deploy dan entrypoint
+        run: shellcheck -x deploy/*.sh scripts/docker-entrypoint.sh
+      - name: Validasi docker compose (semua kombinasi berkas)
+        env:
+          POSTGRES_PASSWORD: ci_only_password
+          APP_URL: https://surat.contoh.go.id
+          DOMAIN: surat.contoh.go.id
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.image.yml config --quiet
+          docker compose -f docker-compose.yml --profile nginx config --quiet
+          docker network create proxy
+          docker compose -f docker-compose.yml -f docker-compose.proxy.yml config --quiet
+      - name: Build image
+        run: docker build -t surat-web-app:ci .
+      - name: Smoke test image (non-root, server dan entrypoint ada)
+        run: |
+          docker run --rm --entrypoint sh surat-web-app:ci -c 'test "$(id -u)" != 0 && test -f server.js && test -x /usr/local/bin/sisurat && command -v soffice'
+          docker run --rm --entrypoint node surat-web-app:ci -e "console.log(process.version, require('node:os').userInfo().username)"

@@ -1,28 +1,46 @@
-# Produksi: aplikasi + PostgreSQL. Salin .env.example menjadi .env dan isi nilainya dulu.
-#   docker compose up -d --build
-# Taruh di belakang reverse proxy HTTPS (lihat deploy/Caddyfile).
+# Produksi: aplikasi + PostgreSQL (+ Nginx opsional). Salin deploy/env.production.example menjadi .env dan isi dulu.
+#   docker compose up -d --build                    # app + db; reverse proxy milik Anda sendiri (lihat docs/deployment.md)
+#   docker compose --profile nginx up -d --build    # + Nginx bawaan repo ini (TLS, batas laju)
+#   deploy/deploy.sh                                # pembaruan: cadangan -> tarik -> naikkan -> tunggu sehat
+# Database hanya ada di jaringan internal (tanpa akses keluar, tanpa port ke host).
+# Catatan: jangan menambah `name:`; nama proyek menentukan nama volume data yang sudah ada.
+
+x-hardening: &hardening
+  init: true # docker-init: meneruskan sinyal (berhenti rapi) dan memanen proses zombie
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  restart: unless-stopped
+
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
+    <<: *hardening
+    cap_drop: [] # PostgreSQL membutuhkan CHOWN/SETUID saat menyiapkan volume
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-surat}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env (openssl rand -base64 36)}
       POSTGRES_DB: ${POSTGRES_DB:-surat}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-surat} -d ${POSTGRES_DB:-surat}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 20
+    networks: [internal]
+
   app:
-    build: .
-    restart: unless-stopped
+    build: { context: ., target: runner }
+    <<: *hardening
     depends_on:
       db: { condition: service_healthy }
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-surat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-surat}
+      # Alamat publik untuk QR, tautan pelacakan, dan alamat balik Google, misalnya https://surat.contoh.go.id
+      APP_URL: ${APP_URL:-}
+      # true: IP klien dibaca dari reverse proxy (X-Real-IP / X-Forwarded-For paling kanan). Benar selama port aplikasi
+      # hanya terjangkau lewat proxy (APP_BIND=127.0.0.1 atau jaringan proxy). Isi false bila klien dapat langsung ke app.
+      TRUST_PROXY: ${TRUST_PROXY:-true}
       SEED_PASSWORD: ${SEED_PASSWORD:-}
       SESSION_HOURS: ${SESSION_HOURS:-12}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-15}
@@ -40,7 +58,44 @@ services:
     ports:
       - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
     volumes:
-      - storage:/data   # lampiran di /data/private, cadangan di /data/backups
+      - storage:/data # lampiran di /data/private, cadangan di /data/backups
+    stop_grace_period: 30s
+    # internal: ke database. default: akses keluar untuk Gemini dan Google Drive/Sheets.
+    networks: [internal, default]
+
+  # Reverse proxy bawaan (opsional): docker compose --profile nginx up -d. Butuh DOMAIN dan sertifikat di TLS_DIR.
+  nginx:
+    image: nginx:1.27-alpine
+    profiles: ["nginx"]
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-} # wajib bila profil nginx dipakai; deploy/deploy.sh memeriksanya
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/site.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/proxy_params.conf:/etc/nginx/proxy_params.conf:ro
+      - ${TLS_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot
+    depends_on:
+      app: { condition: service_healthy }
+
+  # Pembaruan sertifikat Let's Encrypt: docker compose --profile nginx run --rm certbot renew --webroot -w /var/www/certbot
+  certbot:
+    image: certbot/certbot:v3.1.0
+    profiles: ["nginx"]
+    volumes:
+      - ${TLS_DIR:-/etc/letsencrypt}:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+
+networks:
+  internal:
+    internal: true # tanpa akses keluar; database tidak dapat dijangkau dari luar
+  default: {}
+
 volumes:
   pgdata:
   storage:
+  certbot-webroot:

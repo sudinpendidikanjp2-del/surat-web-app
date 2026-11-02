@@ -18,8 +18,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p test",
     "seed:demo": "node scripts/demo.mjs",
-    "test": "vitest run",
-    "bench:ocr": "OCR_BENCH=1 vitest run"
+    "test": "vitest run --project unit",
+    "bench:ocr": "OCR_BENCH=1 vitest run",
+    "test:integration": "vitest run --project integration",
+    "test:all": "vitest run"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "5.3.0",

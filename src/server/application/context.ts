@@ -26,12 +26,13 @@ export interface Deps {
 /** Siapa yang bertindak, dari mana, dan alamat dasar aplikasi (untuk tautan QR dan pelacakan). */
 export interface Ctx {
   actor: Actor;
-  ip: string;
+  /** null bila tidak diketahui (TRUST_PROXY=false atau header proxy tidak valid). */
+  ip: string | null;
   baseUrl: string;
 }
 
 /** Ctx tanpa pengguna, untuk login dan pelacakan publik. */
-export interface AnonCtx { ip: string; baseUrl: string }
+export interface AnonCtx { ip: string | null; baseUrl: string }
 
 /** Catat audit dengan identitas pelaku dari ctx. */
 export const auditFor = (r: Repos, ctx: Ctx | (AnonCtx & { actor?: Actor | null }), aksi: string, entitas: string, entitasId: number | string | null, detail: Record<string, unknown> = {}) =>

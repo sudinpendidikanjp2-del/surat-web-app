@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
-import net from 'node:net';
+import type net from 'node:net';
 
 /**
  * Server Google tiruan untuk uji: token OAuth/JWT, Drive v3 (folder, unggah multipart dan bersambung, unduh,

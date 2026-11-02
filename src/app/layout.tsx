@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { jakarta } from './fonts';
 import { Providers } from './providers';
 import { themeBootScript } from '@/components/app/theme';
@@ -16,17 +17,19 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Dirender per permintaan: CSP bernonce (src/proxy.ts) tidak dapat dipakai pada halaman yang dibuat saat build.
 export const dynamic = 'force-dynamic';
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#ffffff' };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const branding = await getBranding();
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang="id" className={jakarta.variable} data-theme="light" suppressHydrationWarning>
       <head>
         {/* Tema dipasang sebelum halaman tampil, agar tidak berkedip. */}
-        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className="min-h-dvh antialiased">
         <a href="#isi" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">Lewati ke isi halaman</a>

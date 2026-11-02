@@ -1,0 +1,21 @@
+# Pembaruan dependensi mingguan. cooldown: versi baru baru diusulkan setelah berumur 14 hari
+# (aturan repo ini: tidak memakai rilis yang lebih muda dari dua minggu), kecuali pembaruan keamanan.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+    open-pull-requests-limit: 10
+    groups:
+      tiptap: { patterns: ["@tiptap/*"] }
+      next: { patterns: ["next", "eslint-config-next"] }
+      types: { patterns: ["@types/*"] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 14 }

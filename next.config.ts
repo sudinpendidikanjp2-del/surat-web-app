@@ -1,24 +1,10 @@
 import type { NextConfig } from 'next';
+import { STATIC_SECURITY_HEADERS } from './src/lib/security-headers';
 
 /**
  * Paket native atau berat (OCR, pengolah gambar, driver database, pembaca DOCX) dijalankan apa adanya di Node,
  * tidak dibundel, agar file biner dan data bahasa Tesseract tetap ditemukan.
  */
-const dev = process.env.NODE_ENV !== 'production';
-/** Next.js menyisipkan skrip sebaris untuk hidrasi, jadi script-src perlu 'unsafe-inline'. Sumber luar tidak diizinkan sama sekali. */
-const csp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join('; ');
-
 const nextConfig: NextConfig = {
   // Image Docker memakai build mandiri (BUILD_STANDALONE=1). Lokal dan uji memakai `next start` biasa.
   output: process.env.BUILD_STANDALONE === '1' ? 'standalone' : undefined,
@@ -32,18 +18,13 @@ const nextConfig: NextConfig = {
     '/api/ocr/**': ['./node_modules/@tesseract.js-data/ind/4.0.0_best_int/**', './node_modules/tesseract.js/**', './node_modules/tesseract.js-core/**', './node_modules/mupdf/dist/**'],
   },
   serverExternalPackages: ['sharp', 'tesseract.js', '@tesseract.js-data/ind', '@tesseract.js-data/eng', 'pg', 'mammoth', 'docxtemplater', 'pizzip', 'qrcode', 'mupdf', 'pdfkit', 'exceljs'],
+  reactStrictMode: true,
+  // CSP bernonce dipasang per permintaan oleh src/proxy.ts; di sini hanya header yang sama untuk semua respons.
   async headers() {
     return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'Content-Security-Policy', value: csp },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
-        ],
-      },
+      { source: '/:path*', headers: STATIC_SECURITY_HEADERS },
+      // Seluruh aplikasi berisi data surat dan pegawai: jangan disimpan cache bersama atau diindeks mesin pencari.
+      { source: '/((?!_next/static|lacak).*)', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
     ];
   },
 };

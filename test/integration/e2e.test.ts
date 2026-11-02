@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import type pg from 'pg';
-import * as demoModule from '../scripts/demo.mjs';
+import * as demoModule from '../../scripts/demo.mjs';
 import { startServer, type TestServer } from './support/server';
 
 const demo: any = demoModule;
@@ -32,6 +32,21 @@ test('autentikasi: tanpa sesi ditolak, tanpa header CSRF ditolak', async () => {
   const res = await fetch(`${url}/api/letters-in/1/teruskan`, { method: 'POST', headers: { Cookie: tu.cookie, 'Content-Type': 'application/json' }, body: '{}' });
   assert.equal(res.status, 403);
   await expectStatus(new S(url, 'tu').login('salah'), 401);
+});
+
+test('login: X-Forwarded-For palsu tidak menembus batas percobaan (TRUST_PROXY mati)', async () => {
+  const attempt = (i: number) => fetch(`${url}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'surat-app', 'Content-Type': 'application/json', 'X-Forwarded-For': `198.51.100.${i}`, 'X-Real-IP': `198.51.100.${i}` },
+    body: JSON.stringify({ username: 'penyerang-uji', password: `tebakan-${i}` }),
+  });
+  const statuses: number[] = [];
+  for (let i = 1; i <= 11; i++) statuses.push((await attempt(i)).status);
+  assert.deepEqual(statuses.slice(0, 10), Array(10).fill(401));
+  assert.equal(statuses[10], 429);
+  // Header palsu tidak tercatat sebagai alamat di catatan kegiatan.
+  const logged = await srv.pool.query("SELECT DISTINCT ip FROM audit_log WHERE aksi='LOGIN_GAGAL' AND entitas_id='penyerang-uji'");
+  assert.deepEqual(logged.rows.map((r: { ip: string | null }) => r.ip), [null]);
 });
 
 test('skenario PRD penuh: dari surat diterima sampai arsip, dan relasi masuk-keluar', async () => {

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import * as demoModule from '../scripts/demo.mjs';
+import * as demoModule from '../../scripts/demo.mjs';
 import { startServer, type TestServer } from './support/server';
 import { startFakeGoogle } from './support/fake-google';
 

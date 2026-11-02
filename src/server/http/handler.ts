@@ -6,6 +6,8 @@ import { int } from '@/domain/validation';
 import type { AnonCtx, Ctx, Deps } from '@/server/application/context';
 import { resolveSession } from '@/server/application/auth';
 import { deps } from '@/server/container';
+import { config } from '@/server/config';
+import { baseUrl, clientIp, isHttps } from './client';
 import { readBody, type Body } from './request';
 
 export const SESSION_COOKIE = 'sid';
@@ -27,12 +29,9 @@ export interface HttpCtx<P> {
   body: () => Promise<Body>;
 }
 
-const ipOf = (req: NextRequest) => req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'local';
-export const baseUrlOf = (req: NextRequest) => {
-  const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', '');
-  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || req.nextUrl.host;
-  return `${proto}://${host}`;
-};
+const proxyOpts = () => ({ appUrl: config.appUrl, trustProxy: config.trustProxy });
+export const baseUrlOf = (req: NextRequest) => baseUrl(req.headers, req.nextUrl, proxyOpts());
+export const isHttpsRequest = (req: NextRequest) => isHttps(req.headers, req.nextUrl, proxyOpts());
 
 export const json = (data: unknown, status = 200) => NextResponse.json(data, { status });
 export const created = (data: unknown) => json(data, 201);
@@ -55,7 +54,7 @@ export function route<P = Record<string, unknown>>(
       const token = req.cookies.get(SESSION_COOKIE)?.value;
       const actor = await resolveSession(d, token);
       if (auth && !actor) return fail(401, 'Sesi berakhir. Silakan masuk kembali');
-      const anon = { ip: ipOf(req), baseUrl: baseUrlOf(req) };
+      const anon = { ip: clientIp(req.headers, config.trustProxy), baseUrl: baseUrlOf(req) };
       let cached: Promise<Body> | null = null;
       const out = await fn({
         req, deps: d, params: await segment.params, actor, token, anon,
