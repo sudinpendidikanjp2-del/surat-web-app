@@ -8,7 +8,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 BUILD_STANDALONE=1
 RUN npm run build
 
 FROM node:22-bookworm-slim
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 STORAGE_DIR=/data/private BACKUP_DIR=/data/backups
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 STORAGE_DIR=/data/private BACKUP_DIR=/data/backups
 # LibreOffice hanya untuk unduh PDF surat keluar. Hapus baris ini bila tidak dibutuhkan (image jauh lebih kecil).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-writer-nogui fonts-liberation fonts-dejavu-core curl \
