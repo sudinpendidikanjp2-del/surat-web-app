@@ -205,12 +205,17 @@ Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint me
 
 Workflow `.github/workflows/docker-publish.yml` menjalankan seluruh CI (lint, typecheck, build, uji), lalu membangun dan memublikasikan image ke **GitHub Container Registry** sebagai Package repo ini: `ghcr.io/sudinpendidikanjp2-del/surat-web-app`.
 
-| Pemicu | Tag image |
+Setiap publikasi mendapat **nomor versi yang naik otomatis** dari tag git terakhir. Rilis pertama memakai versi di `package.json` (`2.0.0`), berikutnya `2.0.1`, `2.0.2`, dan seterusnya. Workflow membuat tag git `vX.Y.Z` dan GitHub Release-nya (pra-rilis bila bukan dari `main`) hanya setelah CI lolos dan image terbit.
+
+| Cara | Versi berikutnya (dari v2.0.3) |
 |---|---|
-| push ke `main` | `latest`, `main`, `sha-xxxxxxx` |
-| push ke `breaking-change` (sementara, sampai digabung ke `main`) | `breaking-change`, `sha-xxxxxxx` |
-| push tag `v1.2.3` (`git tag v1.2.3 && git push origin v1.2.3`) | `1.2.3`, `1.2`, `latest`, `sha-xxxxxxx` |
-| manual: Actions > Publish Docker image > Run workflow (pilih branch) | `<nama-branch>`, `sha-xxxxxxx` |
+| push biasa ke `main` atau `breaking-change` | `2.0.4` |
+| pesan commit memuat `[minor]` | `2.1.0` |
+| pesan commit memuat `[major]` | `3.0.0` |
+| manual: Actions > Publish Docker image > Run workflow, pilih patch/minor/major | sesuai pilihan |
+| push tag sendiri: `git tag v3.0.0 && git push origin v3.0.0` | `3.0.0` apa adanya |
+
+Menjalankan ulang workflow untuk commit yang sudah bertag tidak membuat nomor baru. Tag image yang terbit: `2.0.4`, `2.0`, nama branch, `sha-xxxxxxx`, dan `latest` (hanya dari `main` atau tag). Untuk server, kunci ke nomor versi (`APP_IMAGE=…:2.0.4`) agar pembaruan terjadi saat Anda memilihnya.
 
 Tidak perlu secret tambahan: workflow memakai `GITHUB_TOKEN` dengan izin `packages: write`. Image juga diberi bukti asal (build provenance) yang dapat diperiksa dengan `gh attestation verify oci://ghcr.io/sudinpendidikanjp2-del/surat-web-app:latest --repo sudinpendidikanjp2-del/surat-web-app`. Image dibangun untuk `linux/amd64`.
 
@@ -235,7 +240,7 @@ docker compose up -d --build    # app :3000 (hanya 127.0.0.1) + PostgreSQL 16, d
 docker compose logs app | grep "Akun awal"   # bila SEED_PASSWORD kosong, kata sandi acak tampil di sini
 ```
 
-1. Taruh HTTPS di depan aplikasi. Contoh Caddy (sertifikat otomatis) ada di `deploy/Caddyfile`. Cookie sesi bertanda `Secure`, jadi login hanya jalan lewat HTTPS (localhost dikecualikan oleh peramban).
+1. Taruh HTTPS di depan aplikasi (lihat **Reverse proxy** di bawah). Cookie sesi bertanda `Secure`, jadi login hanya jalan lewat HTTPS (localhost dikecualikan oleh peramban).
 2. Masuk sebagai `admin`, ganti kata sandi semua akun bawaan, lalu ubah nama instansi, unit, dan pengaturan penomoran.
 3. Cadangan harian: aktifkan di Admin > Cadangan Data (sebaiknya dengan salinan ke Google Drive), atau jadwalkan `./scripts/backup.sh` dengan cron. Coba pulihkan di mesin lain sebelum mengandalkannya.
 4. Pemantauan: `GET /healthz` (proses hidup) dan `GET /readyz` (database terjangkau). Image punya HEALTHCHECK bawaan.
@@ -245,6 +250,42 @@ docker compose logs app | grep "Akun awal"   # bila SEED_PASSWORD kosong, kata s
 CI (`.github/workflows/ci.yml`) menjalankan lint, typecheck, build, dan seluruh uji dengan PostgreSQL, serta membangun image Docker.
 
 Belum teruji di lingkungan pengembangan saya: `docker build` dan `docker compose` (tidak ada daemon Docker di sana). Server diuji langsung dengan `NODE_ENV=production`: kata sandi acak, `/healthz`, `/readyz`, cookie Secure, dan header keamanan. Jalankan build pertama di server Anda dan periksa `docker compose ps` menunjukkan `healthy`.
+
+### Perintah di dalam container
+
+Image memakai entrypoint `sisurat`. Container mulai sebagai root hanya untuk memperbaiki pemilik folder `/data` (misalnya folder host yang dipasang dan dimiliki root), lalu aplikasi berjalan sebagai pengguna `node`. Migrasi skema berjalan otomatis saat server mulai.
+
+```bash
+docker compose exec app sisurat reset-password admin                       # kata sandi baru diminta di terminal
+docker compose exec -e PASSWORD='kata-sandi-baru' app sisurat reset-password admin
+docker compose exec app sisurat sh                                         # shell di container
+```
+
+`reset-password` juga mengaktifkan kembali akun itu, mengakhiri semua sesinya, dan mencatatnya di Catatan Kegiatan.
+
+Jangan menghapus `HOSTNAME=0.0.0.0` dari Dockerfile. Tanpa itu Docker mengisi `HOSTNAME` dengan ID container, server hanya mendengar di satu alamat container, healthcheck menjadi *unhealthy*, dan reverse proxy mendapat *connection refused*.
+
+### Reverse proxy
+
+Di dalam container aplikasi **selalu mendengar di port 3000**. `APP_PORT` hanya port di host, dan secara bawaan port itu dibuka **hanya untuk 127.0.0.1** agar aplikasi tidak terbuka tanpa HTTPS. Pilih sesuai letak reverse proxy Anda:
+
+| Reverse proxy | Atur | Arahkan proxy ke |
+|---|---|---|
+| Terpasang langsung di host (Caddy, Nginx, Apache) | tidak perlu | `http://127.0.0.1:3000` (atau `APP_PORT`) |
+| Container di jaringan Docker (Nginx Proxy Manager, Traefik, Caddy Docker) | tambahkan `docker-compose.proxy.yml` ke `COMPOSE_FILE` dan isi `PROXY_NETWORK` dengan nama jaringan proxy (`docker network ls`) | `http://surat-app:3000` |
+| Mesin lain, atau container yang memakai IP host (`172.17.0.1`, `host.docker.internal`) | `APP_BIND=0.0.0.0` di `.env`, lalu batasi port dengan firewall | `http://<ip-server>:<APP_PORT>` |
+
+Kesalahan yang paling sering: proxy di dalam container diarahkan ke `127.0.0.1:3000`. Alamat itu adalah container proxy sendiri, bukan host. Kesalahan lain: proxy diarahkan ke `surat-app:<APP_PORT>` padahal di jaringan Docker port-nya selalu 3000.
+
+Periksa berurutan:
+
+```bash
+docker compose ps                                   # app harus "healthy"
+curl -fsS http://127.0.0.1:3000/healthz             # dari host (APP_PORT)
+docker compose exec app node -e "fetch('http://surat-app:3000/healthz').then(r=>console.log(r.status))"   # nama di jaringan proxy (docker-compose.proxy.yml)
+```
+
+Proxy perlu meneruskan `Host` dan `X-Forwarded-Proto` (bawaan Caddy, Traefik, dan Nginx Proxy Manager). Untuk unggah file cadangan, naikkan batas ukuran isi permintaan di proxy (Nginx: `client_max_body_size 4g;` dan `proxy_read_timeout 900s;`). `deploy/Caddyfile` sudah mengaturnya.
 
 ## Catatan produksi
 

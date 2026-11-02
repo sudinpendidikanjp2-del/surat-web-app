@@ -32,8 +32,13 @@ services:
       OCR_URL: ${OCR_URL:-}
       APP_TZ: ${APP_TZ:-Asia/Jakarta}
       BACKUP_MAX_MB: ${BACKUP_MAX_MB:-4096}
+    # Di dalam container aplikasi selalu mendengar di port 3000; APP_PORT hanya port di host.
+    # APP_BIND=127.0.0.1 (bawaan): hanya reverse proxy yang berjalan langsung di host (Caddy/Nginx terpasang biasa).
+    # APP_BIND=0.0.0.0: reverse proxy di mesin lain atau di container yang memakai IP host (mis. 172.17.0.1).
+    # Reverse proxy berbentuk container (Nginx Proxy Manager, Traefik, Caddy Docker) lebih baik lewat
+    # docker-compose.proxy.yml dan menunjuk ke surat-app:3000, tanpa membuka port ke host sama sekali.
     ports:
-      - "127.0.0.1:${APP_PORT:-3000}:3000"   # hanya lokal; publikasikan lewat reverse proxy
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
     volumes:
       - storage:/data   # lampiran di /data/private, cadangan di /data/backups
 volumes:
