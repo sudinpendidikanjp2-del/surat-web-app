@@ -5,7 +5,7 @@
 #   docker network ls                        # cari nama jaringan reverse proxy Anda, lalu isi PROXY_NETWORK di .env
 #   COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml:docker-compose.proxy.yml   (di .env)
 #   docker compose up -d
-#   docker compose exec app curl -fsS http://surat-app:3000/healthz   # uji dari dalam jaringan
+#   docker compose exec app node -e "fetch('http://surat-app:3000/healthz').then(r=>console.log(r.status))"   # uji dari dalam jaringan
 services:
   app:
     networks:

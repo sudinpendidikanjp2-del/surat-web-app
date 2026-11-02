@@ -251,6 +251,20 @@ CI (`.github/workflows/ci.yml`) menjalankan lint, typecheck, build, dan seluruh 
 
 Belum teruji di lingkungan pengembangan saya: `docker build` dan `docker compose` (tidak ada daemon Docker di sana). Server diuji langsung dengan `NODE_ENV=production`: kata sandi acak, `/healthz`, `/readyz`, cookie Secure, dan header keamanan. Jalankan build pertama di server Anda dan periksa `docker compose ps` menunjukkan `healthy`.
 
+### Perintah di dalam container
+
+Image memakai entrypoint `sisurat`. Container mulai sebagai root hanya untuk memperbaiki pemilik folder `/data` (misalnya folder host yang dipasang dan dimiliki root), lalu aplikasi berjalan sebagai pengguna `node`. Migrasi skema berjalan otomatis saat server mulai.
+
+```bash
+docker compose exec app sisurat reset-password admin                       # kata sandi baru diminta di terminal
+docker compose exec -e PASSWORD='kata-sandi-baru' app sisurat reset-password admin
+docker compose exec app sisurat sh                                         # shell di container
+```
+
+`reset-password` juga mengaktifkan kembali akun itu, mengakhiri semua sesinya, dan mencatatnya di Catatan Kegiatan.
+
+Jangan menghapus `HOSTNAME=0.0.0.0` dari Dockerfile. Tanpa itu Docker mengisi `HOSTNAME` dengan ID container, server hanya mendengar di satu alamat container, healthcheck menjadi *unhealthy*, dan reverse proxy mendapat *connection refused*.
+
 ### Reverse proxy
 
 Di dalam container aplikasi **selalu mendengar di port 3000**. `APP_PORT` hanya port di host, dan secara bawaan port itu dibuka **hanya untuk 127.0.0.1** agar aplikasi tidak terbuka tanpa HTTPS. Pilih sesuai letak reverse proxy Anda:
@@ -268,7 +282,7 @@ Periksa berurutan:
 ```bash
 docker compose ps                                   # app harus "healthy"
 curl -fsS http://127.0.0.1:3000/healthz             # dari host (APP_PORT)
-docker compose exec app curl -fsS http://surat-app:3000/healthz   # nama di jaringan proxy (docker-compose.proxy.yml)
+docker compose exec app node -e "fetch('http://surat-app:3000/healthz').then(r=>console.log(r.status))"   # nama di jaringan proxy (docker-compose.proxy.yml)
 ```
 
 Proxy perlu meneruskan `Host` dan `X-Forwarded-Proto` (bawaan Caddy, Traefik, dan Nginx Proxy Manager). Untuk unggah file cadangan, naikkan batas ukuran isi permintaan di proxy (Nginx: `client_max_body_size 4g;` dan `proxy_read_timeout 900s;`). `deploy/Caddyfile` sudah mengaturnya.
