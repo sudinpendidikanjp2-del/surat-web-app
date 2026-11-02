@@ -5,7 +5,8 @@
 #   - tulis [minor] atau [major] di pesan commit untuk menaikkan bagian itu
 #   - atau jalankan manual (Actions > Publish Docker image > Run workflow) dan pilih bagian yang dinaikkan
 #   - push tag sendiri (git tag v3.0.0 && git push origin v3.0.0) memakai nomor itu apa adanya
-# Tag git, GitHub Release, dan tag image dibuat hanya bila CI lolos dan image berhasil dipublikasikan.
+# Setelah CI lolos, nomor versi dipesan sebagai tag git lewat API; image lalu dibangun dan diterbitkan, dan GitHub Release
+# dibuat terakhir. Nomor yang sudah terbit tidak pernah ditimpa.
 #
 # Tag image: :<versi> (mis. 2.0.1), :<mayor.minor> (2.0), :<nama-branch>, :sha-<7 huruf>; :latest dari main.
 name: Publish Docker image
@@ -86,6 +87,22 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "minor=$(cut -d. -f1,2 <<< "$version")" >> "$GITHUB_OUTPUT"
 
+      # Nomor versi dipesan SEBELUM image dibangun, lewat API (bukan git push: GitHub menolak push tag dari token Actions
+      # bila commit-nya mengubah berkas workflow). Bila tag sudah ada, langkah ini gagal sehingga image dengan nomor yang
+      # sama tidak pernah ditimpa. Bila build gagal sesudahnya, nomor itu dilewati dan publikasi berikutnya memakai nomor baru.
+      - name: Pesan nomor versi (tag git)
+        if: steps.ver.outputs.new_tag == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          if ! out=$(gh api "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/v$VERSION" -f "sha=$GITHUB_SHA" 2>&1); then
+            echo "::error::Tag v$VERSION tidak dapat dibuat (sudah ada atau ditolak): $out"
+            exit 1
+          fi
+          echo "Tag v$VERSION dipesan untuk $GITHUB_SHA"
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Masuk ke ghcr.io
@@ -130,20 +147,19 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
-      - name: Buat tag git dan GitHub Release
-        if: steps.ver.outputs.new_tag == 'true'
+      # Selalu dijalankan: menjalankan ulang setelah build gagal memakai tag yang sudah dipesan, jadi rilisnya dibuat di sini.
+      - name: Buat GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.ver.outputs.version }}
           IMAGE: ghcr.io/${{ github.repository }}
         run: |
           set -euo pipefail
-          git tag "v$VERSION" "$GITHUB_SHA"
-          git push origin "v$VERSION"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then echo "Rilis v$VERSION sudah ada"; exit 0; fi
           extra=()
           # Rilis dari selain main ditandai pra-rilis.
           [[ "$GITHUB_REF" == refs/heads/main ]] || extra+=(--prerelease)
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes "${extra[@]}" \
+          gh release create "v$VERSION" --verify-tag --title "v$VERSION" --generate-notes "${extra[@]}" \
             --notes "Image: \`$IMAGE:$VERSION\` (dari branch \`$GITHUB_REF_NAME\`)"
 
       - name: Ringkasan
