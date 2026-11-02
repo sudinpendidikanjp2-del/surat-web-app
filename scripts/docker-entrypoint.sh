@@ -5,6 +5,7 @@
 #
 #   sisurat serve                          jalankan server (bawaan)
 #   sisurat reset-password <username>      atur kata sandi baru (diminta lewat terminal, atau dari PASSWORD=...)
+#   sisurat check                          periksa modul dan berkas data yang dimuat saat berjalan (OCR, PDF)
 #   sisurat <perintah lain>                dijalankan apa adanya, misalnya: sisurat sh
 set -eu
 
@@ -45,6 +46,9 @@ case "$cmd" in
     ;;
   reset-password)
     as_node node /app/ops/reset-password.mjs "$@"
+    ;;
+  check)
+    cd /app && as_node node /app/ops/check-runtime.mjs "$@"
     ;;
   *)
     exec "$cmd" "$@"

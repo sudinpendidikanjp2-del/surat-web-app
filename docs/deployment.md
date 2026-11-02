@@ -145,6 +145,7 @@ Image berjalan sebagai pengguna `node` (uid 1000) dengan entrypoint `sisurat`:
 ```bash
 docker compose exec app sisurat reset-password admin                     # kata sandi baru diminta di terminal
 docker compose exec -e PASSWORD='kata-sandi-baru' app sisurat reset-password admin
+docker compose exec app sisurat check                                  # modul dan berkas data OCR/PDF lengkap
 docker compose exec app sisurat sh
 ```
 

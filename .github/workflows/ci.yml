@@ -76,3 +76,5 @@ jobs:
         run: |
           docker run --rm --entrypoint sh surat-web-app:ci -c 'test "$(id -u)" != 0 && test -f server.js && test -x /usr/local/bin/sisurat && command -v soffice'
           docker run --rm --entrypoint node surat-web-app:ci -e "console.log(process.version, require('node:os').userInfo().username)"
+      - name: Modul dan berkas data saat berjalan lengkap (worker OCR, MuPDF, pdfkit)
+        run: docker run --rm surat-web-app:ci check
