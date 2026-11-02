@@ -208,6 +208,7 @@ Workflow `.github/workflows/docker-publish.yml` menjalankan seluruh CI (lint, ty
 | Pemicu | Tag image |
 |---|---|
 | push ke `main` | `latest`, `main`, `sha-xxxxxxx` |
+| push ke `breaking-change` (sementara, sampai digabung ke `main`) | `breaking-change`, `sha-xxxxxxx` |
 | push tag `v1.2.3` (`git tag v1.2.3 && git push origin v1.2.3`) | `1.2.3`, `1.2`, `latest`, `sha-xxxxxxx` |
 | manual: Actions > Publish Docker image > Run workflow (pilih branch) | `<nama-branch>`, `sha-xxxxxxx` |
 

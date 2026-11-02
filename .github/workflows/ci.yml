@@ -1,8 +1,8 @@
 name: CI
 on:
-  # main dan tag rilis diuji oleh docker-publish.yml (memanggil workflow ini) sebelum image dipublikasikan.
+  # main, breaking-change, dan tag rilis diuji oleh docker-publish.yml (memanggil workflow ini) sebelum image dipublikasikan.
   push:
-    branches-ignore: [main]
+    branches-ignore: [main, breaking-change]
   pull_request:
   workflow_call:
 jobs:
