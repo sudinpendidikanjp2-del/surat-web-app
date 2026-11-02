@@ -1,5 +1,10 @@
 node_modules
-client/dist
 storage
 .env
+.env.local
+.data/
 *.log
+
+.next/
+next-env.d.ts
+*.tsbuildinfo

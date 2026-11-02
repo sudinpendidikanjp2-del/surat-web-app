@@ -6,32 +6,51 @@ Konsep utama: satu surat masuk adalah satu **urusan (case)**. Disposisi, tugas, 
 
 ## Teknologi
 
-- Frontend: Vite, React 18, React Router, TanStack Query, Motion (pegas).
-- Backend: Node.js 22, Express.
-- Database: PostgreSQL 16, SQL langsung lewat `pg` (skema di `server/src/db.js`).
-- OCR: tesseract.js (model bahasa Indonesia, `best_int`) dengan prapengolahan sharp. Opsional: server model OCR jarak jauh (lihat bagian OCR).
+- Satu aplikasi Next.js 16 (App Router, React 19, TypeScript): halaman dan API (`src/app/api/**/route.ts`) dalam satu proses.
+- Tampilan: Tailwind CSS 4, komponen gaya shadcn/ui (Radix), TanStack Query untuk data, ikon lucide, huruf Plus Jakarta Sans (disajikan sendiri, tanpa layanan luar). Ekspor Excel dengan exceljs, PDF tabel dengan pdfkit.
+- Database: PostgreSQL 16, SQL langsung lewat `pg` (skema di `src/server/infrastructure/db/schema.ts`).
+- OCR: Gemini AI bila `GEMINI_API_KEY` diatur, dengan cadangan tesseract.js (model bahasa Indonesia, `best_int`) dan prapengolahan sharp. PDF diubah menjadi gambar halaman pertama dengan mupdf. Opsional: server model OCR jarak jauh (lihat bagian OCR).
 - DOCX: docxtemplater dan PizZip (placeholder `{{nama_field}}`), pratinjau dengan mammoth, PDF lewat LibreOffice (`soffice`) bila terpasang.
+
+## Susunan kode (clean architecture)
+
+Ketergantungan hanya mengarah ke dalam:
+
+```
+src/domain/                 aturan murni (status, SLA, hak akses, validasi). Dipakai server dan peramban.
+src/server/application/     use case + ports (antarmuka repositori dan layanan). Tidak tahu HTTP maupun SQL.
+src/server/infrastructure/  implementasi ports: PostgreSQL, penyimpanan file, OCR, DOCX, QR, kripto.
+src/server/container.ts     composition root: merangkai implementasi ke use case.
+src/server/http/            pembungkus route: sesi, CSRF, galat ke status HTTP.
+src/app/api/**/route.ts     adaptor tipis: baca permintaan, panggil satu use case, kirim JSON.
+src/features/<fitur>/       halaman per fitur: api.ts (hook React Query) dan komponen halamannya.
+src/components/ui/          komponen dasar (shadcn/ui), src/components/app/ komponen bersama aplikasi.
+src/app/(app)/              rute halaman yang butuh login, src/app/lacak/ halaman umum pelacakan.
+```
+
+Saat server mulai (`src/instrumentation.ts`), migrasi skema dan data awal berjalan, lalu pengingat batas waktu dijadwalkan.
 
 Catatan deviasi dari PRD: PRD menyebut Prisma. Versi ini memakai `pg` dengan SQL langsung agar tidak bergantung pada unduhan mesin Prisma. Skema memakai SQL standar dan mudah dipindah ke Prisma.
 
-## Menjalankan
+## Menjalankan di komputer sendiri
 
-Prasyarat: Node 22 atau lebih baru, PostgreSQL, dan (opsional, untuk unduh PDF) LibreOffice.
+Prasyarat: Node 22 atau lebih baru. PostgreSQL dan Docker **tidak wajib**.
 
 ```bash
-createdb surat   # atau sesuaikan DATABASE_URL
-npm install
-npm run build              # membangun frontend ke client/dist
-DATABASE_URL=postgres://surat:surat_dev@localhost:5432/surat npm start
+npm run setup        # npm install + membuat .env.local (DATABASE_URL dan lainnya)
+npm run dev:local    # PostgreSQL 16 tertanam + aplikasi, satu perintah. Berhenti: Ctrl+C
 ```
 
-Buka http://localhost:3000. Saat database kosong, server membuat tabel, unit, akun awal, pengaturan, dan lima template bawaan.
+Buka http://localhost:3000 dan masuk sebagai `admin` / `surat12345`. Saat database kosong, aplikasi membuat tabel, unit, akun awal, pengaturan, dan lima template bawaan.
 
-Pengembangan: jalankan `npm run dev:server` dan `npm run dev:client` di dua terminal (Vite memproksikan `/api` ke port 3000; ubah dengan `API_URL`).
-
-Data contoh (opsional, perihal diawali `[CONTOH]`): jalankan server, lalu `npm run seed:demo`.
-
-Uji: `npm test` (membuat ulang database `surat_test`; butuh hak membuat database).
+- PostgreSQL datang dari paket npm `embedded-postgres` (biner untuk Windows, macOS, dan Linux). Data tersimpan di `.data/postgres` dan tetap ada setelah berhenti. Hapus folder itu untuk mulai dari kosong.
+- Database dan aplikasi terpisah: `npm run db` di satu jendela, `npm run dev` di jendela lain.
+- Sudah punya Docker: `npm run db:docker` lalu `npm run dev`.
+- Sudah punya PostgreSQL sendiri: ubah `DATABASE_URL` di `.env.local` (akun perlu hak `CREATEDB` untuk `npm test`), lalu `npm run dev`.
+- Port 5432 terpakai: `DEV_DB_PORT=5433 npm run dev:local` dan ubah port di `.env.local`.
+- Data contoh (perihal diawali `[CONTOH]`), saat aplikasi berjalan: `npm run seed:demo`.
+- Pemeriksaan: `npm run lint`, `npm run typecheck`, `npm run build`, lalu `npm test` (17 uji, membuat ulang database `surat_test`; database harus menyala).
+- Unduh PDF surat keluar butuh LibreOffice (opsional). Tanpanya, DOCX tetap dapat diunduh.
 
 ## Akun awal
 
@@ -39,47 +58,75 @@ Kata sandi awal semua akun: `surat12345` (ubah lewat `SEED_PASSWORD` sebelum per
 
 | Nama pengguna | Peran |
 |---|---|
-| admin | Super Admin |
+| admin | Admin Sistem |
 | tu | Tata Usaha |
 | pimpinan | Pimpinan |
 | kasi.data | Pejabat (Seksi Data) |
 | andi, budi | Pelaksana (Seksi Data) |
-| viewer | Viewer |
+| viewer | Pemantau |
 
-Unit awal (Pimpinan, Tata Usaha, Seksi Data) dan nama instansi (`Sudin Pendidikan JP2`, kode nomor `Sudin-JP2`) hanya titik awal. Ubah di menu Unit Kerja dan Pengaturan.
+Unit awal (Pimpinan, Tata Usaha, Seksi Data) dan nama instansi (`Sudin Pendidikan JP2`, kode nomor `Sudin-JP2`) hanya titik awal. Ubah di Menu Lainnya, Unit Kerja dan Pengaturan Kantor.
 
 ## Cakupan fitur
 
 Sesuai MVP dan sebagian P1 PRD:
 
 - Login, sesi, peran dan izin per aksi, audit log tak terhapus.
-- Surat masuk: catat dari **foto surat (OCR)** atau manual, nomor agenda otomatis (`SM-2026-000125`), SLA dan indikator sisa waktu, kode QR, lembar disposisi cetak.
+- Surat masuk: catat dari **foto atau PDF (OCR, Gemini AI bila diaktifkan)**, manual, atau **impor Excel**; nomor agenda otomatis (`SM-2026-000125`), SLA dan indikator sisa waktu, kode QR, lembar disposisi cetak.
+- **Tanda terima untuk pengirim** langsung setelah surat dicatat: kode lacak unik dan QR menuju halaman `/lacak`, siap dicetak atau dibagikan.
 - **Pelacakan oleh pengirim** tanpa login (lihat bagian khusus).
 - Disposisi: ke unit atau pegawai, tindakan, batas waktu, prioritas, terima, teruskan berjenjang, kembalikan dengan alasan.
 - Tugas: beberapa tugas per surat, penanggung jawab, daftar periksa, progres, status delapan tahap, minta data, lampiran hasil.
 - Konfirmasi ke pemberi surat dan syarat penyelesaian (tugas selesai, balasan terkirim, konfirmasi dicatat).
-- Surat keluar: generator dari template DOCX, pratinjau, versi dokumen, review, persetujuan, penomoran atomik tanpa nomor ganda, unggah dokumen bertanda tangan, catat pengiriman, relasi dua arah dengan surat masuk.
-- Template: unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field, pratinjau.
+- Surat keluar: generator dari template DOCX dengan **pratinjau berdampingan yang diperbarui saat mengetik** dan **unduh Word/PDF sebelum disimpan**, versi dokumen, review, persetujuan, penomoran atomik tanpa nomor ganda, unggah dokumen bertanda tangan, catat pengiriman, relasi dua arah dengan surat masuk.
+- **Isi surat kaya**: isian isi surat memakai editor (Tiptap) dengan **tabel** (tambah/hapus baris dan kolom, gabung sel, baris judul, lebar kolom digeser), daftar berpoin dan bernomor, tebal, miring, garis bawah, coret, dan perataan. Hasilnya masuk ke DOCX dan PDF sebagai tabel dan paragraf Word asli yang mengikuti huruf dan indentasi template.
+- Template: unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field (satu baris, beberapa baris, **teks kaya**, tanggal), pratinjau.
+- **Google Drive dan Spreadsheet**: lampiran tersalin ke folder tersusun, rekap surat ke spreadsheet (lihat bagian khusus).
+- **Cadangan dan pemulihan** dari aplikasi: unduh, unggah, salin ke Drive, jadwal harian, pemulihan dengan cadangan pengaman (lihat bagian khusus).
 - Beranda per peran dengan daftar "Perlu tindakan Anda", notifikasi, pengingat H-3, H-1, hari H, terlambat dengan eskalasi, komentar dan `@mention`.
-- **Semua daftar data** (surat masuk, surat keluar, disposisi, tugas, pengguna, notifikasi): pencarian, saringan dengan chip aktif, urutan kolom, pagination di server (10 sampai 100 per halaman), status daftar di URL, ekspor CSV, dan **aksi massal**:
-  - Surat masuk: teruskan kepada pimpinan, arsipkan (TU); berikan disposisi ke banyak surat sekaligus (pimpinan).
-  - Surat keluar: setujui dan beri nomor, kembalikan untuk revisi (pimpinan); ajukan persetujuan.
-  - Disposisi: terima banyak sekaligus.
-  - Tugas: tandai diproses, tandai selesai, ubah tenggat, batalkan.
-  - Pengguna: aktifkan dan nonaktifkan. Notifikasi: tandai dibaca.
-  - "Pilih semua N hasil" memilih lintas halaman (maks 500). Setiap aksi massal berjalan per data: yang gagal dilaporkan rinci dan tidak membatalkan yang lain. Maks 200 data per aksi.
-- Pencarian lintas surat masuk dan keluar, arsip per tahun, jenis, bulan, laporan dengan ekspor CSV.
+- **Daftar data** (surat masuk, surat keluar, pekerjaan, pengguna, unit, instansi, data referensi, pemberitahuan): tabel di layar lebar dan daftar ringkas di ponsel, tab tampilan, pencarian, **filter** (rentang tanggal, sifat, prioritas, jenis), **urutan lewat kepala kolom**, **halaman bernomor dan jumlah baris**, keadaan daftar di alamat (tombol Kembali tetap bekerja).
+- **Ekspor** hasil filter yang sedang dipakai ke **CSV, Excel (.xlsx), dan PDF**: surat masuk, surat keluar, tugas, pengguna, unit, instansi, data referensi, dan setiap tabel laporan.
+- **Impor Excel** dengan contoh file yang dapat diunduh: surat masuk, pengguna, unit kerja, instansi, data referensi. Setiap baris diproses sendiri; baris yang gagal dilaporkan dengan nomor baris dan alasannya.
+- **Data induk yang diatur admin**: instansi pengirim dan tujuan (saran saat mencatat surat), jenis surat, sifat surat, tindakan disposisi, cara mengabari pengirim, cara pengiriman surat keluar. Nilai yang dipakai sistem (sifat Biasa dan Rahasia) dikunci.
+- **Identitas aplikasi** dapat diubah admin di Pengaturan > Tampilan aplikasi: nama, keterangan, judul tab peramban, deskripsi halaman, dan ikon (favicon).
+- **Aksi massal**: centang beberapa baris, lalu pilih tindakan di bilah yang muncul di bawah. Server memproses satu per satu (maks 200 data); yang gagal tidak membatalkan yang lain dan alasannya ditampilkan per data.
+  - Surat masuk: teruskan ke pimpinan, arsipkan (TU); beri disposisi yang sama untuk banyak surat (pimpinan).
+  - Surat keluar: ajukan persetujuan; setujui dan beri nomor, kembalikan untuk revisi (pimpinan).
+  - Pekerjaan: terima banyak disposisi; tandai tugas dikerjakan atau selesai; ubah batas waktu atau batalkan tugas yang Anda berikan.
+  - Pengguna, instansi, data referensi: aktifkan dan nonaktifkan. Pemberitahuan: tandai dibaca.
+- Tampilan terang dan gelap (ikuti perangkat atau pilih sendiri di kepala halaman). Arah desain ada di `DESIGN.md`.
+- Pencarian lintas surat masuk dan keluar, arsip per tahun, jenis, bulan, laporan dengan grafik dan ekspor CSV, Excel, dan PDF.
 - Keamanan: hash scrypt, cookie `HttpOnly` `SameSite=Strict`, header CSRF, pembatas laju, CSP, validasi ekstensi dan isi file, file di `storage/private` yang hanya terbuka lewat endpoint berizin, kueri berparameter, urutan kolom lewat daftar putih, CSV dengan perlindungan injeksi rumus.
 
 ## OCR surat masuk dari foto
 
-Menu Surat Masuk, Catat Surat Masuk, Dari foto surat. Foto halaman pertama surat (kamera ponsel atau galeri). Sistem membaca nomor surat, tanggal, perihal, sifat, lampiran, instansi, alamat, dan pengirim. Tampilan dibagi dua: foto di kiri, formulir di kanan. Isian yang keyakinannya di bawah 85% atau tidak terbaca diberi latar kuning. **Hasil hanyalah usulan: pengguna wajib memeriksa lalu menyimpan sendiri.**
+Surat Masuk, Catat Surat Masuk, lalu Ambil Foto Surat atau Pilih Foto yang Sudah Ada. Foto halaman pertama surat (kamera ponsel atau galeri), atau unggah PDF surat. Sistem membaca nomor surat, tanggal, perihal, sifat, lampiran, instansi, alamat, dan pengirim. Di layar lebar foto tampil di samping formulir. Isian yang keyakinannya di bawah 85% atau tidak terbaca diberi latar kuning. **Hasil hanyalah usulan: pengguna wajib memeriksa lalu menyimpan sendiri.**
+
+PDF (maks 12 MB, sama dengan foto) diubah dahulu menjadi gambar halaman pertama (sekitar 2200 px, dengan MuPDF), lalu dibaca seperti foto. Gambar itu juga dikirim kembali sebagai pratinjau (`preview`, data URL PNG) agar tampil di samping formulir. Halaman lain tidak dibaca. PDF yang dikunci kata sandi, kosong, atau rusak ditolak dengan pesan yang jelas.
 
 Pipeline: koreksi orientasi EXIF, ubah ke 2400 px, ratakan pencahayaan, pangkas tepi kertas, hilangkan derau, luruskan kemiringan, binarisasi, lalu Tesseract (bahasa Indonesia). Teks diurai dengan aturan khusus surat dinas (perbaikan salah baca angka romawi, 0 dan O, 1 dan l, nama bulan yang salah baca). Bila hasil pertama kurang lengkap, dicoba dua pemetaan lain dan diambil yang terbaik. Satu foto dibatasi 45 detik.
 
+### Gemini (opsional)
+
+Untuk foto yang sulit (miring, berbayang, cap tumpang tindih), Gemini dari Google biasanya jauh lebih akurat daripada Tesseract. Buat kunci API di Google AI Studio, lalu set
+
+```
+GEMINI_API_KEY=kunci-anda
+GEMINI_MODEL=gemini-2.5-flash   # bawaan
+OCR_ENGINE=auto                 # bawaan: Gemini dipakai bila kunci ada. gemini = selalu Gemini
+OCR_FALLBACK=on                 # bila Gemini gagal (jaringan, kuota, batas waktu OCR_TIMEOUT_SEC), jatuh ke Tesseract
+# GEMINI_BASE_URL=...           # hanya untuk proxy atau uji
+```
+
+Aplikasi memanggil REST `generateContent` dengan foto (atau gambar halaman pertama PDF) dan meminta jawaban JSON berisi isian yang sama (nomor, tanggal, perihal, sifat, lampiran, instansi, alamat, pengirim) beserta perkiraan keyakinan per isian. Nilainya dinormalkan dengan aturan yang sama (tanggal ke YYYY-MM-DD, sifat ke Biasa, Segera, Penting, atau Rahasia). Bila Gemini gagal dan cadangan aktif, Tesseract dipakai dan pengguna melihat peringatan "Gemini tidak dapat dipakai, memakai pembaca bawaan".
+
+**Privasi:** dengan Gemini, foto atau PDF surat dikirim ke server Google. Jangan aktifkan untuk instansi yang tidak mengizinkan dokumen keluar dari jaringannya, dan periksa ketentuan data pada paket API yang dipakai. Kunci API tidak pernah dicatat di log.
+
+Keyakinan dari Gemini adalah perkiraan model sendiri, bukan skor yang terukur. **Hasilnya tetap usulan: pengguna wajib memeriksa setiap isian sebelum menyimpan.** Adaptor ini diuji dengan server tiruan; ukur dahulu pada surat Anda sendiri.
+
 ### Akurasi
 
-Diukur dengan `server/scripts/gen-ocr-corpus.py` (membuat surat sintetis beserta kunci jawaban) dan `server/scripts/bench-ocr.mjs`. Hasil terakhir ada di bagian "Hasil pengukuran" di bawah. Catatan jujur: korpus sintetis memakai satu keluarga huruf dan tata letak surat dinas yang rapi, sehingga **akurasi pada surat sungguhan dapat lebih rendah**, terutama untuk cap tumpang tindih, tulisan tangan, kop berwarna, dan foto miring atau berbayang berat. Karena itu sistem menandai isian yang kurang yakin dan tidak pernah menyimpan otomatis. Untuk mengukur pada surat Anda sendiri, taruh foto dan kunci jawabannya dalam format `truth.json` yang sama lalu jalankan `node server/scripts/bench-ocr.mjs <folder>`.
+Diukur dengan `scripts/ocr/gen-ocr-corpus.py` (membuat surat sintetis beserta kunci jawaban) dan `npm run bench:ocr` (`scripts/ocr/bench-ocr.test.ts`). Hasil terakhir ada di bagian "Hasil pengukuran" di bawah. Catatan jujur: korpus sintetis memakai satu keluarga huruf dan tata letak surat dinas yang rapi, sehingga **akurasi pada surat sungguhan dapat lebih rendah**, terutama untuk cap tumpang tindih, tulisan tangan, kop berwarna, dan foto miring atau berbayang berat. Karena itu sistem menandai isian yang kurang yakin dan tidak pernah menyimpan otomatis. Untuk mengukur pada surat Anda sendiri, taruh foto dan kunci jawabannya dalam format `truth.json` yang sama lalu jalankan `OCR_CORPUS=<folder> npm run bench:ocr`.
 
 ### Hasil pengukuran
 
@@ -105,40 +152,82 @@ OCR_FALLBACK=on                # bila server mati, jatuh ke Tesseract
 # parameter tambahan sesuai server, mis. SGLang: OCR_EXTRA_JSON={"images_config":{"image_mode":"base"}}
 ```
 
-Aplikasi mengirim foto dan perintah `document parsing.` ke `/v1/chat/completions`, lalu mengurai keluaran Markdown dengan penguraian yang sama. Model ini tidak memberi skor keyakinan per baris, jadi pemeriksaan manual tetap wajib. **Belum diuji dengan model aslinya di lingkungan ini (tidak ada GPU)**; adaptor diuji dengan server tiruan. Ukur dahulu dengan `bench-ocr.mjs` pada data surat Anda sebelum memutuskan memakainya.
+Aplikasi mengirim foto dan perintah `document parsing.` ke `/v1/chat/completions`, lalu mengurai keluaran Markdown dengan penguraian yang sama. Model ini tidak memberi skor keyakinan per baris, jadi pemeriksaan manual tetap wajib. **Belum diuji dengan model aslinya di lingkungan ini (tidak ada GPU)**; adaptor diuji dengan server tiruan. Ukur dahulu dengan `npm run bench:ocr` pada data surat Anda sebelum memutuskan memakainya.
 
 ## Pelacakan progres oleh pengirim surat
 
 Halaman publik `/lacak` (tanpa login) agar pengirim dapat memantau suratnya. Dipilih **kode acak 100 bit**, bukan nomor surat atau nomor agenda, karena nomor mudah ditebak. Kode ditampilkan sebagai `7K2M-9QXA-4TBD-H3WN-5RFP` dan dapat dibuka lewat tautan `/lacak/<kode>` atau diketik di `/lacak`.
 
-- Tersedia di Surat Masuk, Aksi lain, Pelacakan oleh pengirim (TU, admin, dan pimpinan melihat; hanya TU dan admin dapat menonaktifkan atau membuat ulang kode).
+- Tersedia di halaman surat masuk, bagian "Yang juga bisa Anda lakukan", Pelacakan oleh Pengirim (TU, admin, dan pimpinan melihat; hanya TU dan admin dapat menonaktifkan atau membuat ulang kode).
 - Pengirim hanya melihat nomor surat milik mereka sendiri, enam tahapan umum dengan tanggal, dan tanggal pembaruan. Tidak ada perihal, nama pegawai, instruksi, atau catatan internal.
 - Pembatas laju 30 percobaan per 10 menit per alamat IP. Kode salah, dinonaktifkan, atau kedaluwarsa memberi jawaban yang sama persis.
 - Surat berstatus Rahasia: pelacakan mati secara bawaan.
 - Kedaluwarsa otomatis 30 hari setelah surat selesai. Kode dapat dibuat ulang kapan saja (kode lama langsung mati).
 - Respons `no-store`, `noindex`, tanpa referrer.
 
+## Isi surat dengan tabel
+
+Template bawaan memakai isian `isi_surat`/`isi` bertipe **Teks kaya**. Untuk template unggahan sendiri, setiap placeholder yang namanya diawali `isi` atau `uraian` otomatis menjadi teks kaya; tipe isian lain dapat diubah admin di halaman template (Atur Isian). Letakkan placeholder sendirian di paragrafnya (misalnya `{{isi_surat}}`) agar isinya menjadi paragraf, daftar, dan tabel Word yang mewarisi huruf, ukuran, indentasi, dan jarak paragraf itu. Bila placeholder berada di tengah kalimat, isinya disisipkan sebagai baris teks (tabel menjadi kolom dipisah tab). Isian lama berupa teks biasa tetap tampil seperti sebelumnya.
+
+## Google Drive dan Spreadsheet
+
+Admin > **Google Drive & Sheets**. Dua cara terhubung:
+
+- **Akun Google kantor (Gmail biasa)**, paling mudah. Di Google Cloud Console aktifkan Google Drive API dan Google Sheets API, buat *OAuth client ID* jenis *Web application*, tambahkan alamat pengalihan yang tertera di halaman (`https://alamat-anda/api/google/callback`), lalu tempel Client ID dan Secret dan tekan **Hubungkan Akun Google**. Aplikasi hanya meminta izin `drive.file` (hanya file yang dibuatnya sendiri) dan `spreadsheets`.
+- **Akun layanan** (Google Workspace). Unggah kunci JSON akun layanan dan tempel tautan folder di **Shared Drive** yang anggotanya memuat email akun layanan. Akun layanan tidak punya ruang Drive sendiri, jadi folder biasa di My Drive ditolak Google.
+
+Susunan di Drive: `Sistem Surat/Surat Masuk/2026/10 Oktober/SM-2026-000123 Perihal/…`, `Surat Keluar/…`, dan `Cadangan/`. File yang sudah tersalin dicatat (`attachments.drive_file_id`) sehingga tidak diunggah ulang; mengganti folder tujuan membuat semua file disalin lagi ke folder baru. Spreadsheet `Rekap Sistem Surat` berisi lembar Ringkasan, Surat Masuk, Surat Keluar, Tugas, dan Instansi dengan baris judul berwarna, dibekukan, dan bersaring. Lembar-lembar itu ditulis ulang setiap sinkronisasi, jadi catatan tambahan sebaiknya di lembar lain.
+
+Sinkronisasi berjalan saat ditekan atau otomatis (setiap 1, 3, 6, 12, atau 24 jam), maksimal 300 file per putaran. Rahasia (Client Secret, refresh token, kunci privat) disimpan di database dan tidak pernah dikirim ke peramban.
+
+Diuji dengan server Google tiruan (`test/support/fake-google.ts`): token JWT dan OAuth, folder, unggah biasa dan bersambung, unduh, lembar, dan format. **Belum diuji melawan akun Google sungguhan di lingkungan pengembangan ini.** Coba dulu dengan folder dan spreadsheet uji.
+
+## Cadangan dan pemulihan
+
+Admin > **Cadangan Data**.
+
+- **Isi cadangan**: satu file `.tar.gz` berisi seluruh tabel (diambil dalam satu transaksi agar saling cocok), semua file lampiran dan template, dan `manifest.json`. Sesi login tidak ikut. Karena memuat seluruh data, termasuk kata sandi ter-hash dan kredensial Google yang tersimpan, perlakukan file cadangan sebagai rahasia. Cadangan berada di `BACKUP_DIR` (bawaan `storage/backups`, di Docker `/data/backups`).
+- **Buat cadangan**: tekan Buat Cadangan Sekarang, atau atur **cadangan otomatis harian** (jam, jumlah yang disimpan, salinan ke Google Drive).
+- **Unduh** untuk disimpan di luar server, atau **Salin ke Google Drive**.
+- **Pulihkan**: dari daftar, dari file yang diunggah (diperiksa dulu), atau dari folder Cadangan di Drive. Admin harus mengetik `PULIHKAN`. Sebelum mengganti data, sistem membuat **cadangan pengaman** dari keadaan sekarang. Database diganti dalam satu transaksi (gagal di tengah berarti tidak ada yang berubah), lalu folder file ditukar. Semua pengguna perlu masuk lagi. Sambungan Google dan jadwal cadangan dipertahankan. Cadangan dari versi aplikasi lama dapat dipulihkan karena kolom baru memakai nilai bawaan dan migrasi dijalankan ulang.
+- `STORAGE_DIR` dan folder sementara pemulihan harus berada di disk yang sama (folder ditukar dengan rename). Jangan memasang `STORAGE_DIR` sebagai titik mount tersendiri; pasang folder induknya (Docker: volume `/data`).
+- Skrip `scripts/backup.sh` dan `scripts/restore.sh` tetap ada untuk cadangan dari luar aplikasi (cron, `pg_dump`).
+
 ## Belum ada (di luar MVP, sesuai fase PRD)
 
-Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, sinkronisasi Google Drive, OCR dan pencarian isi dokumen, ekspor Excel dan PDF laporan (CSV tersedia), tracking publik, TTE, fitur AI, backup terkelola di luar server (skrip `scripts/backup.sh` tersedia).
+Delegasi kewenangan, persetujuan berjenjang yang dapat dikonfigurasi, kalender, notifikasi email dan browser, PWA dan antrean offline, pencarian isi dokumen, TTE, fitur AI selain pembacaan surat.
 
 Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint mengembalikan pesan jelas dan DOCX tetap dapat diunduh.
 
-## Uji lokal dengan database siap pakai
+## Deploy produksi (Docker)
 
-Cara tercepat (butuh Docker dan Node 22):
+### Dengan image siap jadi dari GitHub (disarankan)
+
+Workflow `.github/workflows/docker-publish.yml` menjalankan seluruh CI (lint, typecheck, build, uji), lalu membangun dan memublikasikan image ke **GitHub Container Registry** sebagai Package repo ini: `ghcr.io/sudinpendidikanjp2-del/surat-web-app`.
+
+| Pemicu | Tag image |
+|---|---|
+| push ke `main` | `latest`, `main`, `sha-xxxxxxx` |
+| push ke `breaking-change` (sementara, sampai digabung ke `main`) | `breaking-change`, `sha-xxxxxxx` |
+| push tag `v1.2.3` (`git tag v1.2.3 && git push origin v1.2.3`) | `1.2.3`, `1.2`, `latest`, `sha-xxxxxxx` |
+| manual: Actions > Publish Docker image > Run workflow (pilih branch) | `<nama-branch>`, `sha-xxxxxxx` |
+
+Tidak perlu secret tambahan: workflow memakai `GITHUB_TOKEN` dengan izin `packages: write`. Image juga diberi bukti asal (build provenance) yang dapat diperiksa dengan `gh attestation verify oci://ghcr.io/sudinpendidikanjp2-del/surat-web-app:latest --repo sudinpendidikanjp2-del/surat-web-app`. Image dibangun untuk `linux/amd64`.
+
+Di server (cukup salin `docker-compose.yml`, `docker-compose.image.yml`, dan `.env`; kode sumber tidak diperlukan):
 
 ```bash
-./scripts/local-setup.sh        # PostgreSQL di Docker (db surat dan surat_test), npm install, build
-npm run dev:server              # API :3000, migrasi dan akun awal otomatis
-npm run dev:client              # UI :5173
-npm run seed:demo               # opsional, saat server jalan: isi data contoh
-npm test                        # 17 uji backend (membuat db uji sendiri)
+cp .env.example .env            # isi POSTGRES_PASSWORD dan SEED_PASSWORD
+echo "COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml" >> .env
+# echo "APP_IMAGE=ghcr.io/sudinpendidikanjp2-del/surat-web-app:1.2.3" >> .env   # kunci ke versi tertentu
+docker compose pull && docker compose up -d
 ```
 
-Tanpa Docker: pakai PostgreSQL sendiri, buat role `surat` dengan hak `CREATEDB`, lalu `SKIP_DOCKER=1 ./scripts/local-setup.sh`. Atur `DATABASE_URL` dan `TEST_DATABASE_URL` bila nama/sandi berbeda. Masuk dengan `admin` / `surat12345`.
+Bila repo privat, package-nya juga privat: di server masuk dulu dengan `docker login ghcr.io -u <username-github>` memakai *personal access token* (classic) berizin `read:packages`. Atau jadikan package publik di halaman Packages > Package settings.
 
-## Deploy produksi (Docker)
+Pembaruan: `docker compose pull && docker compose up -d`. Migrasi skema berjalan otomatis saat start.
+
+### Dengan build di server
 
 ```bash
 cp .env.example .env            # isi POSTGRES_PASSWORD (wajib) dan SEED_PASSWORD
@@ -148,12 +237,12 @@ docker compose logs app | grep "Akun awal"   # bila SEED_PASSWORD kosong, kata s
 
 1. Taruh HTTPS di depan aplikasi. Contoh Caddy (sertifikat otomatis) ada di `deploy/Caddyfile`. Cookie sesi bertanda `Secure`, jadi login hanya jalan lewat HTTPS (localhost dikecualikan oleh peramban).
 2. Masuk sebagai `admin`, ganti kata sandi semua akun bawaan, lalu ubah nama instansi, unit, dan pengaturan penomoran.
-3. Cadangan harian: `./scripts/backup.sh` (database dan file privat, simpan 14 hari). Jadwalkan dengan cron. Pulihkan dengan `./scripts/restore.sh`. Coba pulihkan di mesin lain sebelum mengandalkannya.
+3. Cadangan harian: aktifkan di Admin > Cadangan Data (sebaiknya dengan salinan ke Google Drive), atau jadwalkan `./scripts/backup.sh` dengan cron. Coba pulihkan di mesin lain sebelum mengandalkannya.
 4. Pemantauan: `GET /healthz` (proses hidup) dan `GET /readyz` (database terjangkau). Image punya HEALTHCHECK bawaan.
 5. Pembaruan: `git pull && docker compose up -d --build`. Migrasi skema berjalan otomatis saat start.
 6. Image memasang LibreOffice (untuk PDF), sehingga cukup besar. Hapus baris `apt-get` di `Dockerfile` bila PDF tidak dibutuhkan.
 
-CI (`.github/workflows/ci.yml`) menjalankan build dan seluruh uji dengan PostgreSQL, serta membangun image Docker.
+CI (`.github/workflows/ci.yml`) menjalankan lint, typecheck, build, dan seluruh uji dengan PostgreSQL, serta membangun image Docker.
 
 Belum teruji di lingkungan pengembangan saya: `docker build` dan `docker compose` (tidak ada daemon Docker di sana). Server diuji langsung dengan `NODE_ENV=production`: kata sandi acak, `/healthz`, `/readyz`, cookie Secure, dan header keamanan. Jalankan build pertama di server Anda dan periksa `docker compose ps` menunjukkan `healthy`.
 

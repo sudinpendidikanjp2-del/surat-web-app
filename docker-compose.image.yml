@@ -1,0 +1,10 @@
+# Pakai image siap jadi dari GitHub Container Registry, tanpa build di server.
+#   docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
+# Atau isi COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml di .env, lalu cukup `docker compose pull && docker compose up -d`.
+# APP_IMAGE dapat dikunci ke versi tertentu, misalnya ghcr.io/sudinpendidikanjp2-del/surat-web-app:1.2.0
+services:
+  app:
+    image: ${APP_IMAGE:-ghcr.io/sudinpendidikanjp2-del/surat-web-app:latest}
+    pull_policy: always
+    build: !reset null

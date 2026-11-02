@@ -1,0 +1,179 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * Sistem Surat: token desain. Alasan setiap keputusan ada di DESIGN.md.
+ * Arah (dari referensi pemilik): latar abu sangat muda, kartu putih bersudut besar, navy untuk tinta dan
+ * menu aktif, kuning untuk satu tindakan utama per layar. Kuning hanya sebagai isi tombol, tidak pernah teks.
+ */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+  --font-sans: var(--font-jakarta), system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  --color-background: #f4f5f9;
+  --color-foreground: #16173a;
+  --color-card: #ffffff;
+  --color-card-foreground: #16173a;
+  --color-muted: #f0f1f6;
+  --color-muted-foreground: #5f6280;
+  --color-line: #eceef4;
+  --color-border: #e3e5ee;
+  --color-strong: #a3a6bc;
+  --color-input: #8f92ab;
+  --color-ring: #1e1f4f;
+
+  /* Navy: tinta, menu aktif, tombol sekunder gelap. */
+  --color-primary: #1e1f4f;
+  --color-primary-hover: #2c2e6b;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #ecedf7;
+  --color-primary-ink: #1e1f4f;
+  /* Kuning: satu tindakan utama per layar. Teks di atasnya selalu navy (11.9:1). */
+  --color-accent: #ffd233;
+  --color-accent-hover: #ffc700;
+  --color-accent-foreground: #16173a;
+  --color-accent-soft: #fff5d1;
+  --color-accent-ink: #7a5600;
+  --color-destructive: #c4282d;
+  --color-destructive-hover: #a51f24;
+  --color-destructive-foreground: #ffffff;
+
+  --color-ok: #0f7a43;
+  --color-ok-soft: #e5f6ec;
+  --color-warn: #8a5a00;
+  --color-warn-soft: #fff3d6;
+  --color-late: #c4282d;
+  --color-late-soft: #fdecec;
+  --color-overlay: rgb(16 17 40 / 0.45);
+  /* Grafik: dua seri dari keluarga merek, lolos uji buta warna (dataviz validate_palette). */
+  --color-chart-1: #4b4fc4;
+  --color-chart-2: #c99400;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-card: 0 1px 2px rgb(22 23 58 / 0.04), 0 1px 1px rgb(22 23 58 / 0.02);
+
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 1.15;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* Tema gelap: navy pekat sebagai latar; menu aktif memakai lavender terang dengan teks navy. Kuning tetap. */
+@layer theme {
+  :root[data-theme='dark'] {
+    --color-background: #0f1024;
+    --color-foreground: #ecedf6;
+    --color-card: #181a36;
+    --color-card-foreground: #ecedf6;
+    --color-muted: #22244a;
+    --color-muted-foreground: #a7aac6;
+    --color-line: #25284a;
+    --color-border: #2e3157;
+    --color-strong: #5b5f88;
+    --color-input: #6e72a0;
+    --color-ring: #ffd233;
+    --color-primary: #c9cbff;
+    --color-primary-hover: #dfe0ff;
+    --color-primary-foreground: #16173a;
+    --color-primary-soft: #262a5c;
+    --color-primary-ink: #c9cbff;
+    --color-accent-soft: #3a3215;
+    --color-accent-ink: #ffd966;
+    --color-destructive: #ff8a8a;
+    --color-destructive-hover: #ffa6a6;
+    --color-destructive-foreground: #2a0a0a;
+    --color-ok: #5bd99a;
+    --color-ok-soft: #11301f;
+    --color-warn: #f2c14e;
+    --color-warn-soft: #33290f;
+    --color-late: #ff8a8a;
+    --color-late-soft: #3b1a1d;
+    --color-overlay: rgb(0 0 0 / 0.6);
+    --color-chart-1: #7275e6;
+    --color-chart-2: #bb8c12;
+    --shadow-card: none;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  :root { color-scheme: light; }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+  h1, h2, h3 { font-weight: 700; letter-spacing: -0.012em; }
+  /* Tautan di dalam teks bergaris bawah; tautan yang tampil sebagai tombol atau baris daftar mematikannya sendiri. */
+  a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; border-radius: 4px; }
+  ::selection { background: color-mix(in srgb, var(--color-primary) 25%, transparent); }
+  a, button, label, summary { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  /* Isian 16px di ponsel agar iOS tidak memperbesar halaman saat isian disentuh. */
+  input, select, textarea { font-size: 16px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  /* Stempel agenda: motif identitas, nomor agenda dalam bingkai seperti cap penerimaan surat. */
+  .stamp {
+    display: inline-block; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.03em; font-variant-numeric: tabular-nums;
+    padding: 1px 7px; border: 1.5px dashed currentColor; border-radius: 6px; color: var(--color-primary); white-space: nowrap;
+  }
+  /* Umpan balik tekan: mengecil sedikit seketika, kembali dengan ease-out. Tidak pada perangkat yang meminta gerak dikurangi. */
+  .pressable { transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+  @media (prefers-reduced-motion: no-preference) {
+    .pressable:active:not(:disabled) { transform: scale(0.97); }
+  }
+  .preview-doc { background: #fff; color: #111; font-family: 'Times New Roman', Times, serif; line-height: 1.5; overflow-x: auto; }
+  .preview-doc p { margin: 0 0 8px; white-space: pre-wrap; tab-size: 12ch; overflow-wrap: anywhere; }
+  .preview-doc table { width: 100%; border-collapse: collapse; margin: 0 0 8px; }
+  .preview-doc th, .preview-doc td { border: 1px solid #111; padding: 2px 6px; vertical-align: top; text-align: left; }
+  .preview-doc th { background: #e7e8ef; }
+  .preview-doc td p, .preview-doc th p { margin: 0; }
+
+  /* Isi editor surat: tampil dekat dengan hasil Word (paragraf rapat, tabel bergaris). */
+  .rich-content { font-size: 16px; line-height: 1.6; }
+  .rich-content > * + * { margin-top: 0.5em; }
+  .rich-content h2 { font-size: 1.2em; }
+  .rich-content h3 { font-size: 1.05em; }
+  .rich-content ul { list-style: disc; padding-left: 1.5em; }
+  .rich-content ol { list-style: decimal; padding-left: 1.5em; }
+  .rich-content li p { margin: 0; }
+  .rich-content .tableWrapper { overflow-x: auto; }
+  .rich-content table { border-collapse: collapse; table-layout: fixed; width: 100%; margin: 0; }
+  .rich-content th, .rich-content td { position: relative; min-width: 48px; border: 1px solid var(--color-strong); padding: 4px 8px; vertical-align: top; text-align: left; }
+  .rich-content th { background: var(--color-muted); font-weight: 700; }
+  .rich-content td p, .rich-content th p { margin: 0; }
+  .rich-content .selectedCell::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--color-primary) 14%, transparent); pointer-events: none; }
+  .rich-content .column-resize-handle { position: absolute; top: 0; right: -2px; bottom: -2px; width: 4px; background: var(--color-primary); pointer-events: none; }
+  .rich-content.resize-cursor { cursor: col-resize; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+}

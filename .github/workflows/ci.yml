@@ -1,7 +1,10 @@
 name: CI
 on:
+  # main, breaking-change, dan tag rilis diuji oleh docker-publish.yml (memanggil workflow ini) sebelum image dipublikasikan.
   push:
+    branches-ignore: [main, breaking-change]
   pull_request:
+  workflow_call:
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -24,6 +27,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer-nogui
       - run: PGPASSWORD=surat_dev psql -h localhost -U surat -d surat -c "ALTER ROLE surat CREATEDB"
       - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npm run build
       - run: npm test
   docker:
