@@ -54,7 +54,8 @@ const NOT_FOUND = 'Kode tidak ditemukan atau sudah tidak berlaku';
  * yang sama untuk kode salah, dimatikan, atau kedaluwarsa, dan isi terbatas pada tahapan umum.
  */
 export async function track(d: Deps, ctx: AnonCtx, raw: string) {
-  d.limiter.hit(`lacak:${ctx.ip}`, 10 * 60 * 1000, 30);
+  // Alamat tidak diketahui: semua pengunjung berbagi satu ember yang lebih longgar.
+  d.limiter.hit(`lacak:${ctx.ip ?? 'bersama'}`, 10 * 60 * 1000, ctx.ip ? 30 : 300);
   const code = normalizeTrackCode(raw);
   if (!code) throw notFound(NOT_FOUND);
   const l = await d.uow.read.lettersIn.trackingFacts(code);

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { Readable } from 'node:stream';
+import { type Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import tar from 'tar-stream';
 import type pg from 'pg';

@@ -9,3 +9,11 @@ storage
 *.tsbuildinfo
 .data
 coverage
+docs
+test
+deploy
+*.md
+Dockerfile
+docker-compose*.yml
+backups
+.github

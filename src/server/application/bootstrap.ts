@@ -40,7 +40,7 @@ export async function ensureBaseData(d: Deps, opts: { production: boolean; seedP
           jabatan: u.jabatan, email: null, role: u.role, unit_id: await r.units.idByCode(u.unit), password_hash: hash,
         });
       }
-      console.log(`Akun awal dibuat (${USERS.map((u) => u.username).join(', ')}). Kata sandi awal: ${pw}. Segera ganti.${generated ? ' (dibuat acak, catat sekarang, tidak ditampilkan lagi)' : ''}`);
+      console.info(`Akun awal dibuat (${USERS.map((u) => u.username).join(', ')}). Kata sandi awal: ${pw}. Segera ganti.${generated ? ' (dibuat acak, catat sekarang, tidak ditampilkan lagi)' : ''}`);
     }
     for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) await r.settings.ensure(k, v);
     await ensureRefDefaults(r);

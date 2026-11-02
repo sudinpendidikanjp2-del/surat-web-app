@@ -11,3 +11,13 @@ export const getBranding = cache(async () => {
     return toPublicBranding(DEFAULT_BRANDING);
   }
 });
+
+/** Identitas kantor (Pengaturan > Identitas kantor) untuk halaman umum seperti kebijakan privasi. */
+export const getOffice = cache(async () => {
+  try {
+    const v = (await deps().uow.read.settings.get<{ nama?: string; alamat?: string; kota?: string }>('instansi')) || {};
+    return { nama: v.nama?.trim() || 'Kantor pengelola aplikasi', alamat: [v.alamat, v.kota].filter((x) => x?.trim()).join(', ') };
+  } catch {
+    return { nama: 'Kantor pengelola aplikasi', alamat: '' };
+  }
+});

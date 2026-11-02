@@ -1,25 +1,32 @@
-# syntax=docker/dockerfile:1
-# Image produksi SiSurat: aplikasi dan perintah operasional dalam satu image.
-# Migrasi skema dan data dasar berjalan otomatis saat server mulai (instrumentation.ts), jadi tidak perlu langkah terpisah.
+# syntax=docker/dockerfile:1.7
+# Image produksi SiSurat: aplikasi dan perintah operasional dalam satu image (target runner).
+# Migrasi skema dan data dasar berjalan otomatis saat server mulai (instrumentation.ts, satu kunci advisory),
+# jadi tidak perlu layanan migrasi terpisah.
+ARG NODE_VERSION=22
 
-FROM node:22-bookworm-slim AS deps
+FROM node:${NODE_VERSION}-bookworm-slim AS base
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# ---- dependensi (termasuk dev: dibutuhkan build)
+FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
+# ---- build aplikasi
 FROM deps AS build
-WORKDIR /app
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1 BUILD_STANDALONE=1
+ENV NODE_ENV=production BUILD_STANDALONE=1
 RUN npm run build
 
-FROM node:22-bookworm-slim AS runner
-WORKDIR /app
+# ---- runner: server produksi, tanpa devDependencies, pengguna non-root
+FROM base AS runner
 # HOSTNAME=0.0.0.0 wajib: tanpa ini Docker mengisi HOSTNAME dengan ID container dan server hanya mendengar di satu
 # alamat jaringan container, sehingga healthcheck (127.0.0.1) dan reverse proxy di jaringan lain gagal tersambung.
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 \
     STORAGE_DIR=/data/private BACKUP_DIR=/data/backups
 # LibreOffice hanya untuk unduh PDF surat keluar. Hapus baris ini bila tidak dibutuhkan (image jauh lebih kecil).
+# Folder data dibuat sebelum VOLUME agar volume bernama mewarisi kepemilikan pengguna node.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-writer-nogui fonts-liberation fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/* \
@@ -30,10 +37,9 @@ COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --chown=node:node scripts/ops ./ops
 COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/sisurat
-# Tanpa USER node: entrypoint mulai sebagai root untuk memperbaiki pemilik /data (misalnya folder host yang dipasang),
-# lalu menjalankan aplikasi sebagai node.
-EXPOSE 3000
 VOLUME ["/data"]
+USER node
+EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/readyz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 ENTRYPOINT ["sisurat"]

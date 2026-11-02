@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
-import * as demoModule from '../scripts/demo.mjs';
+import * as demoModule from '../../scripts/demo.mjs';
 import { startServer, type TestServer } from './support/server';
 
 const demo: any = demoModule;
@@ -18,7 +18,7 @@ const letterForm = (n: number | string, extra: Record<string, string> = {}) => {
 const expectStatus = async (p: Promise<unknown>, status: number) => assert.rejects(p, (e: any) => { assert.equal(e.status, status, e.message); return true; });
 
 beforeAll(async () => {
-  srv = await startServer('surat_test2');
+  srv = await startServer('surat_test2', { TRUST_PROXY: 'true' });
   url = srv.url;
   [tu, pm, kasi, andi] = await Promise.all(['tu', 'pimpinan', 'kasi.data', 'andi'].map((n) => new S(url, n).login()));
 });
@@ -137,10 +137,18 @@ test('pelacakan publik: kode acak, isi terbatas, rate limit, nonaktif, buat ulan
   const ri = await tu.get(`/api/letters-in/${r.id}/pelacakan`);
   assert.equal(ri.aktif, false);
   assert.equal((await fetch(`${url}/api/public/lacak/${ri.kode}`)).status, 404);
-  // pembatas laju: lebih dari 30 percobaan dalam 10 menit dari satu IP ditolak
-  let limited = 0;
-  for (let i = 0; i < 40; i++) if ((await fetch(`${url}/api/public/lacak/BBBBBBBBBBBBBBBBBBBB`)).status === 429) limited++;
-  assert.ok(limited > 0, 'rate limit tidak aktif');
+  // pembatas laju: lebih dari 30 percobaan dalam 10 menit dari satu IP (dari proxy tepercaya) ditolak
+  const lacak = (ip: string, extra: Record<string, string> = {}) => fetch(`${url}/api/public/lacak/BBBBBBBBBBBBBBBBBBBB`, { headers: { 'X-Real-IP': ip, ...extra } });
+  const statuses: number[] = [];
+  for (let i = 0; i < 31; i++) statuses.push((await lacak('203.0.113.7')).status);
+  assert.deepEqual(statuses.slice(0, 30).filter((s) => s === 429), [], 'batas tercapai terlalu cepat');
+  assert.equal(statuses[30], 429, 'rate limit tidak aktif');
+  // IP lain tidak terdampak, dan entri X-Forwarded-For paling kiri (dapat dipalsukan) tidak dipakai
+  assert.equal((await lacak('203.0.113.8')).status, 404);
+  const spoof = await fetch(`${url}/api/public/lacak/BBBBBBBBBBBBBBBBBBBB`, { headers: { 'X-Forwarded-For': '198.51.100.1, 203.0.113.7' } });
+  assert.equal(spoof.status, 429, 'X-Forwarded-For kiri tidak boleh menembus batas');
+  // Nilai yang bukan alamat IP diabaikan (masuk ember bersama), tidak dicatat apa adanya
+  assert.equal((await lacak('<script>')).status, 404);
 });
 
 test('OCR: hanya TU, hanya gambar atau PDF, dan hasil hanyalah usulan', async () => {

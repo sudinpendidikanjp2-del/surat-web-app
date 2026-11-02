@@ -133,7 +133,7 @@ export interface SettingsRepo {
   all(): Promise<Record<string, unknown>>;
 }
 
-export interface AuditEntry { userId: number | null; ip: string; aksi: string; entitas: string; entitasId: number | string | null; detail: Record<string, unknown> }
+export interface AuditEntry { userId: number | null; ip: string | null; aksi: string; entitas: string; entitasId: number | string | null; detail: Record<string, unknown> }
 export interface EventEntry { letterInId?: number | null; letterOutId?: number | null; userId: number | null; tipe: string; teks: string; meta?: Record<string, unknown> }
 export interface Notice { tipe: string; judul: string; isi?: string | null; link?: string | null; dedupe?: string | null }
 

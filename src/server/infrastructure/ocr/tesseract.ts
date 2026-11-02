@@ -232,7 +232,7 @@ async function readOnce(worker: Worker, png: Buffer) {
   const timeout = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error('OCR melewati batas waktu')), 30000); });
   try {
     const { data } = (await Promise.race([worker.recognize(png, {}, { blocks: true, text: true }), timeout])) as unknown as { data: TessData };
-    if (process.env.OCR_DEBUG) console.log('recognize', Date.now() - t0, 'ms', data.text.split('\n').filter(Boolean).slice(0, 9).join(' | '));
+    if (process.env.OCR_DEBUG) console.info('recognize', Date.now() - t0, 'ms', data.text.split('\n').filter(Boolean).slice(0, 9).join(' | '));
     const lines = collectLines(data);
     const meanConf = lines.length ? lines.reduce((s, l) => s + l.conf, 0) / lines.length : 0;
     const parsed = parseLetter(lines);

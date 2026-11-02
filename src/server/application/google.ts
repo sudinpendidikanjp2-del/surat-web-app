@@ -229,7 +229,7 @@ export async function test(d: Deps, ctx: Ctx) {
 const SYSTEM: Actor = { id: 0, username: 'sistem', nama: 'Sinkronisasi Google', role: 'superadmin', unit_id: null };
 
 async function sheetTables(d: Deps): Promise<SheetTable[]> {
-  const ctx: Ctx = { actor: SYSTEM, ip: 'sistem', baseUrl: '' };
+  const ctx: Ctx = { actor: SYSTEM, ip: null, baseUrl: '' };
   const [masuk, keluar, tugas, instansi] = await Promise.all([
     lettersIn.exportRows(d, ctx, {}), lettersOut.exportRows(d, ctx, {}), tasks.exportRows(d, ctx, {}), exportInstansi(d, ctx, {}),
   ]);

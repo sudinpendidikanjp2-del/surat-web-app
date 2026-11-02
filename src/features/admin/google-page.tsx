@@ -158,6 +158,8 @@ function ConnectionForm({ s }: { s: Status }) {
   const connect = useAction(() => api.post<{ url: string }>('/google/hubungkan'), { onDone: (r) => window.location.assign(r.url) });
   const off = useAction(() => api.del('/google'), { keys: ['google'], success: 'Sambungan Google diputus. File di Drive tidak dihapus.', onDone: () => setConfirmOff(false) });
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((x) => ({ ...x, [k]: e.target.value }));
+  // Alamat dasar aplikasi yang sama dengan alamat pengalihan, untuk tautan kebijakan di consent screen Google.
+  const base = s.redirect_uri.replace(/\/api\/google\/callback$/, '');
   const copy = async () => { try { await navigator.clipboard.writeText(s.redirect_uri); toast.success('Alamat disalin.'); } catch { toast.error('Tidak dapat menyalin. Pilih teksnya lalu salin manual.'); } };
   const savedMode = s.mode === mode;
   return (
@@ -175,6 +177,7 @@ function ConnectionForm({ s }: { s: Status }) {
             <>
               <ol className="flex list-decimal flex-col gap-1.5 rounded-xl bg-muted px-4 py-3 pl-8 text-sm">
                 <li>Di Google Cloud Console, aktifkan <b>Google Drive API</b> dan <b>Google Sheets API</b>.</li>
+                <li>Di <b>OAuth consent screen</b>, isi <i>Privacy policy</i> dengan <code className="break-all">{base}/policy</code> dan <i>Terms of service</i> dengan <code className="break-all">{base}/tos</code>.</li>
                 <li>Buat <b>OAuth client ID</b> jenis <i>Web application</i>, lalu tambahkan alamat di bawah sebagai <i>Authorized redirect URI</i>.</li>
                 <li>Tempel Client ID dan Client Secret di sini, simpan, lalu tekan Hubungkan Akun Google.</li>
               </ol>

@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
-import * as demoModule from '../scripts/demo.mjs';
+import * as demoModule from '../../scripts/demo.mjs';
 import { startServer, type TestServer } from './support/server';
 
 /** Ekspor dan impor, data referensi, instansi, tanda terima, unduhan draf, dan identitas aplikasi. */

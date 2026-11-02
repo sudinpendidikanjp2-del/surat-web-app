@@ -10,6 +10,7 @@ import { Loading } from '@/components/app/states';
 import { tanggalIndo } from '@/domain/calendar';
 import { formatTrackCode, normalizeTrackCode, type PublicTracking } from '@/domain/tracking';
 import Link from 'next/link';
+import { LegalLinks } from '@/features/legal/legal-page';
 import { BrandMark } from '@/components/app/branding';
 import { api } from '@/lib/api-client';
 
@@ -79,6 +80,7 @@ export function TrackingPage({ initial }: { initial: string }) {
           </div>
         ))}
         <p className="text-sm text-muted-foreground">Halaman ini hanya menampilkan tahapan umum. Isi surat, nama pegawai, dan catatan internal tidak ditampilkan.</p>
+        <LegalLinks />
       </main>
     </div>
   );

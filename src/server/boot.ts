@@ -3,7 +3,7 @@ import { ensureBaseData } from './application/bootstrap';
 import { runReminders } from './application/reminders';
 import { scheduled as scheduledBackup } from './application/backup';
 import { scheduledSync } from './application/google';
-import { config } from './config';
+import { assertConfig, config } from './config';
 import { deps } from './container';
 import { getPool } from './infrastructure/db/client';
 import { migrate } from './infrastructure/db/schema';
@@ -11,6 +11,7 @@ import { stopOcr } from './infrastructure/ocr/tesseract';
 
 /** Dipanggil sekali saat server Next.js menyala (instrumentation.ts): skema, data dasar, pengingat berkala. */
 export async function boot() {
+  assertConfig();
   const pool = getPool(config.databaseUrl);
   await migrate(pool);
   await ensureBaseData(deps(), { production: config.production, seedPassword: config.seedPassword });

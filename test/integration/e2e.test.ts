@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import type pg from 'pg';
-import * as demoModule from '../scripts/demo.mjs';
+import * as demoModule from '../../scripts/demo.mjs';
 import { startServer, type TestServer } from './support/server';
 
 const demo: any = demoModule;
@@ -32,6 +32,21 @@ test('autentikasi: tanpa sesi ditolak, tanpa header CSRF ditolak', async () => {
   const res = await fetch(`${url}/api/letters-in/1/teruskan`, { method: 'POST', headers: { Cookie: tu.cookie, 'Content-Type': 'application/json' }, body: '{}' });
   assert.equal(res.status, 403);
   await expectStatus(new S(url, 'tu').login('salah'), 401);
+});
+
+test('login: X-Forwarded-For palsu tidak menembus batas percobaan (TRUST_PROXY mati)', async () => {
+  const attempt = (i: number) => fetch(`${url}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'surat-app', 'Content-Type': 'application/json', 'X-Forwarded-For': `198.51.100.${i}`, 'X-Real-IP': `198.51.100.${i}` },
+    body: JSON.stringify({ username: 'penyerang-uji', password: `tebakan-${i}` }),
+  });
+  const statuses: number[] = [];
+  for (let i = 1; i <= 11; i++) statuses.push((await attempt(i)).status);
+  assert.deepEqual(statuses.slice(0, 10), Array(10).fill(401));
+  assert.equal(statuses[10], 429);
+  // Header palsu tidak tercatat sebagai alamat di catatan kegiatan.
+  const logged = await srv.pool.query("SELECT DISTINCT ip FROM audit_log WHERE aksi='LOGIN_GAGAL' AND entitas_id='penyerang-uji'");
+  assert.deepEqual(logged.rows.map((r: { ip: string | null }) => r.ip), [null]);
 });
 
 test('skenario PRD penuh: dari surat diterima sampai arsip, dan relasi masuk-keluar', async () => {
@@ -159,4 +174,26 @@ test('SLA: hari kerja melewati akhir pekan', async () => {
   assert.equal(slaIndicator('2026-10-06', new Date('2026-10-08T03:00:00Z')).level, 'late');
   assert.equal(slaIndicator('2026-10-09', new Date('2026-10-08T03:00:00Z')).level, 'warn');
   assert.equal(slaIndicator('2026-10-20', new Date('2026-10-08T03:00:00Z')).level, 'ok');
+});
+
+test('kebijakan privasi dan ketentuan layanan: publik, memuat nama kantor, boleh diindeks', async () => {
+  const kantor = (await srv.pool.query("SELECT value->>'nama' AS nama FROM settings WHERE key='instansi'")).rows[0].nama;
+  for (const [path, judul] of [['/policy', 'Kebijakan Privasi'], ['/tos', 'Ketentuan Layanan']]) {
+    const res = await fetch(`${url}${path}`, { redirect: 'manual' });
+    assert.equal(res.status, 200, path);
+    const html = await res.text();
+    assert.match(html, new RegExp(judul));
+    assert.ok(html.includes(kantor), `${path} harus menyebut ${kantor}`);
+    assert.equal(res.headers.get('x-robots-tag'), null, `${path} tidak boleh noindex`);
+    assert.match(res.headers.get('content-security-policy') || '', /nonce-/);
+  }
+  const policy = await (await fetch(`${url}/policy`)).text();
+  assert.match(policy, /Limited Use/);
+  assert.match(policy, /drive\.file/);
+  // Tautan tersedia dari halaman masuk; halaman lain tetap noindex.
+  const masuk = await fetch(`${url}/masuk`);
+  assert.equal(masuk.headers.get('x-robots-tag'), 'noindex, nofollow');
+  const masukHtml = await masuk.text();
+  assert.match(masukHtml, /href="\/policy"/);
+  assert.match(masukHtml, /href="\/tos"/);
 });

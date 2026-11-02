@@ -26,9 +26,16 @@ src/app/api/**/route.ts     adaptor tipis: baca permintaan, panggil satu use cas
 src/features/<fitur>/       halaman per fitur: api.ts (hook React Query) dan komponen halamannya.
 src/components/ui/          komponen dasar (shadcn/ui), src/components/app/ komponen bersama aplikasi.
 src/app/(app)/              rute halaman yang butuh login, src/app/lacak/ halaman umum pelacakan.
+src/lib/                    fungsi murni lintas lapisan (header keamanan).
+src/proxy.ts                CSP bernonce dan alamat yang diminta (lapisan tambahan, bukan pemeriksa izin).
+test/unit/                  uji fungsi murni (npm test), test/integration/ uji melawan server hasil build.
+deploy/                     Nginx, skrip deploy, cadangan, dan pemulihan. docs/ dokumentasi operasional dan ADR.
 ```
 
-Saat server mulai (`src/instrumentation.ts`), migrasi skema dan data awal berjalan, lalu pengingat batas waktu dijadwalkan.
+Batas lapisan dijaga ESLint: `src/domain` dan `src/server/application` tidak boleh mengimpor infrastruktur, konfigurasi,
+`pg`, Next.js, atau React.
+
+Saat server mulai (`src/instrumentation.ts`), konfigurasi diperiksa (`src/server/env.ts`), migrasi skema dan data awal berjalan, lalu pengingat, cadangan harian, dan sinkronisasi Google dijadwalkan.
 
 Catatan deviasi dari PRD: PRD menyebut Prisma. Versi ini memakai `pg` dengan SQL langsung agar tidak bergantung pada unduhan mesin Prisma. Skema memakai SQL standar dan mudah dipindah ke Prisma.
 
@@ -49,7 +56,7 @@ Buka http://localhost:3000 dan masuk sebagai `admin` / `surat12345`. Saat databa
 - Sudah punya PostgreSQL sendiri: ubah `DATABASE_URL` di `.env.local` (akun perlu hak `CREATEDB` untuk `npm test`), lalu `npm run dev`.
 - Port 5432 terpakai: `DEV_DB_PORT=5433 npm run dev:local` dan ubah port di `.env.local`.
 - Data contoh (perihal diawali `[CONTOH]`), saat aplikasi berjalan: `npm run seed:demo`.
-- Pemeriksaan: `npm run lint`, `npm run typecheck`, `npm run build`, lalu `npm test` (17 uji, membuat ulang database `surat_test`; database harus menyala).
+- Pemeriksaan: `npm run lint`, `npm run typecheck`, `npm test` (uji unit, tanpa database), lalu `npm run build` dan `npm run test:integration` (melawan server hasil build; membuat ulang database uji, database harus menyala).
 - Unduh PDF surat keluar butuh LibreOffice (opsional). Tanpanya, DOCX tetap dapat diunduh.
 
 ## Akun awal
@@ -173,7 +180,7 @@ Template bawaan memakai isian `isi_surat`/`isi` bertipe **Teks kaya**. Untuk tem
 
 Admin > **Google Drive & Sheets**. Dua cara terhubung:
 
-- **Akun Google kantor (Gmail biasa)**, paling mudah. Di Google Cloud Console aktifkan Google Drive API dan Google Sheets API, buat *OAuth client ID* jenis *Web application*, tambahkan alamat pengalihan yang tertera di halaman (`https://alamat-anda/api/google/callback`), lalu tempel Client ID dan Secret dan tekan **Hubungkan Akun Google**. Aplikasi hanya meminta izin `drive.file` (hanya file yang dibuatnya sendiri) dan `spreadsheets`.
+- **Akun Google kantor (Gmail biasa)**, paling mudah. Di *OAuth consent screen*, isi *Privacy policy* dengan `https://alamat-anda/policy` dan *Terms of service* dengan `https://alamat-anda/tos` (halaman publik bawaan aplikasi; nama dan alamat kantor diambil dari Pengaturan > Identitas kantor). Di Google Cloud Console aktifkan Google Drive API dan Google Sheets API, buat *OAuth client ID* jenis *Web application*, tambahkan alamat pengalihan yang tertera di halaman (`https://alamat-anda/api/google/callback`), lalu tempel Client ID dan Secret dan tekan **Hubungkan Akun Google**. Aplikasi hanya meminta izin `drive.file` (hanya file yang dibuatnya sendiri) dan `spreadsheets`.
 - **Akun layanan** (Google Workspace). Unggah kunci JSON akun layanan dan tempel tautan folder di **Shared Drive** yang anggotanya memuat email akun layanan. Akun layanan tidak punya ruang Drive sendiri, jadi folder biasa di My Drive ditolak Google.
 
 Susunan di Drive: `Sistem Surat/Surat Masuk/2026/10 Oktober/SM-2026-000123 Perihal/…`, `Surat Keluar/…`, dan `Cadangan/`. File yang sudah tersalin dicatat (`attachments.drive_file_id`) sehingga tidak diunggah ulang; mengganti folder tujuan membuat semua file disalin lagi ke folder baru. Spreadsheet `Rekap Sistem Surat` berisi lembar Ringkasan, Surat Masuk, Surat Keluar, Tugas, dan Instansi dengan baris judul berwarna, dibekukan, dan bersaring. Lembar-lembar itu ditulis ulang setiap sinkronisasi, jadi catatan tambahan sebaiknya di lembar lain.
@@ -191,7 +198,7 @@ Admin > **Cadangan Data**.
 - **Unduh** untuk disimpan di luar server, atau **Salin ke Google Drive**.
 - **Pulihkan**: dari daftar, dari file yang diunggah (diperiksa dulu), atau dari folder Cadangan di Drive. Admin harus mengetik `PULIHKAN`. Sebelum mengganti data, sistem membuat **cadangan pengaman** dari keadaan sekarang. Database diganti dalam satu transaksi (gagal di tengah berarti tidak ada yang berubah), lalu folder file ditukar. Semua pengguna perlu masuk lagi. Sambungan Google dan jadwal cadangan dipertahankan. Cadangan dari versi aplikasi lama dapat dipulihkan karena kolom baru memakai nilai bawaan dan migrasi dijalankan ulang.
 - `STORAGE_DIR` dan folder sementara pemulihan harus berada di disk yang sama (folder ditukar dengan rename). Jangan memasang `STORAGE_DIR` sebagai titik mount tersendiri; pasang folder induknya (Docker: volume `/data`).
-- Skrip `scripts/backup.sh` dan `scripts/restore.sh` tetap ada untuk cadangan dari luar aplikasi (cron, `pg_dump`).
+- Cadangan dari luar aplikasi (cron, `pg_dump` + checksum, `--verify`): `deploy/backup.sh` dan `deploy/restore.sh`, lihat [docs/deployment.md](docs/deployment.md).
 
 ## Belum ada (di luar MVP, sesuai fase PRD)
 
@@ -201,94 +208,20 @@ Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint me
 
 ## Deploy produksi (Docker)
 
-### Dengan image siap jadi dari GitHub (disarankan)
-
-Workflow `.github/workflows/docker-publish.yml` menjalankan seluruh CI (lint, typecheck, build, uji), lalu membangun dan memublikasikan image ke **GitHub Container Registry** sebagai Package repo ini: `ghcr.io/sudinpendidikanjp2-del/surat-web-app`.
-
-Setiap publikasi mendapat **nomor versi yang naik otomatis** dari tag git terakhir. Rilis pertama memakai versi di `package.json` (`2.0.0`), berikutnya `2.0.1`, `2.0.2`, dan seterusnya. Workflow membuat tag git `vX.Y.Z` dan GitHub Release-nya (pra-rilis bila bukan dari `main`) hanya setelah CI lolos dan image terbit.
-
-| Cara | Versi berikutnya (dari v2.0.3) |
-|---|---|
-| push biasa ke `main` atau `breaking-change` | `2.0.4` |
-| pesan commit memuat `[minor]` | `2.1.0` |
-| pesan commit memuat `[major]` | `3.0.0` |
-| manual: Actions > Publish Docker image > Run workflow, pilih patch/minor/major | sesuai pilihan |
-| push tag sendiri: `git tag v3.0.0 && git push origin v3.0.0` | `3.0.0` apa adanya |
-
-Menjalankan ulang workflow untuk commit yang sudah bertag tidak membuat nomor baru. Tag image yang terbit: `2.0.4`, `2.0`, nama branch, `sha-xxxxxxx`, dan `latest` (hanya dari `main` atau tag). Untuk server, kunci ke nomor versi (`APP_IMAGE=…:2.0.4`) agar pembaruan terjadi saat Anda memilihnya.
-
-Tidak perlu secret tambahan: workflow memakai `GITHUB_TOKEN` dengan izin `packages: write`. Image juga diberi bukti asal (build provenance) yang dapat diperiksa dengan `gh attestation verify oci://ghcr.io/sudinpendidikanjp2-del/surat-web-app:latest --repo sudinpendidikanjp2-del/surat-web-app`. Image dibangun untuk `linux/amd64`.
-
-Di server (cukup salin `docker-compose.yml`, `docker-compose.image.yml`, dan `.env`; kode sumber tidak diperlukan):
+Ringkas (rincian di [docs/deployment.md](docs/deployment.md)):
 
 ```bash
-cp .env.example .env            # isi POSTGRES_PASSWORD dan SEED_PASSWORD
-echo "COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml" >> .env
-# echo "APP_IMAGE=ghcr.io/sudinpendidikanjp2-del/surat-web-app:1.2.3" >> .env   # kunci ke versi tertentu
-docker compose pull && docker compose up -d
+cp deploy/env.production.example .env && chmod 600 .env   # APP_URL, POSTGRES_PASSWORD, APP_IMAGE, pilihan reverse proxy
+docker compose pull && docker compose up -d               # image siap jadi dari ghcr.io, migrasi otomatis saat menyala
+deploy/deploy.sh                                          # pembaruan: cadangan → tarik → naikkan → tunggu sehat
 ```
 
-Bila repo privat, package-nya juga privat: di server masuk dulu dengan `docker login ghcr.io -u <username-github>` memakai *personal access token* (classic) berizin `read:packages`. Atau jadikan package publik di halaman Packages > Package settings.
+- Image `ghcr.io/sudinpendidikanjp2-del/surat-web-app` terbit otomatis dengan nomor versi yang naik setiap publikasi,
+  hanya setelah CI lolos. Berjalan sebagai pengguna non-root, `cap_drop: ALL`, database di jaringan internal.
+- Reverse proxy: Nginx bawaan (`COMPOSE_PROFILES=nginx`: TLS, batas laju, batas unggah), proxy di host, atau proxy berbentuk
+  container lewat `docker-compose.proxy.yml`. Di dalam container aplikasi selalu di port 3000.
+- Cadangan dari luar aplikasi: `deploy/backup.sh` (cron), uji dengan `deploy/restore.sh --verify`.
+- Perintah operasional: `docker compose exec app sisurat reset-password admin`.
 
-Pembaruan: `docker compose pull && docker compose up -d`. Migrasi skema berjalan otomatis saat start.
-
-### Dengan build di server
-
-```bash
-cp .env.example .env            # isi POSTGRES_PASSWORD (wajib) dan SEED_PASSWORD
-docker compose up -d --build    # app :3000 (hanya 127.0.0.1) + PostgreSQL 16, data di volume
-docker compose logs app | grep "Akun awal"   # bila SEED_PASSWORD kosong, kata sandi acak tampil di sini
-```
-
-1. Taruh HTTPS di depan aplikasi (lihat **Reverse proxy** di bawah). Cookie sesi bertanda `Secure`, jadi login hanya jalan lewat HTTPS (localhost dikecualikan oleh peramban).
-2. Masuk sebagai `admin`, ganti kata sandi semua akun bawaan, lalu ubah nama instansi, unit, dan pengaturan penomoran.
-3. Cadangan harian: aktifkan di Admin > Cadangan Data (sebaiknya dengan salinan ke Google Drive), atau jadwalkan `./scripts/backup.sh` dengan cron. Coba pulihkan di mesin lain sebelum mengandalkannya.
-4. Pemantauan: `GET /healthz` (proses hidup) dan `GET /readyz` (database terjangkau). Image punya HEALTHCHECK bawaan.
-5. Pembaruan: `git pull && docker compose up -d --build`. Migrasi skema berjalan otomatis saat start.
-6. Image memasang LibreOffice (untuk PDF), sehingga cukup besar. Hapus baris `apt-get` di `Dockerfile` bila PDF tidak dibutuhkan.
-
-CI (`.github/workflows/ci.yml`) menjalankan lint, typecheck, build, dan seluruh uji dengan PostgreSQL, serta membangun image Docker.
-
-Belum teruji di lingkungan pengembangan saya: `docker build` dan `docker compose` (tidak ada daemon Docker di sana). Server diuji langsung dengan `NODE_ENV=production`: kata sandi acak, `/healthz`, `/readyz`, cookie Secure, dan header keamanan. Jalankan build pertama di server Anda dan periksa `docker compose ps` menunjukkan `healthy`.
-
-### Perintah di dalam container
-
-Image memakai entrypoint `sisurat`. Container mulai sebagai root hanya untuk memperbaiki pemilik folder `/data` (misalnya folder host yang dipasang dan dimiliki root), lalu aplikasi berjalan sebagai pengguna `node`. Migrasi skema berjalan otomatis saat server mulai.
-
-```bash
-docker compose exec app sisurat reset-password admin                       # kata sandi baru diminta di terminal
-docker compose exec -e PASSWORD='kata-sandi-baru' app sisurat reset-password admin
-docker compose exec app sisurat sh                                         # shell di container
-```
-
-`reset-password` juga mengaktifkan kembali akun itu, mengakhiri semua sesinya, dan mencatatnya di Catatan Kegiatan.
-
-Jangan menghapus `HOSTNAME=0.0.0.0` dari Dockerfile. Tanpa itu Docker mengisi `HOSTNAME` dengan ID container, server hanya mendengar di satu alamat container, healthcheck menjadi *unhealthy*, dan reverse proxy mendapat *connection refused*.
-
-### Reverse proxy
-
-Di dalam container aplikasi **selalu mendengar di port 3000**. `APP_PORT` hanya port di host, dan secara bawaan port itu dibuka **hanya untuk 127.0.0.1** agar aplikasi tidak terbuka tanpa HTTPS. Pilih sesuai letak reverse proxy Anda:
-
-| Reverse proxy | Atur | Arahkan proxy ke |
-|---|---|---|
-| Terpasang langsung di host (Caddy, Nginx, Apache) | tidak perlu | `http://127.0.0.1:3000` (atau `APP_PORT`) |
-| Container di jaringan Docker (Nginx Proxy Manager, Traefik, Caddy Docker) | tambahkan `docker-compose.proxy.yml` ke `COMPOSE_FILE` dan isi `PROXY_NETWORK` dengan nama jaringan proxy (`docker network ls`) | `http://surat-app:3000` |
-| Mesin lain, atau container yang memakai IP host (`172.17.0.1`, `host.docker.internal`) | `APP_BIND=0.0.0.0` di `.env`, lalu batasi port dengan firewall | `http://<ip-server>:<APP_PORT>` |
-
-Kesalahan yang paling sering: proxy di dalam container diarahkan ke `127.0.0.1:3000`. Alamat itu adalah container proxy sendiri, bukan host. Kesalahan lain: proxy diarahkan ke `surat-app:<APP_PORT>` padahal di jaringan Docker port-nya selalu 3000.
-
-Periksa berurutan:
-
-```bash
-docker compose ps                                   # app harus "healthy"
-curl -fsS http://127.0.0.1:3000/healthz             # dari host (APP_PORT)
-docker compose exec app node -e "fetch('http://surat-app:3000/healthz').then(r=>console.log(r.status))"   # nama di jaringan proxy (docker-compose.proxy.yml)
-```
-
-Proxy perlu meneruskan `Host` dan `X-Forwarded-Proto` (bawaan Caddy, Traefik, dan Nginx Proxy Manager). Untuk unggah file cadangan, naikkan batas ukuran isi permintaan di proxy (Nginx: `client_max_body_size 4g;` dan `proxy_read_timeout 900s;`). `deploy/Caddyfile` sudah mengaturnya.
-
-## Catatan produksi
-
-- Jalankan di belakang HTTPS. Cookie otomatis `Secure` bila `NODE_ENV=production` atau proxy mengirim `X-Forwarded-Proto: https`.
-- Pembatas laju login disimpan di memori proses. Untuk beberapa instance, pindahkan ke penyimpanan bersama.
-- Pengingat berjalan di dalam proses server. Untuk beberapa instance, jalankan pengingat di satu instance saja (notifikasi sudah idempoten lewat `dedupe_key`).
+Dokumen lain: [runbook operasional](docs/operasional.md), [keamanan](docs/keamanan.md),
+[keputusan arsitektur](docs/adr/0001-arsitektur-dan-deployment.md).
