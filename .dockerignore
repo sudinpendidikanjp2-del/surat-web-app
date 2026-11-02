@@ -7,3 +7,5 @@ storage
 .claude
 *.log
 *.tsbuildinfo
+.data
+coverage

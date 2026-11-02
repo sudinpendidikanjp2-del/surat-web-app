@@ -201,6 +201,33 @@ Unduh PDF surat keluar membutuhkan LibreOffice di server. Tanpa itu, endpoint me
 
 ## Deploy produksi (Docker)
 
+### Dengan image siap jadi dari GitHub (disarankan)
+
+Workflow `.github/workflows/docker-publish.yml` menjalankan seluruh CI (lint, typecheck, build, uji), lalu membangun dan memublikasikan image ke **GitHub Container Registry** sebagai Package repo ini: `ghcr.io/sudinpendidikanjp2-del/surat-web-app`.
+
+| Pemicu | Tag image |
+|---|---|
+| push ke `main` | `latest`, `main`, `sha-xxxxxxx` |
+| push tag `v1.2.3` (`git tag v1.2.3 && git push origin v1.2.3`) | `1.2.3`, `1.2`, `latest`, `sha-xxxxxxx` |
+| manual: Actions > Publish Docker image > Run workflow (pilih branch) | `<nama-branch>`, `sha-xxxxxxx` |
+
+Tidak perlu secret tambahan: workflow memakai `GITHUB_TOKEN` dengan izin `packages: write`. Image juga diberi bukti asal (build provenance) yang dapat diperiksa dengan `gh attestation verify oci://ghcr.io/sudinpendidikanjp2-del/surat-web-app:latest --repo sudinpendidikanjp2-del/surat-web-app`. Image dibangun untuk `linux/amd64`.
+
+Di server (cukup salin `docker-compose.yml`, `docker-compose.image.yml`, dan `.env`; kode sumber tidak diperlukan):
+
+```bash
+cp .env.example .env            # isi POSTGRES_PASSWORD dan SEED_PASSWORD
+echo "COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml" >> .env
+# echo "APP_IMAGE=ghcr.io/sudinpendidikanjp2-del/surat-web-app:1.2.3" >> .env   # kunci ke versi tertentu
+docker compose pull && docker compose up -d
+```
+
+Bila repo privat, package-nya juga privat: di server masuk dulu dengan `docker login ghcr.io -u <username-github>` memakai *personal access token* (classic) berizin `read:packages`. Atau jadikan package publik di halaman Packages > Package settings.
+
+Pembaruan: `docker compose pull && docker compose up -d`. Migrasi skema berjalan otomatis saat start.
+
+### Dengan build di server
+
 ```bash
 cp .env.example .env            # isi POSTGRES_PASSWORD (wajib) dan SEED_PASSWORD
 docker compose up -d --build    # app :3000 (hanya 127.0.0.1) + PostgreSQL 16, data di volume

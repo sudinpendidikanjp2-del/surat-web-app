@@ -1,0 +1,90 @@
+# Publikasikan image Docker siap deploy ke GitHub Container Registry (ghcr.io), tampil sebagai Package di repo ini.
+#
+# Kapan berjalan:
+#   - push ke main          -> tag :latest, :main, :sha-<7 huruf>
+#   - push tag v1.2.3        -> tag :1.2.3, :1.2, :latest, :sha-<7 huruf>
+#   - manual (Actions > Publish Docker image > Run workflow) dari branch mana pun -> tag :<nama-branch>, :sha-<7 huruf>
+# Image hanya dipublikasikan bila lint, typecheck, build, dan seluruh uji (ci.yml) lolos.
+name: Publish Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Masuk ke ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Susun nama dan tag image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+            type=ref,event=branch
+            type=sha,format=short
+          labels: |
+            org.opencontainers.image.title=Sistem Surat dan Disposisi
+            org.opencontainers.image.description=Sistem manajemen surat, disposisi, tindak lanjut, dan persuratan
+
+      - name: Bangun dan publikasikan
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Bukti asal image (provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Ringkasan
+        run: |
+          {
+            echo "### Image dipublikasikan"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo
+            echo "Digest: \`${{ steps.push.outputs.digest }}\`"
+            echo
+            echo "Deploy di server: \`APP_IMAGE=ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.version }} docker compose -f docker-compose.yml -f docker-compose.image.yml up -d\`"
+          } >> "$GITHUB_STEP_SUMMARY"
