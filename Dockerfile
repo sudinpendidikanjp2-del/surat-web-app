@@ -18,7 +18,6 @@ WORKDIR /app
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 RUN mkdir -p /data/private /data/backups && chown -R node:node /data /app
-USER node
 VOLUME /data
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD curl -fsS http://localhost:3000/readyz || exit 1
