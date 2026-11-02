@@ -177,3 +177,7 @@
   .no-print { display: none !important; }
   body { background: #fff; color: #000; }
 }
+
+@layer components {
+  .legal-body ul { list-style: disc; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; }
+}

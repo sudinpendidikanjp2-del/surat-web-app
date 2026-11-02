@@ -23,8 +23,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: '/:path*', headers: STATIC_SECURITY_HEADERS },
-      // Seluruh aplikasi berisi data surat dan pegawai: jangan disimpan cache bersama atau diindeks mesin pencari.
-      { source: '/((?!_next/static|lacak).*)', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
+      // Seluruh aplikasi berisi data surat dan pegawai: jangan diindeks mesin pencari (kecuali halaman umum dan hukum).
+      { source: '/((?!_next/static|lacak|policy|tos).*)', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
     ];
   },
 };

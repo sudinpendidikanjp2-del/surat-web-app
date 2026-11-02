@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { LegalLinks } from '@/features/legal/legal-page';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,7 @@ export function LoginForm() {
             <p className="text-sm text-muted-foreground">Lupa kata sandi? Hubungi admin sistem di kantor Anda.</p>
           </form>
           <p className="text-sm lg:hidden">Mengirim surat ke kantor ini? <Link href="/lacak">Lacak surat Anda</Link></p>
+          <LegalLinks />
         </div>
       </div>
     </main>

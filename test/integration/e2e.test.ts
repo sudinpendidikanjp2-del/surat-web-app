@@ -175,3 +175,25 @@ test('SLA: hari kerja melewati akhir pekan', async () => {
   assert.equal(slaIndicator('2026-10-09', new Date('2026-10-08T03:00:00Z')).level, 'warn');
   assert.equal(slaIndicator('2026-10-20', new Date('2026-10-08T03:00:00Z')).level, 'ok');
 });
+
+test('kebijakan privasi dan ketentuan layanan: publik, memuat nama kantor, boleh diindeks', async () => {
+  const kantor = (await srv.pool.query("SELECT value->>'nama' AS nama FROM settings WHERE key='instansi'")).rows[0].nama;
+  for (const [path, judul] of [['/policy', 'Kebijakan Privasi'], ['/tos', 'Ketentuan Layanan']]) {
+    const res = await fetch(`${url}${path}`, { redirect: 'manual' });
+    assert.equal(res.status, 200, path);
+    const html = await res.text();
+    assert.match(html, new RegExp(judul));
+    assert.ok(html.includes(kantor), `${path} harus menyebut ${kantor}`);
+    assert.equal(res.headers.get('x-robots-tag'), null, `${path} tidak boleh noindex`);
+    assert.match(res.headers.get('content-security-policy') || '', /nonce-/);
+  }
+  const policy = await (await fetch(`${url}/policy`)).text();
+  assert.match(policy, /Limited Use/);
+  assert.match(policy, /drive\.file/);
+  // Tautan tersedia dari halaman masuk; halaman lain tetap noindex.
+  const masuk = await fetch(`${url}/masuk`);
+  assert.equal(masuk.headers.get('x-robots-tag'), 'noindex, nofollow');
+  const masukHtml = await masuk.text();
+  assert.match(masukHtml, /href="\/policy"/);
+  assert.match(masukHtml, /href="\/tos"/);
+});
