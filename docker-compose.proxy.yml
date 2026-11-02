@@ -1,0 +1,18 @@
+# Untuk reverse proxy yang berjalan sebagai container (Nginx Proxy Manager, Traefik, Caddy Docker, dll).
+# Aplikasi ikut bergabung ke jaringan Docker milik reverse proxy, lalu proxy diarahkan ke  http://surat-app:3000
+# (port 3000 di dalam container, bukan APP_PORT).
+#
+#   docker network ls                        # cari nama jaringan reverse proxy Anda, lalu isi PROXY_NETWORK di .env
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml:docker-compose.proxy.yml   (di .env)
+#   docker compose up -d
+#   docker compose exec app curl -fsS http://surat-app:3000/healthz   # uji dari dalam jaringan
+services:
+  app:
+    networks:
+      default:
+      proxy:
+        aliases: [surat-app]
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-proxy}
+    external: true

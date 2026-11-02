@@ -1,11 +1,13 @@
 # Publikasikan image Docker siap deploy ke GitHub Container Registry (ghcr.io), tampil sebagai Package di repo ini.
 #
-# Kapan berjalan:
-#   - push ke main          -> tag :latest, :main, :sha-<7 huruf>
-#   - push ke breaking-change -> tag :breaking-change, :sha-<7 huruf> (sementara, sampai digabung ke main)
-#   - push tag v1.2.3        -> tag :1.2.3, :1.2, :latest, :sha-<7 huruf>
-#   - manual (Actions > Publish Docker image > Run workflow) dari branch mana pun -> tag :<nama-branch>, :sha-<7 huruf>
-# Image hanya dipublikasikan bila lint, typecheck, build, dan seluruh uji (ci.yml) lolos.
+# Setiap publikasi mendapat nomor versi baru yang naik otomatis dari tag git terakhir (v2.0.0 -> v2.0.1 -> ...):
+#   - bagian patch naik setiap kali
+#   - tulis [minor] atau [major] di pesan commit untuk menaikkan bagian itu
+#   - atau jalankan manual (Actions > Publish Docker image > Run workflow) dan pilih bagian yang dinaikkan
+#   - push tag sendiri (git tag v3.0.0 && git push origin v3.0.0) memakai nomor itu apa adanya
+# Tag git, GitHub Release, dan tag image dibuat hanya bila CI lolos dan image berhasil dipublikasikan.
+#
+# Tag image: :<versi> (mis. 2.0.1), :<mayor.minor> (2.0), :<nama-branch>, :sha-<7 huruf>; :latest dari main.
 name: Publish Docker image
 
 on:
@@ -13,9 +15,16 @@ on:
     branches: [main, breaking-change]
     tags: ['v*.*.*']
   workflow_dispatch:
+    inputs:
+      naik:
+        description: Bagian versi yang dinaikkan
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
+# Satu antrean untuk semua branch: dua publikasi bersamaan tidak boleh mengambil nomor versi yang sama.
 concurrency:
-  group: docker-publish-${{ github.ref }}
+  group: docker-publish
   cancel-in-progress: false
 
 jobs:
@@ -26,12 +35,56 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write        # membuat tag git dan GitHub Release
       packages: write
       attestations: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # perlu riwayat dan semua tag untuk menghitung versi berikutnya
+
+      - name: Tentukan nomor versi
+        id: ver
+        env:
+          BUMP_INPUT: ${{ inputs.naik }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force --quiet
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            echo "Memakai tag yang di-push: v$version"
+            echo "new_tag=false" >> "$GITHUB_OUTPUT"
+          elif existing=$(git tag --points-at HEAD -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1) && [[ -n "$existing" ]]; then
+            # Jalankan ulang untuk commit yang sudah punya versi: pakai versi itu, jangan buat nomor baru.
+            version="${existing#v}"
+            echo "Commit ini sudah bertag $existing"
+            echo "new_tag=false" >> "$GITHUB_OUTPUT"
+          else
+            last=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+            if [[ -z "$last" ]]; then
+              # Rilis pertama: mulai dari versi di package.json.
+              version=$(node -p "require('./package.json').version")
+              echo "Belum ada tag versi; mulai dari package.json: $version"
+            else
+              IFS=. read -r major minor patch <<< "${last#v}"
+              bump="${BUMP_INPUT:-patch}"
+              if [[ -z "${BUMP_INPUT:-}" ]]; then
+                if grep -qi '\[major\]' <<< "${COMMIT_MSG:-}"; then bump=major
+                elif grep -qi '\[minor\]' <<< "${COMMIT_MSG:-}"; then bump=minor; fi
+              fi
+              case "$bump" in
+                major) version="$((major + 1)).0.0" ;;
+                minor) version="$major.$((minor + 1)).0" ;;
+                *)     version="$major.$minor.$((patch + 1))" ;;
+              esac
+              echo "Tag terakhir $last, naik $bump -> v$version"
+            fi
+            echo "new_tag=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=$(cut -d. -f1,2 <<< "$version")" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -48,14 +101,15 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.ver.outputs.version }}
+            type=raw,value=${{ steps.ver.outputs.minor }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
             type=ref,event=branch
             type=sha,format=short
           labels: |
             org.opencontainers.image.title=Sistem Surat dan Disposisi
             org.opencontainers.image.description=Sistem manajemen surat, disposisi, tindak lanjut, dan persuratan
+            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
 
       - name: Bangun dan publikasikan
         id: push
@@ -76,10 +130,26 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
+      - name: Buat tag git dan GitHub Release
+        if: steps.ver.outputs.new_tag == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          IMAGE: ghcr.io/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git tag "v$VERSION" "$GITHUB_SHA"
+          git push origin "v$VERSION"
+          extra=()
+          # Rilis dari selain main ditandai pra-rilis.
+          [[ "$GITHUB_REF" == refs/heads/main ]] || extra+=(--prerelease)
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes "${extra[@]}" \
+            --notes "Image: \`$IMAGE:$VERSION\` (dari branch \`$GITHUB_REF_NAME\`)"
+
       - name: Ringkasan
         run: |
           {
-            echo "### Image dipublikasikan"
+            echo "### Image v${{ steps.ver.outputs.version }} dipublikasikan"
             echo
             echo '```'
             echo "${{ steps.meta.outputs.tags }}"
@@ -87,5 +157,5 @@ jobs:
             echo
             echo "Digest: \`${{ steps.push.outputs.digest }}\`"
             echo
-            echo "Deploy di server: \`APP_IMAGE=ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.version }} docker compose -f docker-compose.yml -f docker-compose.image.yml up -d\`"
+            echo "Deploy di server: isi \`APP_IMAGE=ghcr.io/${{ github.repository }}:${{ steps.ver.outputs.version }}\` di .env, lalu \`docker compose pull && docker compose up -d\`"
           } >> "$GITHUB_STEP_SUMMARY"

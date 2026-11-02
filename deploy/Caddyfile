@@ -1,8 +1,20 @@
 # Reverse proxy HTTPS otomatis (Let's Encrypt). Ganti domain, lalu jalankan: caddy run --config deploy/Caddyfile
 surat.contoh.go.id {
 	encode zstd gzip
-	request_body {
+	# Unggah file cadangan bisa berukuran besar (BACKUP_MAX_MB); unggahan lain cukup 20 MB.
+	@backup path /api/cadangan/unggah
+	request_body @backup {
+		max_size 4GB
+	}
+	@other not path /api/cadangan/unggah
+	request_body @other {
 		max_size 20MB
 	}
-	reverse_proxy 127.0.0.1:3000
+	# Caddy di host: 127.0.0.1:3000 (APP_PORT). Caddy di container satu jaringan (docker-compose.proxy.yml): surat-app:3000.
+	reverse_proxy 127.0.0.1:3000 {
+		transport http {
+			read_timeout 15m
+			write_timeout 15m
+		}
+	}
 }
