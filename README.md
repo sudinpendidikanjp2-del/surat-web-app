@@ -1,6 +1,6 @@
 # Sistem Surat dan Disposisi
 
-Aplikasi web untuk mengelola siklus hidup surat: surat masuk, registrasi, disposisi, penugasan, tindak lanjut, konfirmasi, surat keluar dari template DOCX, persetujuan, penomoran otomatis, sampai arsip. Dibuat dari PRD "Sistem Manajemen Surat, Disposisi, Tindak Lanjut dan Persuratan" (versi 1.0).
+Aplikasi web untuk mengelola siklus hidup surat: surat masuk, registrasi, disposisi, penugasan, tindak lanjut, konfirmasi, pembuatan surat dari template DOCX, pencatatan surat keluar yang sudah ditandatangani dengan penomoran otomatis, sampai arsip. Dibuat dari PRD "Sistem Manajemen Surat, Disposisi, Tindak Lanjut dan Persuratan" (versi 1.0).
 
 Konsep utama: satu surat masuk adalah satu **urusan (case)**. Disposisi, tugas, dokumen, komentar, surat balasan, dan konfirmasi menempel pada urusan itu dan tercatat di satu garis waktu.
 
@@ -85,9 +85,10 @@ Sesuai MVP dan sebagian P1 PRD:
 - Disposisi: ke unit atau pegawai, tindakan, batas waktu, prioritas, terima, teruskan berjenjang, kembalikan dengan alasan.
 - Tugas: beberapa tugas per surat, penanggung jawab, daftar periksa, progres, status delapan tahap, minta data, lampiran hasil.
 - Konfirmasi ke pemberi surat dan syarat penyelesaian (tugas selesai, balasan terkirim, konfirmasi dicatat).
-- Surat keluar: generator dari template DOCX dengan **pratinjau berdampingan yang diperbarui saat mengetik** dan **unduh Word/PDF sebelum disimpan**, versi dokumen, review, persetujuan, penomoran atomik tanpa nomor ganda, unggah dokumen bertanda tangan, catat pengiriman, relasi dua arah dengan surat masuk.
+- **Buat Surat** (menu sendiri): pilih template DOCX, isi dengan **pratinjau berdampingan yang diperbarui saat mengetik**, lalu **unduh Word/PDF** untuk dicetak dan ditandatangani. Tidak ada yang disimpan; tombol di bawah formulir membawa perihal, tujuan, tanggal, dan nomor ke pencatatan surat keluar.
+- Surat keluar dicatat seperti surat masuk, setelah surat ditandatangani: nomor diketik sesuai surat atau diambil dari nomor urut berikutnya (atomik, tanpa nomor ganda), tujuan, perihal, sifat, penanda tangan, dan pindaian surat bertanda tangan. Status: Dicatat, belum dikirim → Sudah dikirim (atau Dibatalkan dengan alasan). Pengiriman hanya dapat dicatat bila surat sudah bernomor dan pindaiannya ada. Relasi dua arah dengan surat masuk (surat balasan).
 - **Isi surat kaya**: isian isi surat memakai editor (Tiptap) dengan **tabel** (tambah/hapus baris dan kolom, gabung sel, baris judul, lebar kolom digeser), daftar berpoin dan bernomor, tebal, miring, garis bawah, coret, dan perataan. Hasilnya masuk ke DOCX dan PDF sebagai tabel dan paragraf Word asli yang mengikuti huruf dan indentasi template.
-- Template: unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field (satu baris, beberapa baris, **teks kaya**, tanggal), pratinjau.
+- Template (hanya admin, dari Buat Surat > Kelola Template): unggah DOCX, deteksi field otomatis, versi, aktif atau nonaktif, label dan tipe field (satu baris, beberapa baris, **teks kaya**, tanggal), pratinjau.
 - **Google Drive dan Spreadsheet**: lampiran tersalin ke folder tersusun, rekap surat ke spreadsheet (lihat bagian khusus).
 - **Cadangan dan pemulihan** dari aplikasi: unduh, unggah, salin ke Drive, jadwal harian, pemulihan dengan cadangan pengaman (lihat bagian khusus).
 - Beranda per peran dengan daftar "Perlu tindakan Anda", notifikasi, pengingat H-3, H-1, hari H, terlambat dengan eskalasi, komentar dan `@mention`.
@@ -98,7 +99,7 @@ Sesuai MVP dan sebagian P1 PRD:
 - **Identitas aplikasi** dapat diubah admin di Pengaturan > Tampilan aplikasi: nama, keterangan, judul tab peramban, deskripsi halaman, dan ikon (favicon).
 - **Aksi massal**: centang beberapa baris, lalu pilih tindakan di bilah yang muncul di bawah. Server memproses satu per satu (maks 200 data); yang gagal tidak membatalkan yang lain dan alasannya ditampilkan per data.
   - Surat masuk: teruskan ke pimpinan, arsipkan (TU); beri disposisi yang sama untuk banyak surat (pimpinan).
-  - Surat keluar: ajukan persetujuan; setujui dan beri nomor, kembalikan untuk revisi (pimpinan).
+  - Surat keluar: catat pengiriman banyak surat sekaligus (yang belum bernomor atau belum dipindai dilewati dengan alasannya).
   - Pekerjaan: terima banyak disposisi; tandai tugas dikerjakan atau selesai; ubah batas waktu atau batalkan tugas yang Anda berikan.
   - Pengguna, instansi, data referensi: aktifkan dan nonaktifkan. Pemberitahuan: tandai dibaca.
 - Tampilan terang dan gelap (ikuti perangkat atau pilih sendiri di kepala halaman). Arah desain ada di `DESIGN.md`.

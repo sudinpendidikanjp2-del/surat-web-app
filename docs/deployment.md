@@ -77,7 +77,7 @@ Dockerfile: tanpa itu server hanya mendengar di alamat ID container, healthcheck
 
 Proxy lain selain Nginx bawaan perlu: meneruskan `Host`, menimpa `X-Real-IP`, mengirim `X-Forwarded-Proto`, batas isi
 permintaan 4 GB dan waktu tunggu 15 menit untuk `/api/cadangan/` (unggah dan pulihkan cadangan), serta 5 menit untuk
-`/api/ocr/` dan `/api/letters-out/` (OCR dan PDF).
+`/api/ocr/`, `/api/buat-surat/`, dan `/api/letters-out/` (OCR, PDF, dan unggah pindaian).
 
 ### Sertifikat TLS (Nginx bawaan)
 
@@ -166,5 +166,5 @@ services:
 
 - Satu instance aplikasi: pembatas laju dan pengingat berjalan di memori proses. Untuk beberapa instance, pindahkan
   pembatas laju ke penyimpanan bersama dan jalankan pengingat di satu instance saja (notifikasi sudah idempoten).
-- Image memasang LibreOffice untuk PDF surat keluar, sehingga cukup besar. Hapus baris `apt-get` di `Dockerfile` bila
+- Image memasang LibreOffice untuk unduhan PDF di Buat Surat, sehingga cukup besar. Hapus baris `apt-get` di `Dockerfile` bila
   PDF tidak dibutuhkan (DOCX tetap dapat diunduh).

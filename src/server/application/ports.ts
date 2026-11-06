@@ -240,7 +240,8 @@ export interface AttachmentsRepo {
 }
 export interface DrivePending { id: number; nama: string; mime: string; path: string; versi: number; arah: 'masuk' | 'keluar'; no_agenda: string; perihal: string; tanggal: string }
 
-export interface NewLetterOut { no_agenda: string; letterInId: number | null; templateVersionId: number; jenis: string; perihal: string; tujuan: string; fields: Record<string, string>; tglSurat: string; signerId: number | null; createdBy: number }
+export interface NewLetterOut { no_agenda: string; letterInId: number | null; jenis: string; sifat: string; perihal: string; tujuan: string; lampiran: string | null; catatan: string | null; nomorSurat: string | null; tglSurat: string; signerId: number | null; createdBy: number }
+export type LetterOutRecord = Pick<LetterOut, 'jenis' | 'sifat' | 'perihal' | 'tujuan' | 'lampiran' | 'catatan' | 'nomor_surat' | 'tgl_surat' | 'penandatangan_id'>
 
 export interface LettersOutRepo {
   findVisible(actor: Actor, id: number): Promise<LetterOut | null>;
@@ -248,12 +249,14 @@ export interface LettersOutRepo {
   isVisibleTo(user: Visible, id: number): Promise<boolean>;
   lock(id: number): Promise<LetterOut | null>;
   insert(l: NewLetterOut): Promise<LetterOut>;
-  updateContent(id: number, l: Pick<LetterOut, 'perihal' | 'tujuan' | 'tgl_surat' | 'penandatangan_id' | 'fields'>): Promise<void>;
-  setDocVersion(id: number, versi: number): Promise<void>;
-  setStatus(id: number, status: StatusOut): Promise<void>;
+  updateRecord(id: number, l: LetterOutRecord): Promise<void>;
+  /** Surat lain (bukan `exceptId`) yang sudah memakai nomor ini. */
+  byNomor(nomor: string, exceptId?: number): Promise<{ id: number; no_agenda: string } | null>;
   setNomor(id: number, nomor: string): Promise<void>;
-  markSent(id: number, metode: string): Promise<void>;
-  addApproval(id: number, userId: number, aksi: string, catatan: string | null): Promise<void>;
+  markSent(id: number, metode: string, tanggal: string): Promise<void>;
+  cancel(id: number, alasan: string): Promise<void>;
+  /** Jumlah hasil pindai surat bertanda tangan (kategori TTD). */
+  signedCount(id: number): Promise<number>;
   approvals(id: number): Promise<Row[]>;
   forLetterIn(letterInId: number): Promise<Row[]>;
   timeline(id: number): Promise<Row[]>;
@@ -267,7 +270,6 @@ export interface TemplatesRepo {
   version(id: number): Promise<TemplateVersion | null>;
   versionWithTemplate(id: number): Promise<(TemplateVersion & { jenis: string; template_aktif: boolean; template_nama: string }) | null>;
   versionOf(templateId: number, versionId: number): Promise<(TemplateVersion & { kode: string }) | null>;
-  classificationCode(versionId: number): Promise<string | null>;
   codeExists(kode: string): Promise<boolean>;
   insert(t: { nama: string; kode: string; jenis: string; deskripsi: string | null; kodeKlasifikasi: string | null; userId: number | null }): Promise<number>;
   update(id: number, t: { nama: string; jenis: string; deskripsi: string | null; kodeKlasifikasi: string | null; aktif: boolean }): Promise<boolean>;
@@ -301,7 +303,6 @@ export interface InsightQueries {
   countsOut(actor: Actor, year: number): Promise<Record<string, number>>;
   awaitingDisposition(): Promise<Row[]>;
   tasksNeedingAttention(): Promise<Row[]>;
-  awaitingApproval(): Promise<Row[]>;
   monthly(year: number): Promise<{ masuk: Record<number, number>; selesai: Record<number, number> }>;
   perUnit(): Promise<{ unit: string; jumlah: number }[]>;
   averageDaysToFinish(): Promise<number | null>;

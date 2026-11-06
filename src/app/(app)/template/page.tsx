@@ -1,6 +1,4 @@
-'use client';
-import { Guard } from '@/components/app/guard';
-import { can } from '@/domain/roles';
-import { TemplatesPage } from '@/features/templates/list-page';
+import { redirect } from 'next/navigation';
 
-export default function Page() { return <Guard allow={can.admin}><TemplatesPage /></Guard>; }
+/** Alamat lama menu Template Surat: kini bagian dari halaman Buat Surat. */
+export default function Page() { redirect('/buat-surat/template'); }

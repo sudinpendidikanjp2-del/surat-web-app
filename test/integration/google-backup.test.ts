@@ -50,7 +50,7 @@ test('isi surat kaya: tabel dari editor tampil di pratinjau surat keluar', async
   const v = t.versions.find((x: any) => x.aktif);
   assert.equal(v.fields.find((f: any) => f.name === 'isi_surat').type, 'rich');
   const html = '<p>Bersama ini:</p><table><tbody><tr><th><p>No</p></th><th><p>Dokumen</p></th></tr><tr><td><p>1</p></td><td><p>Laporan <strong>triwulan</strong></p></td></tr></tbody></table>';
-  const r = await tu.post('/api/letters-out/pratinjau', { template_version_id: v.id, perihal: 'Kirim laporan', tujuan: 'Kepala Dinas', tgl_surat: '2026-10-14', fields: { isi_surat: html, lampiran: '1 berkas' } });
+  const r = await tu.post('/api/buat-surat/pratinjau', { template_version_id: v.id, perihal: 'Kirim laporan', tujuan: 'Kepala Dinas', tgl_surat: '2026-10-14', fields: { isi_surat: html, lampiran: '1 berkas' } });
   assert.match(r.html, /<table>/);
   assert.match(r.html, /<strong>triwulan<\/strong>/);
 });

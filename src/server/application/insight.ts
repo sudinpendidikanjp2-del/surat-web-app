@@ -15,11 +15,11 @@ export async function dashboard(d: Deps, ctx: Ctx) {
   const year = new Date().getFullYear();
   const out: Record<string, unknown> = { role: u.role, counts: await q.countsIn(u, year), keluar: await q.countsOut(u, year) };
   if (is(u, 'pimpinan', 'superadmin')) {
-    const [perlu, perhatian, persetujuan, monthly, perUnit, avg] = await Promise.all([
-      q.awaitingDisposition(), q.tasksNeedingAttention(), q.awaitingApproval(), q.monthly(year), q.perUnit(), q.averageDaysToFinish(),
+    const [perlu, perhatian, monthly, perUnit, avg] = await Promise.all([
+      q.awaitingDisposition(), q.tasksNeedingAttention(), q.monthly(year), q.perUnit(), q.averageDaysToFinish(),
     ]);
     Object.assign(out, {
-      perlu_disposisi: perlu, tugas_perhatian: perhatian, perlu_persetujuan: persetujuan,
+      perlu_disposisi: perlu, tugas_perhatian: perhatian,
       per_bulan: BULAN.map((nama, i) => ({ bulan: nama.slice(0, 3), masuk: monthly.masuk[i + 1] || 0, selesai: monthly.selesai[i + 1] || 0 })),
       per_unit: perUnit, rata_hari_selesai: avg,
     });

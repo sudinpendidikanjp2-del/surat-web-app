@@ -1,74 +1,51 @@
 'use client';
-import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { FilePenLineIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Page, PageHeader, Section } from '@/components/app/page';
-import { Async, Empty, Loading } from '@/components/app/states';
+import { Page, PageHeader } from '@/components/app/page';
+import { Loading } from '@/components/app/states';
 import { useAction } from '@/components/app/use-action';
-import { useUser } from '@/components/app/user-context';
 import { api } from '@/lib/api-client';
-import { fmtDate, todayIso } from '@/lib/format';
-import { useLetterIn, useUserOptions } from '@/features/letters-in/api';
-import { useTemplate, useTemplates } from './api';
-import { LetterForm, type LetterValues } from './letter-form';
+import { todayIso } from '@/lib/format';
+import { useLetterIn } from '@/features/letters-in/api';
+import { RecordForm, recordBody, type RecordValues } from './record-form';
 
-/** Dua langkah: pilih jenis surat, lalu isi. Surat balasan sudah terisi dari surat masuknya. */
+/**
+ * Catat surat keluar yang sudah ditandatangani. Isian dapat datang dari surat masuk (?dari=, surat balasan) atau dari
+ * halaman Buat Surat (?perihal=&tujuan=&tgl=&jenis=&nomor=&penandatangan=).
+ */
 export function NewLetterOutPage() {
   const router = useRouter();
   const sp = useSearchParams();
   const dari = sp.get('dari');
-  const user = useUser();
-  const templates = useTemplates();
-  const [tplId, setTplId] = useState<string>(sp.get('template') || '');
-  const detail = useTemplate(tplId || null);
   const src = useLetterIn(dari || '', Boolean(dari));
-  const users = useUserOptions();
-  const signers = useMemo(() => (users.data || []).filter((u) => ['pimpinan', 'pejabat', 'superadmin'].includes(u.role)), [users.data]);
-  const create = useAction((body: Record<string, unknown>) => api.post<{ id: number; no_agenda: string }>('/letters-out', body), {
-    success: (r) => `Draf ${r.no_agenda} sudah tersimpan.`, keys: ['letters-out', 'dashboard', 'letter', 'timeline'], onDone: (r) => router.push(`/surat-keluar/${r.id}`),
+  const create = useAction((v: { values: RecordValues; files: File[] }) => api.upload<{ id: number; no_agenda: string; nomor_surat: string | null }>(
+    '/letters-out', { ...recordBody(v.values), letter_in_id: dari || undefined }, { files: v.files },
+  ), {
+    success: (r) => `Surat keluar ${r.no_agenda} tercatat${r.nomor_surat ? ` dengan nomor ${r.nomor_surat}` : ''}.`,
+    keys: ['letters-out', 'dashboard', 'letter', 'timeline', 'letters-in'], onDone: (r) => router.push(`/surat-keluar/${r.id}`),
   });
-  const active = detail.data?.versions.find((v) => v.aktif);
   const l = dari ? src.data?.letter : undefined;
-  const initial: LetterValues = {
-    perihal: l ? `Tanggapan atas ${l.perihal}` : '',
-    tujuan: l ? `${l.asal}${l.instansi ? `, ${l.instansi}` : ''}` : '',
-    tgl_surat: todayIso(),
-    penandatangan_id: signers.find((u) => u.role === 'pimpinan')?.id || null,
-    fields: l ? { alamat_penerima: l.alamat || '', dasar_surat: `surat ${l.asal} nomor ${l.no_surat} tanggal ${fmtDate(l.tgl_surat)} perihal ${l.perihal}` } : ({} as Record<string, string>),
+  const nomor = sp.get('nomor') || '';
+  const initial: RecordValues = {
+    nomor_mode: 'manual', nomor_surat: nomor, kode_klasifikasi: '',
+    tgl_surat: sp.get('tgl') || todayIso(),
+    jenis: sp.get('jenis') || 'Surat Dinas', sifat: 'Biasa',
+    perihal: sp.get('perihal') || (l ? `Tanggapan atas ${l.perihal}` : ''),
+    tujuan: sp.get('tujuan') || (l ? `${l.asal}${l.instansi ? `, ${l.instansi}` : ''}` : ''),
+    lampiran: '', penandatangan_id: sp.get('penandatangan') || '', catatan: '',
   };
   return (
-    <Page wide>
-      <PageHeader back={{ href: '/surat-keluar', label: 'Surat Keluar' }} title="Buat surat keluar"
-        intro={l ? `Surat balasan untuk ${l.no_agenda}. Perihal, tujuan, dan dasar surat sudah terisi.` : 'Pilih template, isi formulirnya sambil melihat hasilnya, lalu simpan sebagai draf. Hasil dapat diunduh sebelum disimpan.'} />
-      <Section title="1. Pilih template">
-        <Async q={templates} empty={<Empty title="Belum ada jenis surat" text={user.role === 'superadmin' ? 'Unggah template di menu Template Surat.' : 'Minta admin sistem menambahkan template surat.'} />}>
-          {(rows) => (
-            <div role="group" aria-label="Jenis surat" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {rows.map((t) => {
-                const on = String(t.id) === tplId;
-                return (
-                  <button key={t.id} type="button" aria-pressed={on} onClick={() => setTplId(String(t.id))}
-                    className={`pressable flex min-h-24 cursor-pointer flex-col items-start gap-1 rounded-2xl border p-4 text-left shadow-(--shadow-card) ${on ? 'border-primary bg-accent-soft ring-2 ring-primary' : 'border-border bg-card hover:border-strong'}`}>
-                    <span className="flex w-full items-center justify-between gap-2"><span className="text-xs font-semibold text-muted-foreground">{t.jenis}</span>{on && <span className="rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground">Dipilih</span>}</span>
-                    <span className="font-semibold">{t.nama}</span>
-                    {t.deskripsi && <span className="line-clamp-2 text-sm text-muted-foreground">{t.deskripsi}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </Async>
-      </Section>
-      {tplId && (
-        <Section title="2. Isi surat dan lihat hasilnya">
-          {detail.isPending || (dari && src.isPending) || users.isPending ? <Loading /> : !active ? <Empty title="Template ini belum siap dipakai" /> : (
-            <LetterForm key={`${tplId}-${l?.id || 0}-${signers.length}`} fields={active.fields} versionId={active.id} initial={initial} signers={signers}
-              pending={create.isPending} submitLabel="Simpan sebagai draf"
-              onSubmit={(f) => create.mutate({ ...f, template_version_id: active.id, letter_in_id: dari ? Number(dari) : null })}
-              cancel={<Button asChild variant="outline" className="no-underline"><Link href="/surat-keluar">Batal</Link></Button>} />
-          )}
-        </Section>
+    <Page className="max-w-3xl">
+      <PageHeader back={{ href: '/surat-keluar', label: 'Surat Keluar' }} title="Catat surat keluar"
+        intro={l ? `Surat balasan untuk ${l.no_agenda}: ${l.perihal}.` : 'Catat surat yang sudah ditandatangani: nomor, tujuan, perihal, dan hasil pindainya. Pengiriman dicatat setelahnya.'}>
+        <Button asChild variant="outline"><Link href={dari ? `/buat-surat?dari=${dari}` : '/buat-surat'}><FilePenLineIcon aria-hidden /> Belum ada suratnya? Buat dari Template</Link></Button>
+      </PageHeader>
+      {dari && src.isPending ? <Loading /> : (
+        <RecordForm key={l?.id || 0} initial={initial} withFiles pending={create.isPending} submitLabel="Simpan Surat Keluar"
+          onSubmit={(values, files) => create.mutate({ values, files })}
+          cancel={<Button asChild variant="outline" className="no-underline"><Link href="/surat-keluar">Batal</Link></Button>} />
       )}
     </Page>
   );

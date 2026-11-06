@@ -1,10 +1,7 @@
-'use client';
-import { use } from 'react';
-import { Guard } from '@/components/app/guard';
-import { can } from '@/domain/roles';
-import { TemplateDetailPage } from '@/features/templates/detail-page';
+import { redirect } from 'next/navigation';
 
-export default function Page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  return <Guard allow={can.admin}><TemplateDetailPage id={id} /></Guard>;
+/** Alamat lama rincian template: kini di bawah halaman Buat Surat. */
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  redirect(`/buat-surat/template/${encodeURIComponent(id)}`);
 }

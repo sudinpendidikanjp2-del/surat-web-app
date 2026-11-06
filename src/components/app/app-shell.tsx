@@ -23,7 +23,8 @@ function useCounts() {
   return {
     masuk: leader ? d?.counts?.menunggu_disposisi : user.role === 'tu' ? d?.counts?.belum_diteruskan : 0,
     kerja: (d?.disposisi_baru?.length || 0) + (d?.tugas_saya?.terlambat || 0) + (d?.tugas_saya?.hari_ini || 0),
-    keluar: leader ? d?.keluar?.menunggu_persetujuan : 0,
+    // Surat keluar yang belum dikirim, untuk yang mengurus pengiriman (TU dan admin).
+    keluar: ['tu', 'superadmin'].includes(user.role) ? d?.keluar?.belum_dikirim : 0,
     notif: n?.unread || 0,
   };
 }
@@ -81,11 +82,11 @@ function GlobalSearch() {
   );
 }
 
-/** Tindakan cepat di bawah menu samping (navy, agar kuning tetap satu per layar), sesuai peran: TU mencatat, penulis membuat surat keluar. */
+/** Tindakan cepat di bawah menu samping (navy, agar kuning tetap satu per layar), sesuai peran: TU mencatat, penulis membuat surat. */
 function SideAction() {
   const user = useUser();
   if (can.manageIn(user)) return <Button asChild variant="dark" className="w-full"><Link href="/surat-masuk/baru"><PlusIcon aria-hidden /> Catat Surat Masuk</Link></Button>;
-  if (can.writeOut(user)) return <Button asChild variant="dark" className="w-full"><Link href="/surat-keluar/baru"><PlusIcon aria-hidden /> Buat Surat Keluar</Link></Button>;
+  if (can.writeOut(user)) return <Button asChild variant="dark" className="w-full"><Link href="/buat-surat"><PlusIcon aria-hidden /> Buat Surat</Link></Button>;
   return null;
 }
 

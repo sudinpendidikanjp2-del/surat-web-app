@@ -13,7 +13,7 @@ import { Field } from '@/components/app/form-field';
 import { Page, PageHeader } from '@/components/app/page';
 import { Async, Empty } from '@/components/app/states';
 import { useAction } from '@/components/app/use-action';
-import { useTemplates } from '@/features/letters-out/api';
+import { useTemplates } from './api';
 import { useRefValues } from '@/features/reference/api';
 import { REF_KATEGORI } from '@/domain/reference';
 import { api } from '@/lib/api-client';
@@ -23,11 +23,11 @@ export function TemplatesPage() {
   const [adding, setAdding] = useState(false);
   return (
     <Page>
-      <PageHeader title="Template Surat"
-        intro="Bentuk surat keluar dalam file Word (DOCX). Bagian yang diisi ditulis seperti {{perihal}} di dalam dokumen.">
+      <PageHeader title="Kelola Template" back={{ href: '/buat-surat', label: 'Buat Surat' }}
+        intro="Bentuk surat dalam file Word (DOCX) yang dipakai di halaman Buat Surat. Bagian yang diisi ditulis seperti {{perihal}} di dalam dokumen.">
         <Button onClick={() => setAdding(true)}><PlusIcon aria-hidden /> Tambah Template</Button>
       </PageHeader>
-      <Async q={q} empty={<Empty title="Belum ada template" text="Tambahkan template pertama agar pegawai dapat membuat surat keluar." />}>
+      <Async q={q} empty={<Empty title="Belum ada template" text="Tambahkan template pertama agar pegawai dapat membuat surat dari template." />}>
         {(rows) => (
           <ul className="flex flex-col gap-3">
             {rows.map((t) => (
@@ -37,7 +37,7 @@ export function TemplatesPage() {
                   {!t.aktif && <Badge tone="late">Tidak dipakai</Badge>}
                   {t.aktif && !t.versi_aktif_id && <Badge tone="warn">Belum ada versi yang dipakai</Badge>}
                 </div>
-                <Link href={`/template/${t.id}`} className="font-semibold text-foreground">{t.nama}</Link>
+                <Link href={`/buat-surat/template/${t.id}`} className="font-semibold text-foreground">{t.nama}</Link>
                 {t.deskripsi && <p>{t.deskripsi}</p>}
                 <p className="text-muted-foreground">{t.versi_aktif ? `Versi ${t.versi_aktif} sedang dipakai` : 'Belum ada versi dipakai'}, {t.jumlah_versi} versi tersimpan.</p>
               </CardContent></Card></li>
@@ -57,7 +57,7 @@ function NewTemplateDialog({ onClose }: { onClose: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const save = useAction(() => api.upload<{ id: number }>('/templates', v, { file: files[0] }), {
-    success: 'Template sudah ditambahkan dan langsung dapat dipakai.', keys: ['templates'], onDone: (d) => router.push(`/template/${d.id}`),
+    success: 'Template sudah ditambahkan dan langsung dapat dipakai.', keys: ['templates'], onDone: (d) => router.push(`/buat-surat/template/${d.id}`),
   });
   const put = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   return (

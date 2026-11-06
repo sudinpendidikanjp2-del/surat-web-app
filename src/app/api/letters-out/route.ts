@@ -10,6 +10,10 @@ export const GET = route(async ({ deps, ctx, query }) => {
   return lettersOut.list(deps, ctx, query);
 });
 
-export const POST = route(async ({ deps, ctx, body }) => created(await lettersOut.create(deps, ctx, (await body()).fields)));
+/** Multipart: isian surat + `files` (pindaian surat bertanda tangan, boleh menyusul). */
+export const POST = route(async ({ deps, ctx, body }) => {
+  const b = await body();
+  return created(await lettersOut.create(deps, ctx, b.fields, b.files('files')));
+});
 
 export const dynamic = 'force-dynamic';

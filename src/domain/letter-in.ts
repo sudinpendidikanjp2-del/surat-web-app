@@ -102,7 +102,6 @@ export function deriveStatus(current: StatusIn, facts: {
   if (active.length === 0) return 'MENUNGGU_DISPOSISI';
   if (!active.some((d) => d.accepted_at)) return 'DIDISPOSISIKAN';
   const tasks = facts.tasks.filter((t) => t.status !== 'DIBATALKAN');
-  if (facts.outs.some((o) => ['REVIEW', 'MENUNGGU_PERSETUJUAN'].includes(o.status))) return 'MENUNGGU_PERSETUJUAN';
   const allDone = tasks.length > 0 && tasks.every((t) => t.status === 'SELESAI');
   if (allDone || tasks.some((t) => t.status === 'MENUNGGU_KONFIRMASI')) return 'MENUNGGU_KONFIRMASI';
   return 'SEDANG_DIPROSES';
@@ -132,7 +131,8 @@ export interface CompletionCheck { ok: boolean; label: string }
 /** Syarat sebuah surat boleh dinyatakan selesai. */
 export function completionChecks(tasks: { status: string }[], outs: { no_agenda: string; status: string }[], confirmations: number) {
   const open = tasks.filter((t) => t.status !== 'DIBATALKAN' && t.status !== 'SELESAI').length;
-  const openOuts = outs.filter((o) => !['DIKIRIM', 'SELESAI'].includes(o.status));
+  // Surat balasan yang dicatat tetapi belum dikirim menahan penyelesaian; yang dibatalkan tidak.
+  const openOuts = outs.filter((o) => o.status === 'DICATAT');
   const live = tasks.filter((t) => t.status !== 'DIBATALKAN');
   const checks: CompletionCheck[] = [
     { ok: open === 0, label: open ? `Semua tugas selesai (${open} tugas belum selesai)` : live.length ? 'Semua tugas selesai' : 'Tidak ada tugas terbuka' },

@@ -29,11 +29,9 @@ export const insightQueries = (db: Db): InsightQueries => ({
   async countsOut(actor, year) {
     const vis = visibleLettersOut(actor, 'lo', 1);
     return (await db.one(
-      `SELECT count(*) FILTER (WHERE lo.status='MENUNGGU_PERSETUJUAN') AS menunggu_persetujuan,
-              count(*) FILTER (WHERE lo.status='REVIEW') AS menunggu_review,
-              count(*) FILTER (WHERE lo.status IN ('DRAFT','REVISI')) AS draft,
-              count(*) FILTER (WHERE lo.status='NOMOR_DIBERIKAN') AS menunggu_ttd,
-              count(*) FILTER (WHERE lo.status='DITANDATANGANI') AS menunggu_kirim,
+      `SELECT count(*) FILTER (WHERE lo.status='DICATAT') AS belum_dikirim,
+              count(*) FILTER (WHERE lo.status='DICATAT' AND lo.nomor_surat IS NULL) AS belum_bernomor,
+              count(*) FILTER (WHERE lo.status='DICATAT' AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.letter_out_id=lo.id AND a.kategori='TTD')) AS belum_dipindai,
               count(*) FILTER (WHERE EXTRACT(YEAR FROM lo.created_at)=$1) AS keluar_tahun_ini
          FROM letters_out lo WHERE ${vis.sql}`, [year, ...vis.params],
     ))!;
@@ -45,8 +43,6 @@ export const insightQueries = (db: Db): InsightQueries => ({
        FROM tasks t JOIN users p ON p.id=t.pic_user_id JOIN letters_in li ON li.id=t.letter_in_id
       WHERE t.${OPEN_TASK} AND t.deadline <= current_date + 2 ORDER BY t.deadline LIMIT 8`,
   ) as never,
-  awaitingApproval: () => db.all(`SELECT lo.id,lo.no_agenda,lo.perihal,lo.jenis,u.nama AS pembuat FROM letters_out lo JOIN users u ON u.id=lo.created_by
-                                   WHERE lo.status='MENUNGGU_PERSETUJUAN' ORDER BY lo.updated_at LIMIT 12`) as never,
   async monthly(year) {
     const toMap = (rows: { m: number; n: number }[]) => Object.fromEntries(rows.map((x) => [x.m, x.n]));
     return {

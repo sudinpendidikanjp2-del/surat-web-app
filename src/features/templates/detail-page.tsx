@@ -15,7 +15,7 @@ import { Async, Loading, ErrorState } from '@/components/app/states';
 import { Stamp } from '@/components/app/status';
 import { useAction } from '@/components/app/use-action';
 import type { TemplateField } from '@/domain/letter-out';
-import { useTemplate, type TemplateDetail } from '@/features/letters-out/api';
+import { useTemplate, type TemplateDetail } from './api';
 import { useRefValues } from '@/features/reference/api';
 import { REF_KATEGORI } from '@/domain/reference';
 import { api } from '@/lib/api-client';
@@ -35,12 +35,12 @@ export function TemplateDetailPage({ id }: { id: string }) {
       <Async q={q} isEmpty={() => false}>
         {({ template: t, versions }) => (
           <>
-            <PageHeader title={t.nama} back={{ href: '/template', label: 'Template Surat' }}
-              intro={`${t.jenis}. ${t.aktif ? 'Sedang dapat dipilih saat membuat surat keluar.' : 'Tidak dipakai: tidak muncul saat membuat surat keluar.'}`}>
+            <PageHeader title={t.nama} back={{ href: '/buat-surat/template', label: 'Kelola Template' }}
+              intro={`${t.jenis}. ${t.aktif ? 'Dapat dipilih di halaman Buat Surat.' : 'Tidak dipakai: tidak muncul di halaman Buat Surat.'}`}>
               <Button onClick={() => setOpen({ kind: 'upload' })}>Unggah Versi Baru</Button>
               <Button variant="outline" onClick={() => setOpen({ kind: 'edit' })}>Ubah Keterangan</Button>
             </PageHeader>
-            <Section title="Versi template" intro="Hanya satu versi yang dipakai untuk surat baru. Surat yang sudah dibuat tetap memakai versinya sendiri.">
+            <Section title="Versi template" intro="Hanya satu versi yang dipakai untuk surat baru. Versi lama tetap tersimpan dan dapat dipakai lagi.">
               <ol className="flex flex-col gap-3">
                 {versions.map((v) => (
                   <li key={v.id}><Card className={v.aktif ? 'border-primary' : ''}><CardContent className="flex flex-col gap-3">
@@ -87,7 +87,7 @@ function EditDialog({ t, onClose }: { t: TemplateDetail['template']; onClose: ()
         <Field label="Kode klasifikasi">{(p) => <Input {...p} value={v.kode_klasifikasi} onChange={put('kode_klasifikasi')} />}</Field>
         <Field label="Keterangan">{(p) => <Textarea {...p} value={v.deskripsi} onChange={put('deskripsi')} />}</Field>
         <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 text-sm">
-          <Checkbox checked={v.aktif} onCheckedChange={(c) => setV((s) => ({ ...s, aktif: c === true }))} /> Dapat dipilih saat membuat surat keluar
+          <Checkbox checked={v.aktif} onCheckedChange={(c) => setV((s) => ({ ...s, aktif: c === true }))} /> Dapat dipilih di halaman Buat Surat
         </label>
       </div>
     </ActionDialog>

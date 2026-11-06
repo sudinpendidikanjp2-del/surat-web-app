@@ -15,19 +15,23 @@ export const lettersOutRepo = (db: Db): LettersOutRepo => ({
   },
   lock: (id) => db.one<LetterOut>('SELECT * FROM letters_out WHERE id=$1 FOR UPDATE', [id]),
   insert: async (l) => (await db.one<LetterOut>(
-    `INSERT INTO letters_out(no_agenda,letter_in_id,template_version_id,jenis,perihal,tujuan,fields,tgl_surat,penandatangan_id,created_by)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-    [l.no_agenda, l.letterInId, l.templateVersionId, l.jenis, l.perihal, l.tujuan, JSON.stringify(l.fields), l.tglSurat, l.signerId, l.createdBy],
+    `INSERT INTO letters_out(no_agenda,letter_in_id,jenis,sifat,perihal,tujuan,lampiran,catatan,nomor_surat,tgl_surat,penandatangan_id,created_by)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+    [l.no_agenda, l.letterInId, l.jenis, l.sifat, l.perihal, l.tujuan, l.lampiran, l.catatan, l.nomorSurat, l.tglSurat, l.signerId, l.createdBy],
   ))!,
-  updateContent: async (id, l) => {
-    await db.q('UPDATE letters_out SET perihal=$1,tujuan=$2,tgl_surat=$3,penandatangan_id=$4,fields=$5,updated_at=now() WHERE id=$6',
-      [l.perihal, l.tujuan, l.tgl_surat, l.penandatangan_id, JSON.stringify(l.fields), id]);
+  updateRecord: async (id, l) => {
+    await db.q(
+      `UPDATE letters_out SET jenis=$1,sifat=$2,perihal=$3,tujuan=$4,lampiran=$5,catatan=$6,nomor_surat=$7,tgl_surat=$8,penandatangan_id=$9,updated_at=now() WHERE id=$10`,
+      [l.jenis, l.sifat, l.perihal, l.tujuan, l.lampiran, l.catatan, l.nomor_surat, l.tgl_surat, l.penandatangan_id, id],
+    );
   },
-  setDocVersion: async (id, versi) => { await db.q('UPDATE letters_out SET doc_version=$1, updated_at=now() WHERE id=$2', [versi, id]); },
-  setStatus: async (id, status) => { await db.q('UPDATE letters_out SET status=$1, updated_at=now() WHERE id=$2', [status, id]); },
-  setNomor: async (id, nomor) => { await db.q('UPDATE letters_out SET nomor_surat=$1 WHERE id=$2', [nomor, id]); },
-  markSent: async (id, metode) => { await db.q('UPDATE letters_out SET sent_at=now(), sent_method=$1 WHERE id=$2', [metode, id]); },
-  addApproval: async (id, userId, aksi, catatan) => { await db.q('INSERT INTO approvals(letter_out_id,user_id,aksi,catatan) VALUES($1,$2,$3,$4)', [id, userId, aksi, catatan]); },
+  byNomor: (nomor, exceptId) => db.one('SELECT id,no_agenda FROM letters_out WHERE lower(nomor_surat)=lower($1) AND id<>$2', [nomor, exceptId ?? 0]),
+  setNomor: async (id, nomor) => { await db.q('UPDATE letters_out SET nomor_surat=$1, updated_at=now() WHERE id=$2', [nomor, id]); },
+  markSent: async (id, metode, tanggal) => {
+    await db.q(`UPDATE letters_out SET status='DIKIRIM', sent_at=$3::date + (now()::time), sent_method=$2, updated_at=now() WHERE id=$1`, [id, metode, tanggal]);
+  },
+  cancel: async (id, alasan) => { await db.q(`UPDATE letters_out SET status='DIBATALKAN', batal_alasan=$2, updated_at=now() WHERE id=$1`, [id, alasan]); },
+  signedCount: async (id) => (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM attachments WHERE letter_out_id=$1 AND kategori='TTD'`, [id]))!.n,
   approvals: (id) => db.all('SELECT a.*, u.nama AS user_nama FROM approvals a JOIN users u ON u.id=a.user_id WHERE a.letter_out_id=$1 ORDER BY a.id', [id]) as never,
   forLetterIn: (id) => db.all('SELECT id,no_agenda,nomor_surat,perihal,status FROM letters_out WHERE letter_in_id=$1 ORDER BY id', [id]) as never,
   timeline: (id) => db.all(`SELECT e.id,e.tipe,e.teks,e.meta,e.created_at,u.nama AS user_nama FROM events e LEFT JOIN users u ON u.id=e.user_id
@@ -54,9 +58,6 @@ export const templatesRepo = (db: Db): TemplatesRepo => ({
   versionOf: (templateId, versionId) => db.one(
     'SELECT v.*, t.kode FROM template_versions v JOIN templates t ON t.id=v.template_id WHERE v.id=$1 AND v.template_id=$2', [versionId, templateId],
   ),
-  classificationCode: async (versionId) => (await db.one<{ k: string | null }>(
-    'SELECT t.kode_klasifikasi AS k FROM template_versions v JOIN templates t ON t.id=v.template_id WHERE v.id=$1', [versionId],
-  ))?.k ?? null,
   codeExists: async (kode) => Boolean(await db.one('SELECT 1 FROM templates WHERE kode=$1', [kode])),
   insert: async (t) => (await db.one<{ id: number }>(
     'INSERT INTO templates(nama,kode,jenis,deskripsi,kode_klasifikasi,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',

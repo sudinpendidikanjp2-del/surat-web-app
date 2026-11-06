@@ -1,4 +1,4 @@
-import { CloudUploadIcon, DatabaseBackupIcon, ArchiveIcon, BarChart3Icon, BookOpenIcon, BriefcaseIcon, Building2Icon, LandmarkIcon, FileOutputIcon, FileTextIcon, HomeIcon, InboxIcon, LayoutGridIcon, ScrollTextIcon, SearchIcon, SettingsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
+import { FilePenLineIcon, CloudUploadIcon, DatabaseBackupIcon, ArchiveIcon, BarChart3Icon, BookOpenIcon, BriefcaseIcon, Building2Icon, LandmarkIcon, FileOutputIcon, HomeIcon, InboxIcon, LayoutGridIcon, ScrollTextIcon, SearchIcon, SettingsIcon, UsersIcon, type LucideIcon } from 'lucide-react';
 import { can } from '@/domain/roles';
 import type { PublicUser } from '@/domain/roles';
 
@@ -17,7 +17,8 @@ export function navGroups(user: PublicUser, counts: Counts): NavGroup[] {
         { href: '/', label: 'Beranda', icon: HomeIcon, desc: 'Pekerjaan yang menunggu Anda' },
         { href: '/surat-masuk', label: 'Surat Masuk', icon: InboxIcon, count: counts.masuk, desc: 'Surat yang diterima kantor' },
         ...(can.work(user) ? [{ href: '/pekerjaan', label: 'Pekerjaan Saya', icon: BriefcaseIcon, count: counts.kerja, desc: 'Disposisi dan tugas untuk Anda' }] : []),
-        { href: '/surat-keluar', label: 'Surat Keluar', icon: FileOutputIcon, count: counts.keluar, desc: 'Surat yang dibuat dan dikirim kantor' },
+        { href: '/surat-keluar', label: 'Surat Keluar', icon: FileOutputIcon, count: counts.keluar, desc: 'Catatan surat yang ditandatangani dan dikirim kantor' },
+        ...(can.writeOut(user) ? [{ href: '/buat-surat', label: 'Buat Surat', icon: FilePenLineIcon, desc: 'Susun surat dari template, unduh Word atau PDF' }] : []),
       ],
     },
     {
@@ -34,7 +35,6 @@ export function navGroups(user: PublicUser, counts: Counts): NavGroup[] {
         ...(can.manageIn(user) ? [{ href: '/instansi', label: 'Instansi', icon: LandmarkIcon, desc: 'Instansi pengirim dan tujuan surat' }] : []),
         ...(can.admin(user) ? [
           { href: '/referensi', label: 'Data Referensi', icon: BookOpenIcon, desc: 'Jenis surat, sifat, tindakan, cara kirim' },
-          { href: '/template', label: 'Template Surat', icon: FileTextIcon, desc: 'Bentuk surat keluar dalam DOCX' },
           { href: '/pengguna', label: 'Pengguna', icon: UsersIcon, desc: 'Akun, peran, dan kata sandi' },
           { href: '/unit', label: 'Unit Kerja', icon: Building2Icon, desc: 'Bagian dan bidang di kantor' },
           { href: '/pengaturan', label: 'Pengaturan', icon: SettingsIcon, desc: 'Identitas kantor, nomor surat, batas waktu' },

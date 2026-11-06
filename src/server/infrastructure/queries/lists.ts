@@ -3,7 +3,6 @@ import { csvList } from '@/domain/validation';
 import type {
   DispositionFilter, LetterInFilter, LetterInListRow, LetterOutFilter, LetterOutListRow, ListQueries, Repos, TaskFilter, TaskListRow,
 } from '@/server/application/ports';
-import { can } from '@/domain/roles';
 import type { Db } from '../db/client';
 import { like, pageParams, visibleLettersIn, visibleLettersOut, Where } from '../db/visibility';
 
@@ -144,11 +143,8 @@ function outWhere(actor: Actor, f: LetterOutFilter) {
   if (f.jenis) w.add('lo.jenis = ?', f.jenis);
   if (f.from) w.add('lo.tgl_surat >= ?', f.from);
   if (f.to) w.add('lo.tgl_surat <= ?', f.to);
-  if (f.antrian === 'menunggu_saya') {
-    if (can.approve(actor)) w.raw(`lo.status='MENUNGGU_PERSETUJUAN'`);
-    else if (can.review(actor)) w.raw(`lo.status='REVIEW'`);
-    else w.raw('FALSE');
-  }
+  // Belum lengkap: belum bernomor atau belum ada pindaian surat bertanda tangan.
+  if (f.antrian === 'belum_lengkap') w.raw(`(lo.nomor_surat IS NULL OR NOT EXISTS (SELECT 1 FROM attachments a WHERE a.letter_out_id=lo.id AND a.kategori='TTD'))`);
   if (f.q) w.add('(lo.no_agenda ILIKE ? OR lo.nomor_surat ILIKE ? OR lo.perihal ILIKE ? OR lo.tujuan ILIKE ?)', like(f.q));
   return w;
 }

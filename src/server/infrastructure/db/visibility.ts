@@ -27,7 +27,7 @@ export function visibleLettersIn(user: Viewer, alias = 'li', offset = 0): Fragme
 export function visibleLettersOut(user: Viewer, alias = 'lo', offset = 0): Fragment {
   const a = alias;
   if (SEES_ALL_OUT.includes(user.role)) return { sql: 'TRUE', params: [] };
-  if (user.role === 'viewer') return { sql: `${a}.status IN ('DIKIRIM','SELESAI')`, params: [] };
+  if (user.role === 'viewer') return { sql: `${a}.status = 'DIKIRIM'`, params: [] };
   const uid = `$${offset + 1}`;
   const unit = `$${offset + 2}`;
   const unitClause = user.role === 'pejabat' ? `OR EXISTS (SELECT 1 FROM users cu WHERE cu.id=${a}.created_by AND cu.unit_id=${unit})` : '';

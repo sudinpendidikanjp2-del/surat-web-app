@@ -60,19 +60,12 @@ export async function runDemo(base, log = console.log) {
   const t2 = await s['kasi.data'].post(`/api/letters-in/${created.id}/tugas`, { judul: 'Menyusun draft surat balasan', pic_user_id: byNama('Budi'), deadline: iso(3), prioritas: 'Normal', disposition_id: d.dispositions[0].id });
   await s.andi.call('POST', `/api/tasks/${t1.id}/update`, form({ progress: 70, catatan: 'Data kelas 1 sampai 5 selesai direkap. Menunggu data kelas 6.' }, { files: 'rekap-data.pdf' }));
   await s.andi.call('POST', `/api/tasks/${t1.id}/update`, form({ status: 'SELESAI', catatan: 'Semua data lengkap.' }));
-  const tpl = (await s.budi.get('/api/templates')).find((t) => t.kode === 'pengantar');
-  const tdet = await s.budi.get(`/api/templates/${tpl.id}`);
-  const tvId = tdet.versions.find((v) => v.aktif).id;
-  const out = await s.budi.post('/api/letters-out', {
-    template_version_id: tvId, letter_in_id: created.id, perihal: '[CONTOH] Penyampaian data peserta didik', tujuan: 'Kepala Sekolah A',
-    tgl_surat: iso(0), penandatangan_id: byNama('Kepala Kantor'),
-    fields: { alamat_penerima: 'Jl. Contoh No. 1', lampiran: '1 berkas', isi_surat: 'Menindaklanjuti surat Saudara, bersama ini kami sampaikan data peserta didik yang diminta.' },
-  });
-  await s.budi.post(`/api/letters-out/${out.id}/ajukan`, {});
-  await s.pimpinan.post(`/api/letters-out/${out.id}/keputusan`, { aksi: 'setuju' });
-  await s.tu.call('POST', `/api/letters-out/${out.id}/ttd`, form({}, { file: 'surat-ttd.pdf' }));
+  // Surat balasan disusun di luar daftar (Word atau halaman Buat Surat), ditandatangani, lalu dicatat dan dikirim.
+  const out = await s.budi.call('POST', '/api/letters-out', form({
+    letter_in_id: created.id, nomor_mode: 'otomatis', perihal: '[CONTOH] Penyampaian data peserta didik', tujuan: 'Kepala Sekolah A',
+    tgl_surat: iso(0), jenis: 'Surat Dinas', sifat: 'Biasa', lampiran: '1 berkas', penandatangan_id: byNama('Kepala Kantor'),
+  }, { files: 'surat-ttd.pdf' }));
   await s.tu.post(`/api/letters-out/${out.id}/kirim`, { metode: 'Email' });
-  await s.tu.post(`/api/letters-out/${out.id}/selesai`);
   await s.andi.post(`/api/letters-in/${created.id}/komentar`, { teks: '@kasi.data data sudah dikirim ke pimpinan.' }).catch(() => {});
   await s['kasi.data'].post(`/api/tasks/${t2.id}/update`, { status: 'SELESAI', catatan: 'Draft sudah dibuat dan dikirim.' }).catch(async () => {
     await s.budi.call('POST', `/api/tasks/${t2.id}/update`, form({ status: 'SELESAI', catatan: 'Draft sudah dibuat dan dikirim.' }));

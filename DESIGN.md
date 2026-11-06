@@ -48,7 +48,7 @@ Plus Jakarta Sans, karya foundry Indonesia (Tokotype): geometris dan bersih sepe
 
 ## Navigasi
 
-- Menu samping putih 256px: nama aplikasi (dan ikon bila admin mengunggahnya), kelompok tanpa judul (Beranda, Surat Masuk, Pekerjaan Saya, Surat Keluar), Telusuri, Pengelolaan. Item aktif kapsul navy, angka perhatian berupa lingkaran kuning. Tombol cepat navy di bawah.
+- Menu samping putih 256px: nama aplikasi (dan ikon bila admin mengunggahnya), kelompok tanpa judul (Beranda, Surat Masuk, Pekerjaan Saya, Surat Keluar, Buat Surat), Telusuri, Pengelolaan. Item aktif kapsul navy, angka perhatian berupa lingkaran kuning. Tombol cepat navy di bawah.
 - Bilah atas: kotak cari global berbentuk kapsul, pemberitahuan, pilihan tampilan, dan menu akun berinisial (bukan foto: aplikasi tidak menyimpan foto pegawai).
 - Ponsel: bilah bawah empat tujuan; item aktif berlatar kapsul navy kecil.
 - Jejak halaman ("Surat Masuk / perihal") di atas judul setiap halaman turunan.
