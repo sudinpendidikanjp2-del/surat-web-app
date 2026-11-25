@@ -27,7 +27,6 @@ function todos(d: DashboardData, user: PublicUser, act: { accept: (id: number) =
   if (leader) {
     for (const t of d.tugas_perhatian || []) if (t.terlambat) out.push({ key: `tl${t.id}`, kind: 'Tugas terlambat', tone: 'late', title: t.judul, no: t.no_agenda, meta: `Dikerjakan ${t.pic_nama}. Batas waktu ${fmtDate(t.deadline)}.`, href: `/tugas/${t.id}`, button: 'Lihat' });
     for (const l of d.perlu_disposisi || []) out.push({ key: `d${l.id}`, kind: 'Menunggu disposisi Anda', tone: 'warn', title: l.perihal, no: l.no_agenda, meta: `Dari ${l.asal}. Diterima ${fmtDate(l.tgl_diterima)}. Sifat ${l.sifat.toLowerCase()}.`, href: `/surat-masuk/${l.id}`, button: 'Disposisikan' });
-    for (const l of d.perlu_persetujuan || []) out.push({ key: `p${l.id}`, kind: 'Menunggu persetujuan Anda', tone: 'warn', title: l.perihal, no: l.no_agenda, meta: `${l.jenis}, dibuat oleh ${l.pembuat}.`, href: `/surat-keluar/${l.id}`, button: 'Putuskan' });
   }
   if (['tu', 'superadmin'].includes(user.role)) {
     for (const l of d.antrian_tu || []) out.push({ key: `t${l.id}`, kind: 'Belum diteruskan ke pimpinan', tone: 'info', title: l.perihal, no: l.no_agenda, meta: `Dari ${l.asal}. Diterima ${fmtDate(l.tgl_diterima)}.`, href: `/surat-masuk/${l.id}`, button: 'Teruskan', run: () => act.forward(l.id) });
@@ -99,7 +98,8 @@ export function HomePage() {
     <Page wide>
       <PageHeader title={`${greeting()}, ${user.nama}`} intro={`${fmtDateLong()}. ${user.roleLabel}${user.unitNama && user.unitNama !== user.roleLabel ? `, ${user.unitNama}` : ''}.`}>
         {can.manageIn(user) && <Button asChild><Link href="/surat-masuk/baru"><InboxIcon aria-hidden /> Catat Surat Masuk</Link></Button>}
-        {can.writeOut(user) && <Button asChild variant={can.manageIn(user) ? 'outline' : 'default'}><Link href="/surat-keluar/baru"><FilePlus2Icon aria-hidden /> Buat Surat Keluar</Link></Button>}
+        {can.writeOut(user) && <Button asChild variant={can.manageIn(user) ? 'outline' : 'default'}><Link href="/buat-surat"><FilePlus2Icon aria-hidden /> Buat Surat</Link></Button>}
+        {can.writeOut(user) && <Button asChild variant="outline"><Link href="/surat-keluar/baru"><SendIcon aria-hidden /> Catat Surat Keluar</Link></Button>}
       </PageHeader>
 
       <Async q={q} isEmpty={() => false} loadingLabel="Menyiapkan daftar pekerjaan…">
@@ -133,9 +133,9 @@ export function HomePage() {
                   {['tu', 'superadmin'].includes(user.role) && (
                     <Section title="Surat keluar">
                       <Panel className="divide-y divide-line">
-                        <MiniStat href="/surat-keluar?tampil=menunggu" n={d.keluar.menunggu_persetujuan} label="Menunggu persetujuan" />
-                        <MiniStat href="/surat-keluar?tampil=kirim" n={d.keluar.menunggu_ttd} label="Menunggu tanda tangan" />
-                        <MiniStat href="/surat-keluar?tampil=kirim" n={d.keluar.menunggu_kirim} label="Siap dikirim" />
+                        <MiniStat href="/surat-keluar?tampil=belum" n={d.keluar.belum_dikirim} label="Belum dikirim" />
+                        <MiniStat href="/surat-keluar?tampil=lengkapi" n={d.keluar.belum_bernomor} label="Belum bernomor" />
+                        <MiniStat href="/surat-keluar?tampil=lengkapi" n={d.keluar.belum_dipindai} label="Belum ada pindaian bertanda tangan" />
                         <p className="flex flex-col gap-0.5 px-5 py-3 text-sm"><span className="text-muted-foreground">Nomor terakhir</span>{d.nomor_terakhir ? <Link href={`/surat-keluar/${d.nomor_terakhir.id}`} className="font-semibold">{d.nomor_terakhir.nomor_surat}</Link> : <span>Belum ada</span>}</p>
                       </Panel>
                     </Section>

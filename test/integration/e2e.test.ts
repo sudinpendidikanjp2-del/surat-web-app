@@ -21,6 +21,7 @@ afterAll(async () => {
   await srv?.stop();
 });
 
+const outForm = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
 const expectStatus = async (promise: Promise<unknown>, status: number) => {
   await assert.rejects(promise, (e: any) => { assert.equal(e.status, status, e.message); return true; });
 };
@@ -57,12 +58,13 @@ test('skenario PRD penuh: dari surat diterima sampai arsip, dan relasi masuk-kel
   assert.equal(d.percent, 100);
   assert.equal(d.outs.length, 1);
   const out = await tu.get(`/api/letters-out/${r.outId}`);
-  assert.equal(out.letter.status, 'SELESAI');
+  assert.equal(out.letter.status, 'DIKIRIM');
+  assert.equal(out.signed, true);
   assert.equal(out.asal.id, r.letterId);
   assert.match(out.letter.nomor_surat, /^421\/001\/Sudin-JP2\/[IVX]+\/\d{4}$/);
   const tl = await tu.get(`/api/letters-in/${r.letterId}/timeline`);
   assert.ok(tl.length >= 12, `timeline ${tl.length}`);
-  assert.ok(tl.some((e) => e.tipe === 'disposisi') && tl.some((e) => e.tipe === 'approval'));
+  assert.ok(tl.some((e) => e.tipe === 'disposisi') && tl.some((e) => e.tipe === 'surat_keluar') && tl.some((e) => e.tipe === 'kirim'));
 });
 
 test('hak akses: pelaksana tidak melihat surat yang bukan miliknya', async () => {
@@ -86,30 +88,37 @@ test('alur wajib dipatuhi: tidak bisa selesai tanpa syarat, tidak bisa setujui t
   const l = await tu.call('POST', '/api/letters-in', f);
   await expectStatus(tu.post(`/api/letters-in/${l.id}/selesaikan`), 400);
   await expectStatus(tu.post(`/api/letters-in/${l.id}/arsipkan`), 409);
-  const tpl = (await tu.get('/api/templates')).find((t) => t.kode === 'nota-dinas');
-  const tv = (await tu.get(`/api/templates/${tpl.id}`)).versions[0].id;
-  const out = await tu.post('/api/letters-out', { template_version_id: tv, perihal: 'Uji', tujuan: 'Kepala', tgl_surat: '2026-10-08', fields: {} });
-  await expectStatus(pm.post(`/api/letters-out/${out.id}/keputusan`, { aksi: 'setuju' }), 409);
-  await expectStatus(tu.post(`/api/letters-out/${out.id}/ajukan`), 400);
+  // Surat keluar: tidak bisa dikirim sebelum bernomor dan sebelum ada pindaian bertanda tangan.
+  const out = await tu.call('POST', '/api/letters-out', outForm({ nomor_mode: 'nanti', perihal: 'Uji', tujuan: 'Kepala', tgl_surat: '2026-10-08' }));
+  await expectStatus(tu.post(`/api/letters-out/${out.id}/kirim`, { metode: 'Email' }), 400);
+  await tu.put(`/api/letters-out/${out.id}`, { nomor_mode: 'manual', nomor_surat: 'UJI/1/2026', perihal: 'Uji', tujuan: 'Kepala', tgl_surat: '2026-10-08' });
+  await expectStatus(tu.post(`/api/letters-out/${out.id}/kirim`, { metode: 'Email' }), 400);
+  const scan = new FormData(); scan.append('kategori', 'TTD'); scan.append('files', new Blob(['%PDF-1.4 ttd']), 'ttd.pdf');
+  await tu.call('POST', `/api/letters-out/${out.id}/lampiran`, scan);
+  await tu.post(`/api/letters-out/${out.id}/kirim`, { metode: 'Email', tanggal: '2026-10-09' });
+  const sent = await tu.get(`/api/letters-out/${out.id}`);
+  assert.equal(sent.letter.status, 'DIKIRIM');
+  await expectStatus(tu.post(`/api/letters-out/${out.id}/kirim`, { metode: 'Email' }), 409);
+  await expectStatus(tu.put(`/api/letters-out/${out.id}`, { nomor_mode: 'tetap', perihal: 'X', tujuan: 'Y', tgl_surat: '2026-10-08' }), 403);
+  // Nomor yang sudah dipakai ditolak; pembatalan butuh alasan; tidak ada lagi alur persetujuan.
+  await expectStatus(tu.call('POST', '/api/letters-out', outForm({ nomor_mode: 'manual', nomor_surat: 'uji/1/2026', perihal: 'Ganda', tujuan: 'K', tgl_surat: '2026-10-08' })), 409);
+  const b = await tu.call('POST', '/api/letters-out', outForm({ nomor_mode: 'nanti', perihal: 'Batal', tujuan: 'K', tgl_surat: '2026-10-08' }));
+  await expectStatus(tu.post(`/api/letters-out/${b.id}/batal`, {}), 400);
+  await tu.post(`/api/letters-out/${b.id}/batal`, { alasan: 'Tidak jadi' });
+  assert.equal((await tu.get(`/api/letters-out/${b.id}`)).letter.status, 'DIBATALKAN');
+  await expectStatus(pm.post(`/api/letters-out/${b.id}/keputusan`, { aksi: 'setuju' }), 404);
 });
 
-test('penomoran: persetujuan bersamaan tidak menghasilkan nomor ganda', async () => {
+test('penomoran: nomor otomatis bersamaan tidak menghasilkan nomor ganda', async () => {
   const tu = await new S(url, 'tu').login();
+  const made = await Promise.all(Array.from({ length: 8 }, (_, i) =>
+    tu.call('POST', '/api/letters-out', outForm({ nomor_mode: 'otomatis', perihal: `Uji ${i}`, tujuan: 'Kepala', tgl_surat: '2026-10-08' }))));
+  const nomor = made.map((x: any) => x.nomor_surat);
+  assert.equal(new Set(nomor).size, nomor.length, nomor.join(', '));
+  assert.ok(nomor.every((n: string) => /^421\/\d{3}\/Sudin-JP2\/X\/2026$/.test(n)), nomor.join(', '));
+  // Pimpinan tidak mencatat surat keluar (penulis: TU, pejabat, pelaksana, admin).
   const pm = await new S(url, 'pimpinan').login();
-  const tpl = (await tu.get('/api/templates')).find((t) => t.kode === 'nota-dinas');
-  const tv = (await tu.get(`/api/templates/${tpl.id}`)).versions[0].id;
-  const ids = [];
-  for (let i = 0; i < 8; i++) {
-    const o = await tu.post('/api/letters-out', {
-      template_version_id: tv, perihal: `Uji ${i}`, tujuan: 'Kepala', tgl_surat: '2026-10-08', penandatangan_id: (await tu.get('/api/users/options')).find((u) => u.role === 'pimpinan').id,
-      fields: { dari: 'Sekretariat', isi: 'Isi', penutup: 'Terima kasih' },
-    });
-    await tu.post(`/api/letters-out/${o.id}/ajukan`);
-    ids.push(o.id);
-  }
-  await Promise.all(ids.map((id) => pm.post(`/api/letters-out/${id}/keputusan`, { aksi: 'setuju' })));
-  const nomor = await Promise.all(ids.map(async (id) => (await tu.get(`/api/letters-out/${id}`)).letter.nomor_surat));
-  assert.equal(new Set(nomor).size, ids.length, nomor.join(', '));
+  await expectStatus(pm.call('POST', '/api/letters-out', outForm({ nomor_mode: 'nanti', perihal: 'X', tujuan: 'Y', tgl_surat: '2026-10-08' })), 403);
 });
 
 test('unggahan: ekstensi berbahaya dan isi tidak sesuai ditolak; file hanya lewat endpoint berizin', async () => {

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 type Tone = 'neutral' | 'accent' | 'ok' | 'warn' | 'late';
 
 const TONE_IN: Record<string, Tone> = { DITERIMA: 'neutral', MENUNGGU_DISPOSISI: 'warn', DIDISPOSISIKAN: 'accent', SEDANG_DIPROSES: 'accent', MENUNGGU_KONFIRMASI: 'warn', MENUNGGU_PERSETUJUAN: 'warn', SELESAI: 'ok', DIARSIPKAN: 'neutral' };
-const TONE_OUT: Record<string, Tone> = { DRAFT: 'neutral', REVIEW: 'warn', REVISI: 'warn', MENUNGGU_PERSETUJUAN: 'warn', DISETUJUI: 'accent', NOMOR_DIBERIKAN: 'accent', DITANDATANGANI: 'accent', DIKIRIM: 'ok', SELESAI: 'ok', DITOLAK: 'late' };
+const TONE_OUT: Record<string, Tone> = { DICATAT: 'warn', DIKIRIM: 'ok', DIBATALKAN: 'neutral' };
 const TONE_TASK: Record<string, Tone> = { BELUM_DIMULAI: 'neutral', DITERIMA: 'neutral', DIPROSES: 'accent', MENUNGGU_DATA: 'warn', MENUNGGU_KONFIRMASI: 'warn', MENUNGGU_PERSETUJUAN: 'warn', SELESAI: 'ok', DIBATALKAN: 'neutral' };
 const TONE_DISP: Record<string, Tone> = { BARU: 'warn', DITERIMA: 'accent', DITERUSKAN: 'neutral', DIKEMBALIKAN: 'late', SELESAI: 'ok' };
 

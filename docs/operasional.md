@@ -12,7 +12,7 @@ Gejala → periksa → tindakan, untuk petugas teknis. Perintah dijalankan dari 
 | Hubungkan Google gagal "redirect_uri_mismatch" | Alamat pengalihan di halaman Google Drive & Sheets | Daftarkan alamat itu di Google Cloud Console; pastikan `APP_URL` sama dengan alamat yang dibuka pengguna |
 | Unggah lampiran atau OCR gagal | Pesan di layar; `docker compose exec app df -h /data` | Disk penuh: bersihkan atau tambah disk. Berkas lebih dari `MAX_UPLOAD_MB` ditolak |
 | OCR gagal dengan "Cannot find module" | `docker compose exec app sisurat check` | Image tidak lengkap (modul yang dimuat worker OCR tidak ikut build). Perbarui ke image yang lolos CI; CI menjalankan pemeriksaan yang sama |
-| PDF surat keluar tidak tersedia | `docker compose exec app sh -c 'command -v soffice'` | Image tanpa LibreOffice; DOCX tetap tersedia |
+| Unduh PDF di Buat Surat tidak tersedia | `docker compose exec app sh -c 'command -v soffice'` | Image tanpa LibreOffice; DOCX tetap tersedia |
 | Lupa kata sandi admin | Catatan Kegiatan `LOGIN_GAGAL` | `docker compose exec app sisurat reset-password admin` |
 | Cadangan otomatis tidak dibuat | Admin > Cadangan Data (status terakhir); `docker compose logs app \| grep -i cadangan` | Periksa ruang disk `/data/backups` dan jadwal. Pastikan `JOBS` tidak `off` |
 | Cadangan cron gagal | `/var/log/surat-backup.log` | Biasanya `db` mati atau disk penuh. Jalankan `deploy/backup.sh` manual untuk melihat galatnya |

@@ -63,8 +63,8 @@ server {
     include /etc/nginx/proxy_params.conf;
   }
 
-  # OCR dan PDF surat keluar (LibreOffice) dapat memakan waktu lebih dari satu menit.
-  location ~ ^/api/(ocr|letters-out)/ {
+  # OCR, PDF dari Buat Surat (LibreOffice), dan unggah pindaian surat keluar dapat memakan waktu lebih dari satu menit.
+  location ~ ^/api/(ocr|buat-surat|letters-out)/ {
     proxy_read_timeout 300s;
     include /etc/nginx/proxy_params.conf;
   }

@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS letters_out (
   perihal TEXT NOT NULL,
   tujuan TEXT NOT NULL,
   fields JSONB NOT NULL DEFAULT '{}',
-  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','REVIEW','REVISI','MENUNGGU_PERSETUJUAN','DISETUJUI','NOMOR_DIBERIKAN','DITANDATANGANI','DIKIRIM','SELESAI','DITOLAK')),
+  status TEXT NOT NULL DEFAULT 'DICATAT',
   nomor_surat TEXT UNIQUE,
   tgl_surat DATE,
   penandatangan_id INT REFERENCES users(id),
@@ -286,6 +286,21 @@ CREATE TABLE IF NOT EXISTS ref_items (
   aktif BOOLEAN NOT NULL DEFAULT TRUE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ref_items_uq ON ref_items (kategori, lower(nilai));
+
+-- Surat keluar dicatat (bukan disusun di aplikasi): kolom pencatatan, status sederhana. Status lama dipetakan:
+-- sudah dikirim/selesai -> DIKIRIM, ditolak -> DIBATALKAN, selebihnya (draf s.d. bertanda tangan) -> DICATAT.
+-- Riwayat persetujuan lama (tabel approvals) dan dokumen DRAF/FINAL tetap tersimpan.
+ALTER TABLE letters_out ADD COLUMN IF NOT EXISTS sifat TEXT NOT NULL DEFAULT 'Biasa';
+ALTER TABLE letters_out ADD COLUMN IF NOT EXISTS lampiran TEXT;
+ALTER TABLE letters_out ADD COLUMN IF NOT EXISTS catatan TEXT;
+ALTER TABLE letters_out ADD COLUMN IF NOT EXISTS batal_alasan TEXT;
+ALTER TABLE letters_out DROP CONSTRAINT IF EXISTS letters_out_status_check;
+UPDATE letters_out SET status = CASE WHEN status IN ('DIKIRIM','SELESAI') THEN 'DIKIRIM' WHEN status = 'DITOLAK' THEN 'DIBATALKAN' ELSE 'DICATAT' END
+ WHERE status NOT IN ('DICATAT','DIKIRIM','DIBATALKAN');
+ALTER TABLE letters_out ALTER COLUMN status SET DEFAULT 'DICATAT';
+ALTER TABLE letters_out ADD CONSTRAINT letters_out_status_check CHECK (status IN ('DICATAT','DIKIRIM','DIBATALKAN'));
+-- Surat masuk yang dulu menunggu persetujuan surat balasannya kembali ke tahap dikerjakan.
+UPDATE letters_in SET status='SEDANG_DIPROSES' WHERE status='MENUNGGU_PERSETUJUAN';
 
 -- Sinkronisasi Google Drive: file yang sudah diunggah tidak diunggah ulang.
 ALTER TABLE attachments ADD COLUMN IF NOT EXISTS drive_file_id TEXT;

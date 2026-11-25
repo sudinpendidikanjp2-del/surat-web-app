@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { PlusIcon } from 'lucide-react';
+import { FilePenLineIcon, PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ActionDialog } from '@/components/app/action-dialog';
@@ -18,14 +18,15 @@ import { Stamp, StatusOut } from '@/components/app/status';
 import { useListState, type ListState } from '@/components/app/use-list-state';
 import { useUser } from '@/components/app/user-context';
 import { can } from '@/domain/roles';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, todayIso } from '@/lib/format';
+import { METODE_KIRIM } from '@/domain/letter-out';
 import { KEYS, useLettersOut, type LetterOutRow } from './api';
 
-type View = 'semua' | 'saya' | 'menunggu' | 'draf' | 'kirim' | 'selesai';
+type View = 'semua' | 'saya' | 'belum' | 'lengkapi' | 'terkirim' | 'batal';
 
 const PARAMS: Record<View, Record<string, string>> = {
-  semua: {}, saya: { mine: '1' }, menunggu: { antrian: 'menunggu_saya' }, draf: { status: 'DRAFT,REVISI' },
-  kirim: { status: 'NOMOR_DIBERIKAN,DITANDATANGANI' }, selesai: { status: 'DIKIRIM,SELESAI' },
+  semua: {}, saya: { mine: '1' }, belum: { status: 'DICATAT' }, lengkapi: { status: 'DICATAT', antrian: 'belum_lengkap' },
+  terkirim: { status: 'DIKIRIM' }, batal: { status: 'DIBATALKAN' },
 };
 
 function OutTable({ rows, sel, ls }: { rows: LetterOutRow[]; sel: Selection | null; ls: ListState }) {
@@ -79,7 +80,7 @@ function OutTable({ rows, sel, ls }: { rows: LetterOutRow[]; sel: Selection | nu
   );
 }
 
-type Bulk = 'ajukan' | 'setuju' | 'revisi' | null;
+type Bulk = 'kirim' | null;
 
 export function LettersOutPage() {
   const user = useUser();
@@ -90,26 +91,29 @@ export function LettersOutPage() {
   const query = useLettersOut(apiParams);
   const [f, setF] = useState({ dari: '', sampai: '', jenis: '', ...filters });
   const rows = query.data?.items || [];
-  const bulkable = can.writeOut(user) || can.approve(user);
+  const bulkable = can.writeOut(user);
+  const metodeKirim = useRefValues('metode_kirim', METODE_KIRIM);
+  const [metode, setMetode] = useState('Surat resmi');
+  const [tanggal, setTanggal] = useState(todayIso());
   const sel = useSelection(rows.map((r) => r.id), `${view}|${q}|${page}|${JSON.stringify(filters)}`);
   const bulk = useBulkAction(KEYS, (id) => rows.find((r) => r.id === id)?.perihal || `Surat ${id}`);
   const [open, setOpen] = useState<Bulk>(null);
   const [catatan, setCatatan] = useState('');
-  const [err, setErr] = useState('');
-  const close = () => { setOpen(null); setCatatan(''); setErr(''); };
+  const close = () => { setOpen(null); setCatatan(''); };
   const options: { value: View; label: string }[] = [
     { value: 'semua', label: 'Semua' },
-    ...(can.writeOut(user) ? [{ value: 'saya' as View, label: 'Buatan saya' }] : []),
-    ...(can.review(user) ? [{ value: 'menunggu' as View, label: 'Menunggu keputusan saya' }] : []),
-    { value: 'draf', label: 'Draf' },
-    { value: 'kirim', label: 'Siap ditandatangani atau dikirim' },
-    { value: 'selesai', label: 'Terkirim' },
+    ...(can.writeOut(user) ? [{ value: 'saya' as View, label: 'Catatan saya' }] : []),
+    { value: 'belum', label: 'Belum dikirim' },
+    { value: 'lengkapi', label: 'Perlu dilengkapi' },
+    { value: 'terkirim', label: 'Terkirim' },
+    { value: 'batal', label: 'Dibatalkan' },
   ];
   return (
     <Page wide>
-      <PageHeader title="Surat Keluar" intro="Dari draf, persetujuan pimpinan, penomoran, tanda tangan, sampai dikirim.">
+      <PageHeader title="Surat Keluar" intro="Catatan surat yang sudah ditandatangani: nomor, tujuan, pindaian, dan pengirimannya. Untuk menyusun surat dari template, pakai Buat Surat.">
         <ExportMenu path="/letters-out" params={apiParams} />
-        {can.writeOut(user) && <Button asChild><Link href="/surat-keluar/baru"><PlusIcon aria-hidden /> Buat Surat Keluar</Link></Button>}
+        {can.writeOut(user) && <Button asChild variant="outline"><Link href="/buat-surat"><FilePenLineIcon aria-hidden /> Buat Surat</Link></Button>}
+        {can.writeOut(user) && <Button asChild><Link href="/surat-keluar/baru"><PlusIcon aria-hidden /> Catat Surat Keluar</Link></Button>}
       </PageHeader>
       <Panel>
         <div className="flex flex-col gap-3 border-b border-line p-4 xl:flex-row xl:items-center xl:justify-between">
@@ -124,7 +128,7 @@ export function LettersOutPage() {
           </div>
         </div>
         <Async q={query} isEmpty={(d) => d.items.length === 0}
-          empty={<div className="p-4"><Empty title={q || view !== 'semua' || ls.filterCount ? 'Tidak ada surat yang cocok' : 'Belum ada surat keluar'} text={can.writeOut(user) ? 'Buat surat dari template dengan tombol Buat Surat Keluar.' : undefined} /></div>}>
+          empty={<div className="p-4"><Empty title={q || view !== 'semua' || ls.filterCount ? 'Tidak ada surat yang cocok' : 'Belum ada surat keluar'} text={can.writeOut(user) ? 'Catat surat yang sudah ditandatangani dengan tombol Catat Surat Keluar.' : undefined} /></div>}>
           {(d) => (
             <div className="flex flex-col">
               <OutTable rows={d.items} sel={bulkable ? sel : null} ls={ls} />
@@ -135,28 +139,17 @@ export function LettersOutPage() {
       </Panel>
 
       <BulkBar sel={sel}>
-        {can.writeOut(user) && <Button size="sm" variant="outline" onClick={() => setOpen('ajukan')}>Ajukan persetujuan</Button>}
-        {can.approve(user) && <Button size="sm" onClick={() => setOpen('setuju')}>Setujui dan beri nomor</Button>}
-        {can.approve(user) && <Button size="sm" variant="outline" onClick={() => setOpen('revisi')}>Kembalikan untuk revisi</Button>}
+        {can.writeOut(user) && <Button size="sm" onClick={() => setOpen('kirim')}>Catat pengiriman</Button>}
       </BulkBar>
       {bulk.dialog}
 
-      {open === 'ajukan' && (
-        <ActionDialog open onOpenChange={(o) => !o && close()} title={`Ajukan ${sel.count} surat untuk persetujuan?`} confirmLabel="Ajukan" pending={bulk.pending}
-          description="Hanya draf atau surat yang sedang direvisi yang dapat diajukan. Yang lain dilewati."
-          onConfirm={async () => { if (await bulk.run('/letters-out/bulk/ajukan', {}, 'diajukan', sel)) close(); }} />
-      )}
-      {open === 'setuju' && (
-        <ActionDialog open onOpenChange={(o) => !o && close()} title={`Setujui ${sel.count} surat?`} confirmLabel="Setujui dan beri nomor" pending={bulk.pending}
-          description="Setiap surat mendapat nomor urut berikutnya. Nomor yang sudah diberikan tidak dapat dibatalkan."
-          onConfirm={async () => { if (await bulk.run('/letters-out/bulk/keputusan', { aksi: 'setuju', catatan }, 'disetujui', sel)) close(); }}>
-          <Field label="Catatan untuk pembuat surat">{(p) => <Textarea {...p} rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)} />}</Field>
-        </ActionDialog>
-      )}
-      {open === 'revisi' && (
-        <ActionDialog open onOpenChange={(o) => !o && close()} title={`Kembalikan ${sel.count} surat untuk revisi?`} confirmLabel="Kembalikan" pending={bulk.pending} error={err}
-          onConfirm={async () => { if (!catatan.trim()) return setErr('Tulis apa yang perlu diperbaiki.'); setErr(''); if (await bulk.run('/letters-out/bulk/keputusan', { aksi: 'revisi', catatan }, 'dikembalikan', sel)) close(); }}>
-          <Field label="Yang perlu diperbaiki" required>{(p) => <Textarea {...p} rows={3} value={catatan} onChange={(e) => setCatatan(e.target.value)} />}</Field>
+      {open === 'kirim' && (
+        <ActionDialog open onOpenChange={(o) => !o && close()} title={`Catat pengiriman ${sel.count} surat?`} confirmLabel="Simpan Catatan Pengiriman" pending={bulk.pending}
+          description="Hanya surat yang bernomor, sudah ada pindaian bertanda tangannya, dan belum dikirim yang dicatat. Yang lain dilewati dengan alasannya."
+          onConfirm={async () => { if (await bulk.run('/letters-out/bulk/kirim', { metode, tanggal, catatan }, 'dicatat terkirim', sel)) close(); }}>
+          <Field label="Dikirim lewat" required>{(p) => <NativeSelect {...p} value={metode} onChange={(e) => setMetode(e.target.value)}>{metodeKirim.map((m) => <option key={m}>{m}</option>)}</NativeSelect>}</Field>
+          <Field label="Tanggal dikirim" required>{(p) => <Input {...p} type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />}</Field>
+          <Field label="Catatan">{(p) => <Textarea {...p} rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)} />}</Field>
         </ActionDialog>
       )}
     </Page>

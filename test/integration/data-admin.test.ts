@@ -152,20 +152,28 @@ test('tanda terima: kode lacak dan QR untuk pengirim, hanya TU yang dapat membuk
   assert.equal(rs.tracking.qr, null);
 });
 
-test('surat keluar: hasil template dapat diunduh sebelum disimpan', async () => {
+test('buat surat: hasil template ditampilkan dan diunduh tanpa menyimpan apa pun', async () => {
   const tpls = await kasi.get('/api/templates');
   const t = await kasi.get(`/api/templates/${tpls[0].id}`);
   const v = t.versions.find((x: any) => x.aktif);
   const body = { template_version_id: v.id, perihal: 'Unduh sebelum simpan', tujuan: 'Kepala Sekolah', tgl_surat: '2026-10-14', fields: {} };
-  const html = await kasi.post('/api/letters-out/pratinjau', body);
+  const html = await kasi.post('/api/buat-surat/pratinjau', body);
   assert.match(html.html, /Unduh sebelum simpan/);
-  const docx = await kasi.call('POST', '/api/letters-out/pratinjau?format=docx', body, { raw: true });
+  assert.match(html.html, /\[nomor surat\]/);
+  const bernomor = await kasi.post('/api/buat-surat/pratinjau', { ...body, nomor_surat: '800/123/2026' });
+  assert.match(bernomor.html, /800\/123\/2026/);
+  const docx = await kasi.call('POST', '/api/buat-surat/pratinjau?format=docx', body, { raw: true });
   assert.equal(docx.status, 200);
   assert.match(docx.headers.get('content-disposition'), /Unduh_sebelum_simpan\.docx/);
   assert.equal(Buffer.from(await docx.arrayBuffer()).subarray(0, 2).toString(), 'PK');
   const list = await kasi.get('/api/letters-out?q=Unduh%20sebelum');
   assert.equal(list.total, 0);
-  await expectStatus(new S(url, 'viewer').login().then((s: any) => s.post('/api/letters-out/pratinjau?format=docx', body)), 403);
+  await expectStatus(new S(url, 'viewer').login().then((s: any) => s.post('/api/buat-surat/pratinjau?format=docx', body)), 403);
+  // Menu Template lama mengarah ke halaman Buat Surat; rute alur persetujuan lama sudah tidak ada.
+  const old = await fetch(`${url}/template`, { headers: { Cookie: kasi.cookie }, redirect: 'manual' });
+  assert.ok([307, 308].includes(old.status), String(old.status));
+  assert.match(old.headers.get('location') || '', /\/buat-surat\/template$/);
+  await expectStatus(kasi.post('/api/letters-out/pratinjau', body), 405);
 });
 
 test('identitas aplikasi: admin mengubah nama, judul tab, dan ikon; halaman memakainya', async () => {

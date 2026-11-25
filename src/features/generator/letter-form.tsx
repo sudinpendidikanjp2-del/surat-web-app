@@ -14,7 +14,7 @@ import { richIsEmpty } from '@/domain/rich-text';
 import { api, downloadPost } from '@/lib/api-client';
 import type { UserOption } from '@/features/letters-in/api';
 
-export interface LetterValues { perihal: string; tujuan: string; tgl_surat: string; penandatangan_id: number | null; fields: Record<string, string> }
+export interface LetterValues { perihal: string; tujuan: string; tgl_surat: string; nomor_surat: string; penandatangan_id: number | null; fields: Record<string, string> }
 
 /** Tunda nilai sampai pengguna berhenti mengetik sebentar, agar pratinjau tidak dibuat ulang di setiap ketukan. */
 function useDebounced<T>(value: T, ms: number) {
@@ -25,7 +25,7 @@ function useDebounced<T>(value: T, ms: number) {
 
 /**
  * Formulir surat dari template DOCX, dengan pratinjau berdampingan yang diperbarui otomatis saat mengetik.
- * Hasil dapat diunduh (Word atau PDF) sebelum surat disimpan. Nomor surat diberikan setelah pimpinan menyetujui.
+ * Tidak menyimpan apa pun: hasilnya diunduh (Word atau PDF), dicetak, ditandatangani, lalu dicatat sebagai surat keluar.
  */
 export function LetterForm({ fields, versionId, initial, signers, onSubmit, pending, submitLabel, cancel }: {
   fields: TemplateField[]; versionId: number; initial: LetterValues; signers: UserOption[];
@@ -39,7 +39,7 @@ export function LetterForm({ fields, versionId, initial, signers, onSubmit, pend
   const debounced = useDebounced(JSON.stringify(body), 700);
   const preview = useQuery({
     queryKey: ['draft-preview', debounced],
-    queryFn: () => api.post<{ html: string }>('/letters-out/pratinjau', JSON.parse(debounced)),
+    queryFn: () => api.post<{ html: string }>('/buat-surat/pratinjau', JSON.parse(debounced)),
     placeholderData: (p) => p,
   });
   const html = useDeferredValue(preview.data?.html);
@@ -55,7 +55,7 @@ export function LetterForm({ fields, versionId, initial, signers, onSubmit, pend
   };
   const download = async (format: 'docx' | 'pdf') => {
     setDl(format);
-    try { await downloadPost(`/letters-out/pratinjau?format=${format}`, body); } catch (e) { toast.error((e as Error).message); } finally { setDl(''); }
+    try { await downloadPost(`/buat-surat/pratinjau?format=${format}`, body); } catch (e) { toast.error((e as Error).message); } finally { setDl(''); }
   };
   const setField = (name: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, fields: { ...f.fields, [name]: e.target.value } });
   return (
@@ -73,7 +73,7 @@ export function LetterForm({ fields, versionId, initial, signers, onSubmit, pend
               </NativeSelect>
             )}
           </Field>
-          <p className="rounded-xl bg-muted px-4 py-3 text-sm sm:col-span-2">Nomor surat diberikan otomatis setelah pimpinan menyetujui.</p>
+          <Field className="sm:col-span-2" label="Nomor surat" hint="Bila sudah ada. Kosongkan untuk mengisinya sendiri setelah dicetak; di dokumen tertulis [nomor surat].">{(p) => <Input {...p} value={f.nomor_surat} onChange={(e) => setF({ ...f, nomor_surat: e.target.value })} />}</Field>
         </CardContent></Card>
         {own.length > 0 && (
           <Card><CardContent className="flex flex-col gap-4">
